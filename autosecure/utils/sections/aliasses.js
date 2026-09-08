@@ -123,6 +123,22 @@ module.exports = async function aliasses(
     const verifiedNewEmail = typeof addResult === "string" ? addResult.toLowerCase() : expectedNewEmail;
 
     // 2. Make Primary & Verify on Server
+    // addAlias rotates server canary tokens, so refetch authoritative state
+    // to obtain the fresh post-rotation canary for makePrimary.
+    let freshCanaryForPrimary = initial?.apiCanary || apicanary;
+    try {
+      const postAddState = await getAliases(axios);
+      if (postAddState?.apiCanary) freshCanaryForPrimary = postAddState.apiCanary;
+      else if (postAddState?.canary) freshCanaryForPrimary = postAddState.canary;
+    } catch (_) {
+      logAliasEvent("ALIAS_WORKFLOW", {
+        requestId: rootReqId,
+        step: "CANARY_REFRESH",
+        status: "WARN",
+        message: "Failed to refresh canary after addAlias; using pre-rotation canary as fallback"
+      });
+    }
+
     logAliasEvent("ALIAS_WORKFLOW", {
       requestId: rootReqId,
       step: "MAKE_PRIMARY",
@@ -133,7 +149,7 @@ module.exports = async function aliasses(
     const isPrimarySuccess = await makePrimary(
       axios,
       verifiedNewEmail,
-      initial?.apiCanary || apicanary,
+      freshCanaryForPrimary,
       2,
       rootReqId,
       false,

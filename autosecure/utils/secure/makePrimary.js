@@ -75,12 +75,22 @@ async function makePrimary(
 
     // Prefer the freshly-fetched authoritative canary (already decoded by getAliases)
     // over the caller-supplied token, which may be STALE after a prior mutation
-    // (e.g. addAlias) rotated the server token. Caller tokens are decoded exactly
-    // once and used only as a last-resort fallback.
+    // (e.g. addAlias) rotated the server token.
     let currentCanary =
       beforeState?.apiCanary ||
       beforeState?.canary ||
-      (apicanary ? decode(apicanary) : null);
+      null;
+
+    // Last-resort fallback: caller-supplied canary (may be stale after addAlias rotation)
+    if (!currentCanary && apicanary) {
+      currentCanary = decode(apicanary);
+      logAliasEvent("MAKE_PRIMARY", {
+        requestId: reqId,
+        step: "BEFORE_READ",
+        status: "WARN",
+        message: "Using caller-supplied canary as fallback — may be stale after prior mutations"
+      });
+    }
 
     logAliasEvent("MAKE_PRIMARY", {
       requestId: reqId,
@@ -205,12 +215,20 @@ async function makePrimary(
             message: `Retrying with refreshed canary (${msErrorCode || "logical failure"})`
           });
 
+          let canaryRefreshed = false;
           try {
             const freshState = await getAliases(axios);
-            if (freshState?.apiCanary) currentCanary = freshState.apiCanary;
-            else if (freshState?.canary) currentCanary = freshState.canary;
-            else if (freshState?.formCanary) currentCanary = freshState.formCanary;
-          } catch (_) {}
+            if (freshState?.apiCanary) { currentCanary = freshState.apiCanary; canaryRefreshed = true; }
+            else if (freshState?.canary) { currentCanary = freshState.canary; canaryRefreshed = true; }
+            else if (freshState?.formCanary) { currentCanary = freshState.formCanary; canaryRefreshed = true; }
+          } catch (refreshErr) {
+            logAliasEvent("MAKE_PRIMARY", {
+              requestId: reqId,
+              step: "CHANGE_PRIMARY_REQUEST",
+              status: "WARN",
+              message: `Canary refresh failed: ${refreshErr.message} — retry will use same canary`
+            });
+          }
 
           if (attempt < maxRetries) {
             await sleep(600 * (attempt + 1));
