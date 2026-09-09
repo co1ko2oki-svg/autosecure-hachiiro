@@ -1,7 +1,11 @@
 node_modules/
 config.json
 .env
-db/database.db
+db/database.db*
+*.db
+*.db-shm
+*.db-wal
 database.sqlite
 .vscode/
 .pm2/
+
