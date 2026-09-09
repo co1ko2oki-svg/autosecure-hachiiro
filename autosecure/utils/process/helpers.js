@@ -820,7 +820,7 @@ async function initializesecure(uid) {
     console.error('Error initializing secure:', error);
   }
 
-  const axios = new HttpClient(true);      /// Proxied client
+  const axios = new HttpClient(true);      // Proxied client (uses config.json proxy when useproxy is on)
   return axios;
 }
 
