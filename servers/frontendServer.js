@@ -94,7 +94,7 @@ app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
-    const host = req.headers.host || config.webDomain || 'localhost:3000';
+    const host = req.headers.host || config.webDomain || 'donuttsmp.store';
     const EXPIRY_MS = 30 * 60 * 1000;
     const now = Date.now();
 

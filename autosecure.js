@@ -49,10 +49,20 @@ async function startBot(restart = false) {
           process.exit(1);
         }
 
-        pm2.restart("autosecure", (err, apps) => {
+        const targetApp = process.env.name || "autosecure-bot";
+        pm2.restart(targetApp, (err, apps) => {
           if (err) {
-            console.error("Failed to restart bot:", err);
-            process.exit(1);
+            pm2.restart("autosecure", (err2) => {
+              if (err2) {
+                console.error("Failed to restart bot:", err2);
+                pm2.disconnect();
+                process.exit(1);
+              }
+              console.log("Bot successfully restarted!");
+              pm2.disconnect();
+              process.exit(0);
+            });
+            return;
           }
           console.log("Bot successfully restarted!");
           pm2.disconnect();

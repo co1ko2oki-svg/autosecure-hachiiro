@@ -2,12 +2,36 @@ const { queryParams } = require("../../../db/database");
 const config = require("../../../config.json");
 const generate = require("../generate");
 
+let tablesEnsured = false;
+async function ensureWebTables() {
+    if (tablesEnsured) return;
+    try {
+        await queryParams(`CREATE TABLE IF NOT EXISTS web_licenses(
+            license TEXT PRIMARY KEY,
+            duration TEXT DEFAULT '1m',
+            created_at INTEGER,
+            created_by TEXT
+        )`);
+        await queryParams(`CREATE TABLE IF NOT EXISTS web_access(
+            user_id TEXT PRIMARY KEY,
+            expiry INTEGER,
+            granted_at INTEGER,
+            granted_by TEXT,
+            last_license TEXT
+        )`);
+        tablesEnsured = true;
+    } catch (err) {
+        // ignore
+    }
+}
+
 /**
  * Check if a user has active Web Access rights.
  * @param {string} userId - Discord User ID of the bot owner
  * @returns {Promise<{ hasAccess: boolean, expiry: number|null, daysLeft: number, isOwner: boolean, lastLicense: string|null }>}
  */
 async function checkWebAccess(userId) {
+    await ensureWebTables();
     if (!userId) {
         return { hasAccess: false, expiry: null, daysLeft: 0, isOwner: false, lastLicense: null };
     }

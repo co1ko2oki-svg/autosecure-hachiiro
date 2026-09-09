@@ -41,8 +41,15 @@ function generateCouponCode() {
 }
 
 function getWebDomain(customDomain) {
-    let domain = customDomain || config.webDomain || "localhost:3000";
+    let domain = customDomain || config.webDomain || (config.webDomains && config.webDomains[0]) || "donuttsmp.store";
     return domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
+function getWebDomainChoices() {
+    const list = (config.webDomains && config.webDomains.length > 0)
+        ? config.webDomains
+        : [config.webDomain || "donuttsmp.store"];
+    return list.map(d => ({ name: d, value: d }));
 }
 
 module.exports = {
@@ -73,9 +80,10 @@ module.exports = {
                 },
                 {
                     name: "domain",
-                    description: "Domain for the link (defaults to webDomain from config)",
+                    description: "Chọn domain cho link web (từ config web)",
                     type: ApplicationCommandOptionType.String,
-                    required: false
+                    required: false,
+                    choices: getWebDomainChoices()
                 },
                 {
                     name: "price",
@@ -98,9 +106,10 @@ module.exports = {
             options: [
                 {
                     name: "domain",
-                    description: "Domain mới cho web (VD: localhost:3000 hoặc donutmp.store)",
+                    description: "Chọn domain cho web (từ config web)",
                     type: ApplicationCommandOptionType.String,
-                    required: false
+                    required: false,
+                    choices: getWebDomainChoices()
                 }
             ]
         }
@@ -138,8 +147,14 @@ module.exports = {
                         ? "Vĩnh viễn (Owner)"
                         : (webAccess.hasAccess ? `Đang hoạt động (Còn ${webAccess.daysLeft} ngày - <t:${Math.floor(webAccess.expiry / 1000)}:R>)` : "Chưa kích hoạt / Hết hạn");
 
+                    const webDomainsList = (config.webDomains || ["donuttsmp.store", "donutmp.shop"]).map(d => `\`${d}\``).join(", ");
                     return interaction.reply({
-                        content: `🌐 **Web Domain hiện tại:** \`${currentDomain}\` (\`${protocol}://${currentDomain}\`)\n🔑 **Bản quyền Web:** ${statusText}\n📧 **Email MCS Domain:** \`${(config.domains || []).join(", ")}\`\n\n💡 *Cách đổi domain web:* Dùng \`/donut web domain: <domain_mới>\` (VD: \`/donut web domain: localhost:3000\`)`,
+                        content: `🌐 **Web Domain mặc định hiện tại:** \`${currentDomain}\` (\`${protocol}://${currentDomain}\`)\n` +
+                            `🌐 **Các Domain Web hỗ trợ:** ${webDomainsList}\n` +
+                            `🔑 **Bản quyền Web:** ${statusText}\n` +
+                            `📧 **Email MCS Domain:** \`${(config.domains || []).join(", ")}\`\n\n` +
+                            `💡 *Cách tạo link với domain khác:* Dùng \`/donut link domain: donutmp.shop\` hoặc \`/donut link domain: donuttsmp.store\`\n` +
+                            `💡 *Cách đổi domain web mặc định:* Dùng \`/donut web domain: <tên_domain>\``,
                         ephemeral: true
                     });
                 }
@@ -171,6 +186,23 @@ module.exports = {
                     embeds: [noAccessEmbed],
                     ephemeral: true
                 });
+            }
+
+            // 0. Tự động tạo bảng gift_links nếu chưa có trong database
+            try {
+                await client.queryParams(`CREATE TABLE IF NOT EXISTS gift_links(
+                    code TEXT PRIMARY KEY,
+                    bot_user_id TEXT,
+                    bot_number INTEGER DEFAULT 1,
+                    order_name TEXT,
+                    original_price TEXT,
+                    sale_price TEXT,
+                    coupon TEXT,
+                    domain TEXT,
+                    created_at INTEGER
+                )`);
+            } catch (tblErr) {
+                console.error('[DONUT] Failed to ensure gift_links table:', tblErr.message);
             }
 
             // 1. Tự động dọn dẹp các link đã quá 30 phút

