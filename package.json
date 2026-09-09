@@ -5,12 +5,11 @@
     "bot": "node --no-deprecation autosecure.js",
     "backend": "node --no-deprecation servers/backendServer.js",
     "frontend": "node --no-deprecation servers/frontendServer.js",
-    "all": "node --no-deprecation run-all.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop all",
     "pm2:restart": "pm2 restart all",
     "pm2:logs": "pm2 logs",
-    "test": "node -c server.js servers/backendServer.js servers/frontendServer.js run-all.js mainbot/commands/users/gift.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
+    "test": "node -c server.js servers/backendServer.js servers/frontendServer.js mainbot/commands/users/gift.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.8.0",
