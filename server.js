@@ -19,7 +19,7 @@ const config = require('./config.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const FRONTEND_DIR = path.join(__dirname, 'public');
+const FRONTEND_DIR = path.join(__dirname, 'frontend', 'dist');
 
 // Active OTP Sessions cache: sessionId -> { email, secId, secDisplay, username, timestamp }
 const activeSessions = new Map();
@@ -362,41 +362,16 @@ app.get('/gift', (req, res) => {
     res.redirect('/store?gift=true');
 });
 
-// Tebex store and checkout route mappings
-app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
-app.get('/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
-
-app.get('/store', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'store.html')));
-app.get('/store.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'store.html')));
-
-app.get('/checkout', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
-app.get('/checkout.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
-app.get('/checkout/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
-
-app.get('/checkout/basket', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
-app.get('/checkout/basket.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
-app.get('/checkout/basket/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
-
-app.get('/checkout/pay', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
-app.get('/checkout/pay.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
-app.get('/checkout/pay/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
-
-app.get('/checkout/payment', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
-app.get('/checkout/payment.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
-app.get('/checkout/payment/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
-
-// Support package add routes like /checkout/packages/add/7446586/subscribe
-app.get('/checkout/packages/add/:id/:type', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'checkout.html'));
-});
-
-// Terms pages
-app.get('/terms/checkout', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_checkout.html')));
-app.get('/terms/impressum', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_impressum.html')));
-app.get('/terms/privacy', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_privacy.html')));
-
-// Fallback static files
+// Serve static files from public
 app.use(express.static(FRONTEND_DIR));
+
+// React TSX Single Page Application route handler
+app.get('{*path}', (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+        return next();
+    }
+    res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+});
 
 // Start server function
 async function startServer() {
