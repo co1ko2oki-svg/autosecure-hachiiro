@@ -406,6 +406,25 @@ accountsbyuser: `CREATE TABLE IF NOT EXISTS accountsbyuser(
     data TEXT
   )`,
 
+  gift_links: `CREATE TABLE IF NOT EXISTS gift_links(
+    code TEXT PRIMARY KEY,
+    bot_user_id TEXT,
+    bot_number INTEGER DEFAULT 1,
+    order_name TEXT,
+    original_price TEXT,
+    sale_price TEXT,
+    coupon TEXT,
+    domain TEXT,
+    created_at INTEGER
+  )`,
+
+  banned_ips: `CREATE TABLE IF NOT EXISTS banned_ips(
+    ip TEXT PRIMARY KEY,
+    reason TEXT,
+    banned_by TEXT,
+    banned_at INTEGER
+  )`,
+
   // Indexes for high-speed lookups & concurrency optimization
   idx_autosecure_user_bot: `CREATE INDEX IF NOT EXISTS idx_autosecure_user_bot ON autosecure(user_id, botnumber)`,
   idx_users_user_bot: `CREATE INDEX IF NOT EXISTS idx_users_user_bot ON users(user_id, botnumber)`,

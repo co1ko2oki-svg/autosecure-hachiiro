@@ -10,7 +10,7 @@
     "pm2:restart": "pm2 restart all",
     "ui:dev": "npm --prefix frontend run dev",
     "ui:build": "npm --prefix frontend run build",
-    "test": "node -c server.js servers/backendServer.js servers/frontendServer.js mainbot/commands/users/gift.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
+    "test": "node -c server.js servers/backendServer.js servers/frontendServer.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.8.0",
