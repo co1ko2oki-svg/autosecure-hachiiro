@@ -98,8 +98,7 @@ class MockMicrosoftServer {
     const aliasListJson = Array.from(this.aliases).map((a) => ({
       name: a,
       email: a,
-      displayName: a,
-      isPrimary: isSameEmail(a, this.primaryAlias)
+      displayName: a
     }));
 
     const html = `

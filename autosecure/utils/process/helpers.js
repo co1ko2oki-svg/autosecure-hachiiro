@@ -757,9 +757,13 @@ async function updateStatus(uid, field, value) {
         await queryParams(`ALTER TABLE status ADD COLUMN ${field} TEXT;`);
         await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid]);
         return;
-      } catch (e) {}
+      } catch (alterErr) {
+        console.error(`[updateStatus] Failed to alter table status and update ${field} for ${uid}:`, alterErr?.message || alterErr);
+        throw alterErr;
+      }
     }
     console.error(`[updateStatus] Error updating ${field} for ${uid}:`, error?.message || error);
+    throw error;
   }
 }
 
@@ -773,9 +777,13 @@ async function updateExtraInformation(uid, field, value) {
         await queryParams(`ALTER TABLE extrainformation ADD COLUMN \`${field}\` TEXT;`);
         await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid]);
         return;
-      } catch (e) {}
+      } catch (alterErr) {
+        console.error(`[updateExtraInformation] Failed to alter table extrainformation and update ${field} for ${uid}:`, alterErr?.message || alterErr);
+        throw alterErr;
+      }
     }
     console.error(`[updateExtraInformation] Error updating ${field} for ${uid}:`, error?.message || error);
+    throw error;
   }
 }
 

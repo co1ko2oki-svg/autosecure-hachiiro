@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="/"/>
+<meta charset="utf-8"/>
+<meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Donut SMP | Checkout Basket</title>
+<link href="https://store.donutsmp.net/templates/209/css/style.min.css" rel="stylesheet"/>
+<link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/MaterialDesign-Webfont/6.9.96/css/materialdesignicons.min.css" integrity="sha512-8G2pIpgpIJsq+hXzWgiRCQ1q++YBWoPwTvWS7WqZh9QhCOPzzC6nQC/ZYep1g6H3D2pnlm9yXl5BtyI+c6Whog==" referrerpolicy="no-referrer" rel="stylesheet"/>
+<link href="https://website.donutsmp.org/bcGCsev.png" rel="shortcut icon"/>
+<link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A==" referrerpolicy="no-referrer" rel="stylesheet"/>
+<link href="/assets/css/style.css?v=3" rel="stylesheet"/>
+</head>
+<body class="index">
+<div class="page-wrapper">
+    <div class="top-content">
+        <div class="head">
+            <div class="container">
+                <div class="logo">
+                    <a href="/index.html">
+                        <img src="https://website.donutsmp.org/bcGCsev.png" alt="Donut SMP"/>
+                    </a>
+                </div>
+                <h1 class="hero-title">Store</h1>
+                <div class="hero-tag">Upgrade your experience on Donut SMP</div>
+                <div class="below-logo">
+                    <div aria-label="Copy server IP address" class="hip" data-clipboard-text="donutsmp.net" id="copy" role="button" tabindex="0">
+                        <code>donutsmp.net</code>
+                        <span class="copy-icon">
+                            <svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><rect height="13" rx="1" width="13" x="9" y="9"></rect><path d="M5 15H4a1 1 0 01-1-1V4a1 1 0 011-1h10a1 1 0 011 1v1"></path></svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="container">
+            <div class="notification"></div>
+        </div>
+        
+        <!-- Minecraft Login / Checkout Form -->
+        <div class="mc-login-section">
+            <div class="mc-login-card">
+                <h2 class="mc-login-title">Enter your Minecraft Username</h2>
+                
+                <div class="mc-platform-group">
+                    <button type="button" class="mc-platform-btn active" data-platform="java" id="btn-platform-java">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7v2H8v2h8v-2h-2v-2h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H3V4h18v10z"/></svg>
+                        JAVA
+                    </button>
+                    <button type="button" class="mc-platform-btn" data-platform="bedrock" id="btn-platform-bedrock">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2 1.1 0 2.05-.77 2.22-1.85L8 12h8l.78 4.15c.17 1.08 1.12 1.85 2.22 1.85 1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM9 13H8v2H6v-2H5v-2h1V9h2v2h1v2zm8 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm2-3c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg>
+                        BEDROCK
+                    </button>
+                </div>
+
+                <form id="mc-login-form" onsubmit="handleUsernameSubmit(event)">
+                    <div class="mc-input-container">
+                        <input type="text" id="mc-username-input" class="mc-username-input" placeholder="Enter your username" autocomplete="off" required spellcheck="false"/>
+                        <button type="submit" id="mc-continue-btn" class="mc-continue-btn">
+                            <span>Continue</span>
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Profile Preview / Authentic Tebex Basket state (Screenshot 3) -->
+                <div id="mc-profile-preview" class="mc-profile-preview">
+                    <!-- Basket Header -->
+                    <div class="basket-header">
+                        <div class="basket-title-group">
+                            <img class="basket-donut-logo" src="https://website.donutsmp.org/bcGCsev.png" alt="Donut"/>
+                            <div>
+                                <div class="basket-title">Checkout</div>
+                                <div class="basket-subtitle" id="basket-total-subtitle">Total: 9.99 <b>USD</b></div>
+                            </div>
+                        </div>
+                        <button type="button" class="basket-currency-btn" title="Change currency">
+                            <i class="fa-solid fa-globe"></i>
+                            <span>USD</span>
+                            <i class="fa-solid fa-caret-down" style="font-size: 10px; margin-left: 1px;"></i>
+                        </button>
+                    </div>
+
+                    <!-- Account Strip -->
+                    <div class="basket-account-strip">
+                        <div class="basket-account-left">
+                            <img id="basket-avatar-img" class="basket-avatar-img" src="https://mc-heads.net/avatar/steve/40" alt="Avatar" onerror="this.onerror=null;this.src='https://minotar.net/helm/steve/40.png';"/>
+                            <div class="basket-account-text">
+                                <span class="basket-signed-in-label">You are currently signed in as</span>
+                                <span class="basket-username-val" id="basket-username-val">Player</span>
+                            </div>
+                        </div>
+                        <div class="basket-account-right">
+                            <span class="basket-wrong-acc-label">Wrong account?</span>
+                            <a href="javascript:void(0)" class="basket-switch-acc-link" onclick="handleSwitchAccount()" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important; font-size: 13px !important; font-weight: 700 !important; color: #ffffff !important; text-decoration: none !important;">Switch Accounts</a>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="basket-table-wrapper">
+                        <div class="basket-table-header">
+                            <div class="basket-th col-name">Name</div>
+                            <div class="basket-th col-price">Price</div>
+                            <div class="basket-th col-qty">Quantity</div>
+                            <div class="basket-th col-actions"></div>
+                        </div>
+                        <div class="basket-table-body" id="basket-table-body">
+                            <div class="basket-item-row" id="basket-item-row">
+                                <div class="basket-td col-name" id="basket-item-name">Donut++ (30 days)</div>
+                                <div class="basket-td col-price" id="basket-item-price">9.99 USD</div>
+                                <div class="basket-td col-qty">
+                                    <span class="basket-qty-badge">1</span>
+                                </div>
+                                <div class="basket-td col-actions">
+                                    <button type="button" class="basket-btn-refresh" title="Refresh" onclick="handleRefreshBasket()">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                    </button>
+                                    <button type="button" class="basket-btn-info" title="Info" onclick="handleItemInfo()">
+                                        <i class="fa-solid fa-circle-info"></i>
+                                    </button>
+                                    <button type="button" class="basket-btn-remove" title="Remove" onclick="handleRemoveBasketItem()">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Button -->
+                    <div class="basket-footer-action">
+                        <button type="button" class="basket-proceed-btn" onclick="handleProceedCheckout()" style="box-shadow: none !important;">
+                            Proceed to checkout »
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-content">
+        <div id="foot">
+            <div class="container">
+                <section class="copyright">
+                    <div class="copyright-text">
+                        <span>donutsmp.net</span>
+                    </div>
+                    <small>Not associated with Mojang or Microsoft</small>
+                    <div class="copyright-links">
+                        <a data-target="#privacy" data-toggle="modal">Store Privacy Policy</a>
+                        <a data-target="#donutprivacy" data-toggle="modal">Donut Privacy Policy</a>
+                        <a data-target="#support" data-toggle="modal">Support</a>
+                        <a data-target="#terms" data-toggle="modal">Terms of Service</a>
+                        <a data-target="#refunds" data-toggle="modal">Refund Policy</a>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="privacy" role="dialog" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button aria-hidden="true" class="close" data-dismiss="modal" type="button">×</button>
+<h4 class="modal-title">Store Privacy Policy</h4>
+</div>
+<div class="modal-body">
+<p>
+
+</p>
+<p>
+                    Tebex Limited respects your privacy and is committed to protecting your personal data. This privacy notice will inform you as to how we look after your personal data when you visit our website (regardless of where you visit it from) and
+                    tell you about your privacy rights and how the law protects you.
+                </p>
+<p>
+                    This privacy notice is provided in a layered format so you can click through to the specific areas set out below. Please also use the <a href="#glossary">Glossary</a> to understand the meaning of some of the terms used in this privacy
+                    notice.
+                </p>
+<p><a href="#who-we-are">1. IMPORTANT INFORMATION AND WHO WE ARE</a></p>
+<p><a href="#data-we-collect">2. THE DATA WE COLLECT ABOUT YOU</a></p>
+<p><a href="#how-data-collected">3. HOW IS YOUR PERSONAL DATA COLLECTED?</a></p>
+<p><a href="#how-data-used">4. HOW WE USE YOUR PERSONAL DATA </a></p>
+<p><a href="#disclosures">5. DISCLOSURES OF YOUR PERSONAL DATA </a></p>
+<p><a href="#international-transfers">6. INTERNATIONAL TRANSFERS </a></p>
+<p><a href="#data-security">7. DATA SECURITY</a></p>
+<p><a href="#data-retention">8. DATA RETENTION </a></p>
+<p><a href="#legal-rights">9. YOUR LEGAL RIGHTS</a></p>
+<p><a href="#glossary">10. GLOSSARY</a></p>
+<h2 id="who-we-are">1. IMPORTANT INFORMATION AND WHO WE ARE</h2>
+<h3>PURPOSE OF THIS PRIVACY NOTICE</h3>
+<p>
+                    This privacy notice aims to give you information on how Tebex Limited collect and process your personal data through your use of www.tebex.io and www.buycraft.net (together referred to as “<strong>this website</strong>”), and also any
+                    associated webstore (a “<strong>Webstore</strong>”) which utilities the Tebex webstore platform for game servers (the “<strong>Tebex Platform</strong>”), including any data you may provide through this website when you purchase a
+                    product or service.
+                </p>
+<p>
+                    This website is not intended for children and we do not knowingly collect data relating to children. We realise and understand that children and young people may visit this website, or otherwise interact with us and our commercial
+                    partners. It is our policy to encourage all minors to consult with their parents or legal guardian before submitting any content or information to us, our commercial partners or other third parties.
+                </p>
+<p>
+                    It is important that you read this privacy notice together with any other privacy notice or fair processing notice we may provide on specific occasions when we are collecting or processing personal data about you so that you are fully
+                    aware of how and why we are using your data. This privacy notice supplements the other notices and is not intended to override them.
+                </p>
+<h3>CONTROLLER</h3>
+<p>Tebex Limited is the controller and responsible for your personal data (collectively referred to as “<strong>Tebex</strong>”, “<strong>we</strong>”, “<strong>us</strong>” or “<strong>our</strong>” in this privacy notice).</p>
+<p>
+                    We have appointed a data privacy manager who is responsible for overseeing questions in relation to this privacy notice. If you have any questions about this privacy notice, including any requests to exercise
+                    <a href="#legal-rights">your legal rights</a>, please contact the data privacy manager using the details set out below.
+                </p>
+<h3>CONTACT DETAILS</h3>
+<p>Full name of legal entity: Tebex Limited, company number 08129184 of Levy Cohen &amp; Co, 37 Broadhurst Gardens, London, United Kingdom, NW6 3QT.</p>
+<p>Name or title of data privacy manager: Liam Wiltshire</p>
+<p>Email address: <a href="mailto:liam.wiltshire@overwolf.com">liam.wiltshire@overwolf.com</a></p>
+<p>
+                    You have the right to make a complaint at any time to the Information Commissioner's Office (ICO), the UK supervisory authority for data protection issues (<a href="https://www.ico.org.uk" target="_blank">www.ico.org.uk</a>). We would,
+                    however, appreciate the chance to deal with your concerns before you approach the ICO so please contact us in the first instance.
+                </p>
+<h3>CHANGES TO THE PRIVACY NOTICE AND YOUR DUTY TO INFORM US OF CHANGES</h3>
+<p>This version was last updated on 11 May 2018 and historic versions can be obtained by <a href="https://www.tebex.io/contact/">contacting us.</a></p>
+<p>It is important that the personal data we hold about you is accurate and current. Please keep us informed if your personal data changes during your relationship with us.</p>
+<h3>THIRD-PARTY LINKS</h3>
+<p>
+                    This website may include links to third-party websites, plug-ins and applications. Clicking on those links or enabling those connections may allow third parties to collect or share data about you. We do not control these third-party
+                    websites and are not responsible for their privacy statements. When you leave our website, we encourage you to read the privacy notice of every website you visit.
+                </p>
+<h2 id="data-we-collect">2. THE DATA WE COLLECT ABOUT YOU</h2>
+<p>Personal data, or personal information, means any information about an individual from which that person can be identified. It does not include data where the identity has been removed (anonymous data).</p>
+<p>We may collect, use, store and transfer different kinds of personal data about you which we have grouped together follows:</p>
+<p><strong>Identity Data</strong> includes first name, last name, and username or similar identifier.</p>
+<p><strong>Contact Data</strong> includes billing address, delivery address, email address and telephone numbers.</p>
+<!--p><strong>Financial Data</strong> includes bank account and payment card details.</p-->
+<p><strong>Transaction Data</strong> includes details about payments to and from you and other details of products and services you have purchased from us.</p>
+<p>
+<strong>Technical Data</strong> includes internet protocol (IP) address, your login data, browser type and version, time zone setting and location, browser plug-in types and versions, operating system and platform and other technology
+                    on the devices you use to access this website.
+                </p>
+<p><strong>Profile Data</strong> includes your username and password, purchases or orders made by you, and any account preferences.</p>
+<p><strong>Usage Data</strong> includes information about how you use our website, products and services.</p>
+<p><strong>Marketing and Communications</strong> Data includes your preferences in receiving marketing from us and our third parties and your communication preferences.</p>
+<p>
+                    We also collect, use and share <strong>Aggregated Data</strong> such as statistical or demographic data for any purpose. Aggregated Data may be derived from your personal data but is not considered personal data in law as this data does
+                    <strong>not</strong> directly or indirectly reveal your identity. For example, we may aggregate your Usage Data to calculate the percentage of users accessing a specific website feature. However, if we combine or connect Aggregated Data
+                    with your personal data so that it can directly or indirectly identify you, we treat the combined data as personal data which will be used in accordance with this privacy notice.
+                </p>
+<p>
+                    We do not collect any <strong>Special Categories of Personal Data</strong> about you (this includes details about your race or ethnicity, religious or philosophical beliefs, sex life, sexual orientation, political opinions, trade union
+                    membership, information about your health and genetic and biometric data). Nor do we collect any information about criminal convictions and offences.
+                </p>
+<h3>IF YOU FAIL TO PROVIDE PERSONAL DATA</h3>
+<p>
+                    Where we need to collect personal data by law, or under the terms of a contract we have with you and you fail to provide that data when requested, we may not be able to perform the contract we have or are trying to enter into with you
+                    (for example, to provide you with goods or services). In this case, we may have to cancel a product or service you have with us but we will notify you if this is the case at the time.
+                </p>
+<h2 id="how-data-collected">3. HOW IS YOUR PERSONAL DATA COLLECTED?</h2>
+<p>We use different methods to collect data from and about you including through:</p>
+<p>
+<strong>Direct interactions.</strong> You may give us your Identity and Contact<!-- and Financial-->
+                    Data by filling in forms or by corresponding with us through <a href="https://www.tebex.io/contact/" target="_blank">https://www.tebex.io/contact/</a>. This includes personal data you provide when you:
+                </p>
+<p>use our website or any Webstore;</p>
+<p>register for a trial or browse our plans;</p>
+<p>request a quotation through our website;</p>
+<p>register for a free Starter Plan;</p>
+<p>create an account on our website;</p>
+<p>subscribe to our emailed updates or publications;</p>
+<p>request marketing to be sent to you;</p>
+<p>contact us via social media (for example, through our Facebook or Twitter accounts);</p>
+<p>participate in our online live chat forums;</p>
+<p>report a problem with our website; or</p>
+<p>give us some feedback.</p>
+<p>
+<strong>Automated technologies or interactions.</strong> As you interact with our website, we may automatically collect Technical Data about your equipment, browsing actions and patterns. We collect this personal data by using cookies,
+                    server logs and other similar technologies. We may also receive Technical Data about you if you visit other websites employing our cookies. Please see our cookie policy
+                    <a href="https://www.tebex.io/legal/cookie" target="_blank">https://www.tebex.io/legal/cookie</a> for further details.
+                </p>
+<p>Third parties or publicly available sources. We may receive personal data about you from various third parties and public sources as set out below:</p>
+<p>Technical Data from analytics providers such as Google and Cloudflare.</p>
+<p>Contact, Financial and Transaction Data from providers of technical, payment and delivery services such as our payment processing and logistics partners such as Help Scout and Braintree.</p>
+<h2 id="how-data-used">4. HOW WE USE YOUR PERSONAL DATA</h2>
+<p>We will only use your personal data when the law allows us to. Most commonly, we will use your personal data in the following circumstances:</p>
+<p>Where we need to perform the contract we are about to enter into or have entered into with you.</p>
+<p>Where it is necessary for our legitimate interests (or those of a third party) and your interests and fundamental rights do not override those interests.</p>
+<p>Where we need to comply with a legal or regulatory obligation.</p>
+<p><a href="#purposes">Click here</a> to find out more about the types of lawful basis that we will rely on to process your personal data.</p>
+<p>
+                    Generally, we do not rely on consent as a legal basis for processing your personal data other than in relation to sending third party direct marketing communications to you via email. You have the right to withdraw consent to marketing
+                    at any time by <a href="https://www.tebex.io/contact/" target="_blank">contacting us</a>.
+                </p>
+<h3 id="purposes">PURPOSES FOR WHICH WE WILL USE YOUR PERSONAL DATA</h3>
+<p>We have set out below, in a table format, a description of all the ways we plan to use your personal data, and which of the legal bases we rely on to do so. We have also identified what our legitimate interests are where appropriate.</p>
+<p>
+                    Note that we may process your personal data for more than one lawful ground depending on the specific purpose for which we are using your data. Please <a href="https://www.tebex.io/contact/" target="_blank">contact us</a> if you need
+                    details about the specific legal ground we are relying on to process your personal data where more than one ground has been set out in the table below.
+                </p>
+<table border="1" cellborder="1" cellspacing="0" class="table table-responsive border-0" valign="top">
+<thead>
+<tr>
+<th>Purpose/Activity</th>
+<th>Type of data</th>
+<th>Lawful basis for processing including basis of legitimate interest</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>To register you as a new customer</td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+</td>
+<td>Performance of a contract with you</td>
+</tr>
+<tr>
+<td>
+<p>To process and deliver your order including:</p>
+<p>(a) Manage payments, fees and charges</p>
+<p>(b) Collect and recover money owed to us</p>
+</td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+<p>(c) Financial</p>
+<p>(d) Transaction</p>
+<p>(e) Marketing and Communications</p>
+</td>
+<td>
+<p>(a) Performance of a contract with you</p>
+<p>(b) Necessary for our legitimate interests (to recover debts due to us)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>To manage our relationship with you which will include:</p>
+<p>(a) Notifying you about changes to our terms or privacy policy</p>
+<p>(b) Asking you to leave a review or take a survey</p>
+</td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+<p>(c) Profile</p>
+<p>(d) Marketing and Communications</p>
+</td>
+<td>
+<p>(a) Performance of a contract with you</p>
+<p>(b) Necessary to comply with a legal obligation</p>
+<p>(c) Necessary for our legitimate interests (to keep our records updated and to study how customers use our products/services)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>To administer and protect our business and this website (including troubleshooting, data analysis, testing, system maintenance, support, reporting and hosting of data)</p>
+</td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+<p>(c) Technical</p>
+</td>
+<td>
+<p>
+                                (a) Necessary for our legitimate interests (for running our business, provision of administration and IT services, network security, to prevent fraud and in the context of a business reorganisation or group restructuring
+                                exercise)
+                            </p>
+<p>(b) Necessary to comply with a legal obligation</p>
+</td>
+</tr>
+<tr>
+<td><p>To gather and provide information required by or relating to audits, enquiries or investigations by regulatory bodies or law enforcement authorities</p></td>
+<td>
+<p>(a) Identify</p>
+<p>(b) Technical</p>
+<p>(c) Profile</p>
+</td>
+<td>
+<p>(a) Necessary for our legitimate interests in preventing fraud</p>
+<p>(b) Necessary for the performance of a task carried out in the public interest</p>
+<p>(c) Necessary to comply with a legal obligation</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>To deliver relevant website content and advertisements to you and measure or understand the effectiveness of the advertising we serve to you</p>
+</td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+<p>(c) Profile</p>
+<p>(d) Usage</p>
+<p>(e) Marketing and Communications</p>
+<p>(f) Technical</p>
+</td>
+<td>
+<p>Necessary for our legitimate interests (to study how customers use our products/services, to develop them, to grow our business and to inform our marketing strategy)</p>
+</td>
+</tr>
+<tr>
+<td>
+<p>To use data analytics to improve our website, products/services, marketing, customer relationships and experiences</p>
+</td>
+<td>
+<p>(a) Technical</p>
+<p>(b) Usage</p>
+</td>
+<td>
+<p>Necessary for our legitimate interests (to define types of customers for our products and services, to keep our website updated and relevant, to develop our business and to inform our marketing strategy)</p>
+</td>
+</tr>
+<tr>
+<td><p>To make suggestions and recommendations to you about goods or services that may be of interest to you</p></td>
+<td>
+<p>(a) Identity</p>
+<p>(b) Contact</p>
+<p>(c) Technical</p>
+<p>(d) Usage</p>
+<p>(e) Profile</p>
+</td>
+<td>
+<p>Necessary for our legitimate interests (to develop our products/services and grow our business)</p>
+</td>
+</tr>
+</tbody>
+</table>
+<h3>MARKETING</h3>
+<p>
+                    We strive to provide you with choices regarding certain personal data uses, particularly around marketing and advertising. We have established a preference centre within your account where you can view and make certain decisions about
+                    your personal data use.
+                </p>
+<h3>PROMOTIONAL OFFERS FROM US</h3>
+<p>
+                    We may use your Identity, Contact, Technical, Usage and Profile Data to form a view on what we think you may want or need, or what may be of interest to you. This is how we decide which products, services and offers may be relevant for
+                    you.
+                </p>
+<p>You will receive marketing communications from us if you have requested information from us or purchased goods or services from us and, in each case, you have not opted out of receiving that marketing.</p>
+<h3>THIRD-PARTY MARKETING</h3>
+<p>We will get your express opt-in consent before we share your personal data with any third parties outside the Tebex group of companies or our Webstore partner community for marketing purposes.</p>
+<h3>OPTING OUT</h3>
+<p>
+                    You can ask us or third parties to stop sending you marketing messages at any time by logging into the website and checking or unchecking relevant boxes to adjust your marketing preferences or by following the opt-out links on any
+                    marketing message sent to you or by <a href="https://www.tebex.io/contact/" target="_blank">contacting us</a> at any time.
+                </p>
+<p>Where you opt out of receiving these marketing messages, this will not apply to personal data provided to us as a result of a product/service purchase, product/service experience or other transactions.</p>
+<h3>COOKIES</h3>
+<p>
+                    You can set your browser to refuse all or some browser cookies, or to alert you when websites set or access cookies. If you disable or refuse cookies, please note that some parts of this website may become inaccessible or not function
+                    properly. For more information about the cookies we use, please see <a href="https://www.tebex.io/legal/cookie" target="_blank">https://www.tebex.io/legal/cookie</a>.
+                </p>
+<h3>CHANGE OF PURPOSE</h3>
+<p>
+                    We will only use your personal data for the purposes for which we collected it, unless we reasonably consider that we need to use it for another reason and that reason is compatible with the original purpose. If you wish to get an
+                    explanation as to how the processing for the new purpose is compatible with the original purpose, please <a href="https://www.tebex.io/contact/" target="_blank">contact us</a>.
+                </p>
+<p>If we need to use your personal data for an unrelated purpose, we will notify you and we will explain the legal basis which allows us to do so.</p>
+<p>Please note that we may process your personal data without your knowledge or consent, in compliance with the above rules, where this is required or permitted by law.</p>
+<h2 id="disclosures">5. DISCLOSURES OF YOUR PERSONAL DATA</h2>
+<p>We may have to share your personal data with the parties set out below for the purposes set out in the table in paragraph 4 above.</p>
+<p>Internal Third Parties as set out in the <a href="#glossary">Glossary</a>.</p>
+<p>External Third Parties as set out in the <a href="#glossary">Glossary</a>.</p>
+<p>Specific third parties such as our Webstore partners and Amazon Web Services.</p>
+<p>
+                    Third parties to whom we may choose to sell, transfer, or merge parts of our business or our assets. Alternatively, we may seek to acquire other businesses or merge with them. If a change happens to our business, then the new owners may
+                    use your personal data in the same way as set out in this privacy notice.
+                </p>
+<p>
+                    We require all third parties to respect the security of your personal data and to treat it in accordance with the law. We do not allow our third-party service providers to use your personal data for their own purposes and only permit
+                    them to process your personal data for specified purposes and in accordance with our instructions.
+                </p>
+<h2 id="international-transfers">6. INTERNATIONAL TRANSFERS</h2>
+<p>Many of our external third parties are based outside the European Economic Area (EEA) so their processing of your personal data will involve a transfer of data outside the EEA.</p>
+<p>Whenever we transfer your personal data out of the EEA, we ensure a similar degree of protection is afforded to it by ensuring at least one of the following safeguards is implemented:</p>
+<p>We will only transfer your personal data to countries that have been deemed to provide an adequate level of protection for personal data by the European Commission.</p>
+<p>
+                    Where we transfer Personal Data from the EEA to a recipient outside the EEA that is not in an Adequate Jurisdiction, we may use specific contracts (Standard Contractual Clauses) approved by the European Commission which give personal
+                    data the same protection it has in Europe.
+                </p>
+<p>Please <a href="https://www.tebex.io/contact/" target="_blank">contact us</a> if you want further information on the specific mechanism used by us when transferring your personal data out of the EEA.</p>
+<h2 id="data-security">7. DATA SECURITY</h2>
+<p>
+                    We have put in place appropriate security measures to prevent your personal data from being accidentally lost, used or accessed in an unauthorised way, altered or disclosed. In addition, we limit access to your personal data to those
+                    employees, agents, contractors and other third parties who have a business need to know. They will only process your personal data on our instructions and they are subject to a duty of confidentiality.
+                </p>
+<p>You can also help us to protect your personal data by adhering to the following security measures:</p>
+<p>Do not confirm your bank or credit card details in an email. We will not ask for such personal data in this way, so any email claiming to be from us that does so is likely to be a fake. Please ignore it.</p>
+<p>Keep your passwords private.</p>
+<p>When creating a password, do not use words such as your name, date of birth or other personal data.</p>
+<p>Change your password regularly.</p>
+<p>We have put in place procedures to deal with any suspected personal data breach and will notify you and any applicable regulator of a breach where we are legally required to do so.</p>
+<h2 id="data-retention">8. DATA RETENTION</h2>
+<h3>HOW LONG WILL YOU USE MY PERSONAL DATA FOR?</h3>
+<p>We will only retain your personal data for as long as necessary to fulfil the purposes we collected it for, including for the purposes of satisfying any legal, accounting, or reporting requirements.</p>
+<p>
+                    To determine the appropriate retention period for personal data, we consider the amount, nature, and sensitivity of the personal data, the potential risk of harm from unauthorised use or disclosure of your personal data, the purposes
+                    for which we process your personal data and whether we can achieve those purposes through other means, and the applicable legal requirements.
+                </p>
+<p>By law we have to keep basic information about our customers (including Contact, Identity, Financial and Transaction Data) for up to 10 years after they cease being customers for tax purposes.</p>
+<p>In some circumstances you can ask us to delete your data: see <a href="#glossary-legal-rights-erasure">Request erasure</a> below for further information.</p>
+<p>In some circumstances we may anonymise your personal data (so that it can no longer be associated with you) for research or statistical purposes in which case we may use this information indefinitely without further notice to you.</p>
+<h2 id="legal-rights">9. YOUR LEGAL RIGHTS</h2>
+<p>Under certain circumstances, you have rights under data protection laws in relation to your personal data. Please click on the links below to find out more about these rights:</p>
+<p><a href="#glossary-legal-rights-access">Request access to your personal data</a></p>
+<p><a href="#glossary-legal-rights-correction">Request correction of your personal data</a></p>
+<p><a href="#glossary-legal-rights-erasure">Request erasure of your personal data</a></p>
+<p><a href="#glossary-legal-rights-processing">Object to processing of your personal data</a></p>
+<p><a href="#glossary-legal-rights-restriction">Request restriction of processing your personal data</a></p>
+<p><a href="#glossary-legal-rights-transfer">Request transfer of your personal data</a></p>
+<p><a href="#glossary-legal-rights-consent">Right to withdraw consent</a></p>
+<p>If you wish to exercise any of the rights set out above, please <a href="https://www.tebex.io/contact/" target="_blank">contact us</a>.</p>
+<h3>NO FEE USUALLY REQUIRED</h3>
+<p>
+                    You will not have to pay a fee to access your personal data (or to exercise any of the other rights). However, we may charge a reasonable fee if your request is clearly unfounded, repetitive or excessive. Alternatively, we may refuse to
+                    comply with your request in these circumstances.
+                </p>
+<h3>WHAT WE MAY NEED FROM YOU</h3>
+<p>
+                    We may need to request specific information from you to help us confirm your identity and ensure your right to access your personal data (or to exercise any of your other rights). This is a security measure to ensure that personal data
+                    is not disclosed to any person who has no right to receive it. We may also contact you to ask you for further information in relation to your request to speed up our response.
+                </p>
+<h3>TIME LIMIT TO RESPOND</h3>
+<p>
+                    We try to respond to all legitimate requests within one month. Occasionally it may take us longer than a month if your request is particularly complex or you have made a number of requests. In this case, we will notify you and keep you
+                    updated.
+                </p>
+<h2 id="glossary">10. GLOSSARY</h2>
+<h3>LAWFUL BASIS</h3>
+<p>
+                    Legitimate Interest means the interest of our business in conducting and managing our business to enable us to give you the best service/product and the best and most secure experience. We make sure we consider and balance any potential
+                    impact on you (both positive and negative) and your rights before we process your personal data for our legitimate interests. We do not use your personal data for activities where our interests are overridden by the impact on you
+                    (unless we have your consent or are otherwise required or permitted to by law). You can obtain further information about how we assess our legitimate interests against any potential impact on you in respect of specific activities by
+                    <a href="https://www.tebex.io/contact/" target="_blank">contacting us</a>.
+                </p>
+<p>Performance of Contract means processing your data where it is necessary for the performance of a contract to which you are a party or to take steps at your request before entering into such a contract.</p>
+<p>Comply with a legal or regulatory obligation means processing your personal data where it is necessary for compliance with a legal or regulatory obligation that we are subject to.</p>
+<h3>THIRD PARTIES</h3>
+<h3>INTERNAL THIRD PARTIES</h3>
+<p>Other companies in the Tebex group of companies acting as joint controllers and provide IT and system administration services and undertake leadership reporting.</p>
+<h3>EXTERNAL THIRD PARTIES</h3>
+<p>Service providers acting as processors based within and outside the EEA who provide IT and system administration services.</p>
+<p>Suppliers used by us in connection with the supply and delivery of goods and services to you (including our distributors of any merchandise purchases made through a Webstore).</p>
+<p>Professional advisers acting as processors including lawyers, bankers, auditors and insurers based within the EEA who provide consultancy, banking, legal, insurance and accounting services.</p>
+<p>HM Revenue &amp; Customs, regulators and other authorities acting as processors based in the United Kingdom who require reporting of processing activities in certain circumstances.</p>
+<h3>YOUR LEGAL RIGHTS</h3>
+<p>You have the right to:</p>
+<p id="glossary-legal-rights-access">
+                    Request access to your personal data (commonly known as a "data subject access request"). This enables you to receive a copy of the personal data we hold about you and to check that we are lawfully processing it.
+                </p>
+<p id="glossary-legal-rights-correction">
+                    Request correction of the personal data that we hold about you. This enables you to have any incomplete or inaccurate data we hold about you corrected, though we may need to verify the accuracy of the new data you provide to us.
+                </p>
+<p id="glossary-legal-rights-erasure">
+                    Request erasure of your personal data. This enables you to ask us to delete or remove personal data where there is no good reason for us continuing to process it. You also have the right to ask us to delete or remove your personal data
+                    where you have successfully exercised your right to object to processing (see below), where we may have processed your information unlawfully or where we are required to erase your personal data to comply with local law. Note, however,
+                    that we may not always be able to comply with your request of erasure for specific legal reasons which will be notified to you, if applicable, at the time of your request.
+                </p>
+<p id="glossary-legal-rights-processing">
+                    Object to processing of your personal data where we are relying on a legitimate interest (or those of a third party) and there is something about your particular situation which makes you want to object to processing on this ground as
+                    you feel it impacts on your fundamental rights and freedoms. You also have the right to object where we are processing your personal data for direct marketing purposes. In some cases, we may demonstrate that we have compelling
+                    legitimate grounds to process your information which override your rights and freedoms.
+                </p>
+<p id="glossary-legal-rights-restriction">
+                    Request restriction of processing of your personal data. This enables you to ask us to suspend the processing of your personal data in the following scenarios: (a) if you want us to establish the data's accuracy; (b) where our use of
+                    the data is unlawful but you do not want us to erase it; (c) where you need us to hold the data even if we no longer require it as you need it to establish, exercise or defend legal claims; or (d) you have objected to our use of your
+                    data but we need to verify whether we have overriding legitimate grounds to use it.
+                </p>
+<p id="glossary-legal-rights-transfer">
+                    Request the transfer of your personal data to you or to a third party. We will provide to you, or a third party you have chosen, your personal data in a structured, commonly used, machine-readable format. Note that this right only
+                    applies to automated information which you initially provided consent for us to use or where we used the information to perform a contract with you.
+                </p>
+<p id="glossary-legal-rights-consent">
+                    Withdraw consent at any time where we are relying on consent to process your personal data. However, this will not affect the lawfulness of any processing carried out before you withdraw your consent. If you withdraw your consent, we
+                    may not be able to provide certain products or services to you. We will advise you if this is the case at the time you withdraw your consent.
+                </p>
+<h3>Tebex Limited</h3>
+<p>VAT registered GB 167 189 962</p>
+<p></p>
+<p></p>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="support" role="dialog" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button aria-hidden="true" class="close" data-dismiss="modal" type="button">×</button>
+<h4 class="modal-title">Support</h4>
+</div>
+<div class="modal-body">
+<p>Need help with an order or purchase? Our team is happy to assist you.</p>
+<p>For the fastest response, please open a ticket through our support portal at <a href="https://support.donutsmp.net" rel="noopener" target="_blank">support.donutsmp.net</a>.</p>
+<p>If you are unable to access the support portal, you can reach us by email at <a href="mailto:support@donutsmp.net">support@donutsmp.net</a> and we will get back to you as soon as possible.</p>
+</div>
+</div>
+</div>
+</div>
+<div aria-labelledby="donutprivacyLabel" class="modal fade" id="donutprivacy" role="dialog" tabindex="-1">
+<div class="modal-dialog">
+<div class="modal-content">
+<div class="modal-header">
+<button aria-hidden="true" class="close" data-dismiss="modal" type="button">×</button>
+<h4 class="modal-title" id="donutprivacyLabel">Privacy Policy</h4>
+</div>
+<div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+<h3>DonutSMP Privacy Policy</h3>
+<p><strong>Last updated:</strong> March 26, 2026<br/>
+<strong>Applies to:</strong> DonutSMP Minecraft servers, DonutSMP Discord, and our support/ticket systems ("Services").
+        </p>
+<h4>1) Who we are</h4>
+<p>
+<strong>Organization:</strong> DonutSMP ("we", "us")<br/>
+<strong>Website:</strong> <a href="https://donutsmp.net" rel="noopener noreferrer" target="_blank">https://donutsmp.net</a><br/>
+<strong>Discord:</strong> <a href="https://discord.gg/donutsmp" rel="noopener noreferrer" target="_blank">https://discord.gg/donutsmp</a><br/>
+<strong>Privacy &amp; support contact:</strong> <a href="mailto:support@donutsmp.net">support@donutsmp.net</a>
+</p>
+<h4>2) What we collect and store</h4>
+<p>We store limited information linked to a player/account for security, moderation, and support.</p>
+<h5>A) Account identifiers</h5>
+<ul>
+<li><strong>Minecraft UUID</strong></li>
+<li><strong>Minecraft username</strong> (current; historical usernames may appear in retained support/moderation records and may also be derivable through UUID linking)</li>
+</ul>
+<h5>B) Network and security logs</h5>
+<ul>
+<li><strong>IP address history</strong> associated with logins (and related timestamps)</li>
+</ul>
+<h5>C) Moderation records</h5>
+<ul>
+<li><strong>Ban history</strong> (status, reason label, timestamps, duration if applicable)</li>
+<li><strong>Mute history</strong> (status, reason label, timestamps, duration if applicable)</li>
+</ul>
+<h5>D) Support and reports</h5>
+<ul>
+<li><strong>Ticket transcripts</strong> and support history (including player reports), as retained by our ticket/transcript systems</li>
+<li>Ticket records may include <strong>attachments or links</strong> provided by users/staff (e.g., screenshots), where present</li>
+</ul>
+<h5>E) Filter-triggered chat safety logs (limited)</h5>
+<p>
+          We do not store all chat by default.<br/>
+          If a message triggers our automated chat/toxicity filters, we may store that message in Discord to maintain a record for moderation
+          (for example: the message content that triggered the filter, timestamp, and the account identifier).
+        </p>
+<h5>F) Voice chat (Simple Voice Chat)</h5>
+<p>
+          We operate an in-game proximity voice chat system (Simple Voice Chat). Voice audio may be processed in real time for moderation purposes.
+          We do <strong>not</strong> retain voice recordings by default. A recording may be created and stored <strong>only</strong> when it is
+          needed as evidence in connection with a moderation action (e.g., ban proof for harassment, threats, or other rule violations).
+          Such recordings are limited to the relevant segment of audio and are linked to the associated account identifier(s).
+        </p>
+<h5>G) Client integrity checks (anti-cheat)</h5>
+<p>
+          We perform real-time client integrity checks upon connection and during gameplay to detect the use of unauthorized modifications
+          (e.g., cheat clients). These checks are performed in memory and are used solely to determine whether a player's client complies
+          with our rules. No data from these checks is stored.
+        </p>
+<h4>3) What we do not store</h4>
+<ul>
+<li>We do <strong>not</strong> store Minecraft client version.</li>
+<li>We do <strong>not</strong> store the results or raw data of client integrity checks. Detection is performed in real time and no fingerprint, mod list, or check result is retained.</li>
+<li>We do <strong>not</strong> operate a separate permanent archive of all Discord messages; Discord content is stored and retained according to Discord's platform behavior and our server configuration.</li>
+<li>We do <strong>not</strong> store full in-game chat logs by default, except where captured as part of support tickets or filter-triggered moderation logs.</li>
+<li>We do <strong>not</strong> store continuous or bulk voice chat recordings. Voice data is only retained when captured as moderation evidence as described in Section 2(F).</li>
+</ul>
+<h4>4) Why we collect it (purposes)</h4>
+<p>We use the data above to:</p>
+<ul>
+<li>operate the Services (e.g., account identification via UUID)</li>
+<li>prevent abuse, cheating, harassment, and ban evasion</li>
+<li>investigate and enforce rule violations (moderation)</li>
+<li>enforce voice-chat conduct rules and retain evidence of violations when necessary for moderation actions or appeals</li>
+<li>respond to support requests and player reports</li>
+<li>protect the security and integrity of our infrastructure and community</li>
+</ul>
+<h4>5) Where the data is stored</h4>
+<p>Data may be stored in:</p>
+<ul>
+<li>our game server databases and logs (e.g., login/IP logs, moderation records)</li>
+<li>our support/ticket systems (ticket transcripts)</li>
+<li>our Discord server channels used for moderation/support records (e.g., filter-triggered logs)</li>
+</ul>
+<p>
+          Data may be processed and stored in different jurisdictions depending on infrastructure and service providers.
+          As a result, it may be subject to the laws of those jurisdictions.
+        </p>
+<h4>6) Sharing and disclosure</h4>
+<p>We do <strong>not</strong> sell personal information.</p>
+<p>We may share data only:</p>
+<ul>
+<li>with service providers that help us run the Services (e.g., hosting, DDoS protection, log storage, ticket tooling), under appropriate safeguards; and/or</li>
+<li>if required by law or to protect the rights, safety, and security of our users and our Services.</li>
+</ul>
+<h4>7) Retention (how long we keep it)</h4>
+<p>We keep data only as long as necessary for the purposes above.</p>
+<p>Our current retention targets are:</p>
+<ul>
+<li><strong>IP history / login security logs:</strong> up to <strong>12 months</strong></li>
+<li><strong>Ticket transcripts:</strong> up to <strong>36 months</strong></li>
+<li><strong>Voice chat moderation recordings:</strong> up to <strong>12 months</strong> (or longer if linked to an active ban, appeal, or dispute)</li>
+<li><strong>Discord-based moderation/support logs:</strong> retained according to Discord's platform retention and our server configuration (we do not maintain a separate long-term archive outside Discord for these items)</li>
+</ul>
+<p>
+          We may retain relevant records longer if needed for security incidents, fraud prevention, chargebacks, ban evasion prevention,
+          or to resolve active disputes (e.g., a report investigation or appeal).
+        </p>
+<p>
+          Data may also exist temporarily in replicated systems and backups for operational reliability and is deleted on a rolling schedule
+          consistent with the retention targets above.
+        </p>
+<h4>8) Security</h4>
+<p>
+          We use reasonable safeguards appropriate to the sensitivity of the information, including access controls and limiting access to authorized staff.
+        </p>
+<h4>9) Your rights and requests (access, correction, deletion)</h4>
+<p>
+          Depending on your jurisdiction (including Canadian privacy principles such as PIPEDA), you may request:
+        </p>
+<ul>
+<li>access to the personal information we hold about you</li>
+<li>correction of inaccurate information</li>
+<li>deletion of information where appropriate and where we are not required to keep it for security, dispute resolution, or legal compliance</li>
+</ul>
+<p>
+<strong>Identity verification:</strong> To prevent unauthorized disclosure, we may require reasonable identity verification before providing
+          account-linked information (especially IP history and support transcripts).
+        </p>
+<p>To submit a request, email <a href="mailto:support@donutsmp.net">support@donutsmp.net</a> and include:</p>
+<ul>
+<li>your Minecraft username and UUID (if known)</li>
+<li>the categories of data requested (e.g., IP history, ban history, transcripts)</li>
+<li>the relevant date range</li>
+<li>your Discord ID if your account is linked (optional but helpful)</li>
+</ul>
+<p>Further identity proof may be required.</p>
+<p>Questions or complaints about privacy can be sent to <a href="mailto:support@donutsmp.net">support@donutsmp.net</a>.</p>
+<h4>10) Changes to this policy</h4>
+<p>
+          We may update this policy from time to time. The "Last updated" date reflects the latest version.
+        </p>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="terms" role="dialog" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<button aria-hidden="true" class="close" data-dismiss="modal" type="button">×</button>
+<h4 class="modal-title">Terms of Service</h4>
+</div>
+<div class="modal-body" style="max-height: 70vh; overflow-y: auto; font-size: 14px; line-height: 1.6;">
+<h5>1. Acceptance of Terms</h5>
+<p>
+                    By accessing or using the DonutSMP Minecraft server, website, Discord server, or any related services,
+                    you agree to be bound by these Terms of Service. If you do not agree, you must not use our services.
+                    DonutSMP reserves the right to modify these Terms at any time without prior notice.
+                </p>
+<h5>2. Definitions</h5>
+<ul>
+<li><strong>Server:</strong> DonutSMP and all related services.</li>
+<li><strong>User:</strong> Any person accessing or using the Server.</li>
+<li><strong>Virtual Items:</strong> In-game items, currency, accounts, ranks, or services.</li>
+<li><strong>Real-Money Trading (RMT):</strong> Any exchange of Virtual Items for real-world value.</li>
+</ul>
+<h5>3. Prohibited Conduct</h5>
+<h6>3.1 Cheats, Mods, and Exploits</h6>
+<ul>
+<li>No hacked clients</li>
+<li>No movement modifications</li>
+<li>No inventory modifications</li>
+<li>No health indicators</li>
+<li>No radar, ESP, or freecam</li>
+<li>No auto or easy place features</li>
+<li>No macros, scripts, auto-clickers, mouse tweaks, or scrollers</li>
+<li>No modifications that provide unfair advantages</li>
+</ul>
+<h6>3.2 Bugs and Exploits</h6>
+<ul>
+<li>No abusing bugs or glitches</li>
+<li>No attempted or successful item duplication</li>
+<li>All bugs and exploits must be reported</li>
+</ul>
+<h6>3.3 Economy and Trading Violations</h6>
+<ul>
+<li>No real-money trading (IRL trading)</li>
+<li>No cross-server trading</li>
+<li>No external gambling</li>
+<li>No Discord boost rewards involving in-game benefits</li>
+<li>No invite rewards involving real-world value</li>
+<li>No selling or buying accounts, items, currency, services, or access outside official DonutSMP channels</li>
+</ul>
+<h6>3.4 Identity and Account Abuse</h6>
+<ul>
+<li>No staff impersonation</li>
+<li>No using more than five (5) accounts</li>
+<li>No attempting to discover or use the server seed</li>
+</ul>
+<h6>3.5 Community Abuse</h6>
+<ul>
+<li>No spamming voice chat</li>
+<li>No harassment, threats, or disruptive behavior</li>
+</ul>
+<h5>4. Virtual Property</h5>
+<p>
+                    All accounts, virtual items, currency, and data associated with DonutSMP remain the exclusive property
+                    of DonutSMP. Users are granted a limited, revocable, non-transferable license to use such virtual items.
+                    DonutSMP reserves the right to modify, revoke, or remove virtual items or accounts at any time,
+                    without compensation or liability.
+                </p>
+<h5>5. Enforcement</h5>
+<p>
+                    DonutSMP reserves the right to suspend or terminate accounts, remove virtual items, and take any
+                    necessary action against users who violate these Terms. Punishments may be applied without prior notice
+                    and may extend to associated accounts. All enforcement decisions are final unless explicitly stated otherwise.
+                </p>
+<h5>6. Third-Party Platforms and Services</h5>
+<p>
+                    DonutSMP may be accessed or discussed through third-party platforms and services,
+                    including but not limited to Discord, websites, social networks, and online marketplaces.
+                    DonutSMP is not affiliated with, endorsed by, or officially connected to any such third-party platforms
+                    unless explicitly stated otherwise.
+                </p>
+<p>
+                    Any offer, listing, advertisement, or transaction involving DonutSMP accounts, virtual items,
+                    currency, services, or access conducted through third-party platforms is strictly prohibited
+                    unless explicitly authorized by DonutSMP in writing.
+                </p>
+<h5>7. Disclaimer and Liability</h5>
+<p>
+                    DonutSMP is provided "as is" without warranties of any kind.
+                    DonutSMP is not responsible for losses resulting from bans, item removal, or server changes.
+                </p>
+<h5>8. Trademark Disclaimer</h5>
+<p>
+                    DonutSMP is an independent Minecraft server and is not affiliated with, endorsed by, or sponsored by
+                    Mojang Studios, Microsoft Corporation, Discord Inc., or any other trademark holders.
+                    All trademarks belong to their respective owners.
+                </p>
+</div>
+</div>
+</div>
+</div>
+<div class="modal fade" id="refunds" role="dialog" tabindex="-1">
+<div class="modal-dialog modal-lg">
+<div class="modal-content">
+<div class="modal-header">
+<button aria-hidden="true" class="close" data-dismiss="modal" type="button">×</button>
+<h4 class="modal-title">Refund Policy</h4>
+</div>
+<div class="modal-body" style="max-height: 70vh; overflow-y: auto; font-size: 14px; line-height: 1.6;">
+<h5>1. General Policy</h5>
+<p>
+                    All purchases made on DonutSMP, including but not limited to ranks, virtual items,
+                    in-game currency, and services, are considered digital content and are generally
+                    final and non-refundable once delivered.
+                </p>
+<p>
+                    Refunds may only be provided where required by applicable law or at the sole discretion of DonutSMP.
+                </p>
+<h5>2. Digital Content and Immediate Delivery</h5>
+<p>
+                    By completing a purchase, you acknowledge that the digital content or service may be delivered immediately.
+                    Where permitted by law, you agree that your right of withdrawal or cancellation may be waived once delivery begins.
+                </p>
+<h5>3. Non-Refundable Cases</h5>
+<p>
+                    Refunds will not be provided in the following situations, except where required by law:
+                </p>
+<ul>
+<li>Account suspension or termination due to violations of the Terms of Service</li>
+<li>Loss of virtual items or currency due to gameplay, resets, updates, or balancing changes</li>
+<li>Accidental or mistaken purchases made by the user</li>
+<li>Unauthorized access resulting from user negligence (e.g., sharing account credentials)</li>
+<li>Real-money trading or transactions conducted outside official DonutSMP channels</li>
+<li>Requests made after the digital content has been delivered and used</li>
+</ul>
+<h5>4. Chargebacks and Payment Disputes</h5>
+<p>
+                    Initiating a chargeback, payment reversal, or dispute without first contacting DonutSMP support
+                    may result in immediate suspension or termination of the associated account and revocation of purchased content.
+                </p>
+<p>
+                    DonutSMP reserves the right to contest chargebacks and provide relevant evidence to payment providers
+                    and financial institutions.
+                </p>
+<h5>5. Exceptional Refunds</h5>
+<p>
+                    In exceptional circumstances, DonutSMP may, at its sole discretion, offer a refund or compensation.
+                    Any such decision does not establish a precedent or obligation for future cases.
+                </p>
+<h5>6. Legal Rights</h5>
+<p>
+                    Nothing in this Refund Policy affects your statutory rights under applicable consumer protection laws
+                    in your country or region, including but not limited to the European Union, the United States, Canada,
+                    and other jurisdictions.
+                </p>
+<h5>7. Contact</h5>
+<p>
+                    For questions regarding refunds or payments, please contact DonutSMP support before initiating any dispute.
+                </p>
+</div>
+</div>
+</div>
+</div>
+
+<!--
+    Removal of the Tebex footer violates our Terms & Conditions.
+    Due to Tebex being the Merchant of Record, the footer is a contractual requirement by our payment processing partners such as VISA & Mastercard.
+    Any attempt to hide or make the inner text of the footer unreadable will result in an immediate lock of your store & available funds with no exceptions.
+    We perform random checks on all stores to ensure you are abiding by this requirement.
+    We’re happy for you to change the colors and max-width of the footer to suit your design requirements, which you can learn how to do so by reading the documentation available at https://docs.tebex.io/developers/templates/footer
+-->
+<tebex-footer>
+    <template shadowrootmode="open">
+        <div class="tebex-footer-wrapper tebex-footer-wrapper-dark">
+            <div class="tebex-footer-inner">
+                <div class="tebex-footer-image">
+                    <a href="https://www.tebex.io" target="_blank" rel="noopener noreferrer" aria-label="Tebex Website">
+                        <svg width="61" height="29" viewBox="0 0 61 29" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M7.22379 7.36903C8.42455 5.55275 10.5991 5.02655 10.5991 5.02655C10.5991 5.02655 6.44895 4.02049 6.44895 0C6.44895 4.02049 2.29644 5.02655 2.29644 5.02655C2.29644 5.02655 4.47176 5.55275 5.67331 7.36903H0V14.3322L1.28979 12.1758H3.86857V24.1932L9.02693 29V14.2859C7.71147 13.7208 5.8217 12.2842 5.14472 11.1885C6.30056 11.5136 7.85104 11.9411 9.05821 12.1766H12.8963V7.36903H7.22379Z" fill="#9C9FA9" />
+                            <g clip-path="url(#clip0_995_406)">
+                                <path fill-rule="evenodd" clip-rule="evenodd" d="M35.9134 14.0983C36.5813 13.2542 37.62 12.7915 38.8665 12.7915H38.868C41.2702 12.7915 42.9475 14.4698 42.9475 16.8028C42.9475 19.1358 41.2194 20.8283 38.8357 20.8283C37.5616 20.8283 36.5474 20.3884 35.8888 19.5529L35.8457 20.6418H34.0253V9.87207H35.9134V14.0983ZM38.7342 19.3536C40.1961 19.3536 41.2163 18.3259 41.2163 16.8555C41.2163 15.3509 40.3084 14.3417 38.828 14.3417C37.3477 14.3417 36.3135 15.3381 36.3135 16.8555C36.3135 18.3728 37.2722 19.3536 38.7342 19.3536ZM22.7747 19.1045C22.3069 19.4347 21.9345 19.5628 21.4436 19.5628C20.7204 19.5628 20.3049 19.1557 20.3049 18.444V14.4271H23.3395V12.8812H20.3049V10.8742H18.4167V12.8798H17.1041L16.6763 14.4257H18.4167V18.4583C18.4167 20.2162 19.4277 21.1841 21.2651 21.1841C22.1038 21.1841 22.8517 20.945 23.5488 20.4525L23.5996 20.4169L22.8486 19.0518L22.7747 19.1031V19.1045ZM28.2885 12.7303C25.874 12.7303 24.1228 14.4242 24.1228 16.7572C24.1228 19.2127 25.7894 20.7984 28.367 20.7984C29.8396 20.7984 30.9399 20.3827 31.8263 19.4902L31.8725 19.4447L30.8707 18.3273L30.8107 18.3814C30.1197 19.0063 29.4057 19.2853 28.4916 19.2853C27.0574 19.2853 26.1756 18.5579 26.0017 17.2327H32.2049V17.1615C32.2049 17.0903 32.2079 17.0234 32.2125 16.9565C32.2172 16.8868 32.2202 16.817 32.2202 16.743C32.2202 14.3061 30.6768 12.7303 28.2885 12.7303ZM26.0402 16.0882C26.2803 14.9794 27.1482 14.2677 28.2731 14.2677C29.398 14.2677 30.1582 14.9295 30.3244 16.0882H26.0402ZM48.0719 12.7303C45.6575 12.7303 43.9062 14.4242 43.9062 16.7572C43.9062 19.2127 45.5728 20.7984 48.1504 20.7984C49.6231 20.7984 50.7234 20.3827 51.6097 19.4902L51.6559 19.4447L50.6541 18.3273L50.5941 18.3814C49.9032 19.0063 49.1891 19.2853 48.275 19.2853C46.8408 19.2853 45.9591 18.5579 45.7852 17.2327H51.9883V17.1615C51.9883 17.0903 51.9914 17.0234 51.996 16.9565C52.0006 16.8868 52.0037 16.817 52.0037 16.743C52.0037 14.3061 50.4602 12.7303 48.0719 12.7303ZM48.0565 14.2662C49.1984 14.2662 49.9416 14.9281 50.1078 16.0868H45.8237C46.0637 14.9779 46.9316 14.2662 48.0565 14.2662ZM60.2258 12.8798L57.2973 16.5708L60.5566 20.6418H58.313L56.2078 17.8633L54.1488 20.6418H52.016L55.1645 16.6733L52.1576 12.8798H54.4012L56.254 15.4078L58.0914 12.8798H60.2258Z" fill="#9C9FA9" />
+                            </g>
+                            <defs>
+                                <clipPath id="clip0_995_406">
+                                    <rect width="43.8803" height="11.3121" fill="white" transform="translate(16.6763 9.87207)" />
+                                </clipPath>
+                            </defs>
+                        </svg>
+                    </a>
+                </div>
+
+                <div class="tebex-footer-text">
+                    This website and its checkout process is owned &amp; operated by Tebex Limited, who handle product fulfilment, billing support and refunds.
+                </div>
+
+                <div class="tebex-footer-links">
+                    <a href="/terms/impressum">Impressum</a>
+                    <a href="/terms/checkout">Terms &amp; Conditions</a>
+                    <a href="/terms/privacy">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+        <style>
+            :host {
+                all: unset !important;
+                zoom: 1 !important;
+                width: 100% !important;
+                min-height: 35px !important;
+                box-sizing: border-box !important;
+                z-index: 9999999999 !important;
+            }
+
+            :host([absolute]) {
+                position: absolute !important;
+                bottom: 0 !important;
+            }
+
+            * {
+                box-sizing: border-box !important;
+            }
+
+            .tebex-footer-wrapper {
+                all: unset !important;
+                display: flex !important;
+                width: 100% !important;
+                min-height: 35px !important;
+                padding: 2px 32px !important;
+                font-size: 11px !important;
+                font-weight: 400 !important;
+                font-family: Arial, sans-serif !important;
+                box-sizing: border-box !important;
+                --text: var(--tebex-legal-footer-text-color, #ffffff) !important;
+                --bg: var(--tebex-legal-footer-background-color, #111111) !important;
+                color: var(--text) !important;
+                color: #ffffff !important;
+                background-color: var(--bg) !important;
+                background-color: #111111 !important;
+                border-top: 1px solid var(--tebex-legal-footer-border-color, #111111) !important;
+            }
+
+            .tebex-footer-wrapper-dark {
+                --text: var(--tebex-legal-footer-text-color, #ffffff) !important;
+                --bg: var(--tebex-legal-footer-background-color, #111111) !important;
+                border-color: var(--tebex-legal-footer-border-color, #111111) !important;
+            }
+
+            .tebex-footer-inner {
+                width: 100% !important;
+                height: 100% !important;
+                max-width: var(--tebex-legal-footer-max-width, 100%) !important;
+                max-width: max(var(--tebex-legal-footer-max-width, 100%), 320px) !important;
+                margin: 0 auto !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
+                container-type: inline-size !important;
+            }
+
+            .tebex-footer-image {
+                padding-right: 32px !important;
+
+                svg path {
+                    fill: var(--tebex-legal-footer-logo-color, #9C9FA9) !important; 
+                }
+            }
+
+            .tebex-footer-text {
+                flex-grow: 1 !important;
+                padding-right: 32px !important;
+                color: inherit !important;
+                margin-top: 2px !important;
+            }
+
+            .tebex-footer-links {
+                margin-top: 2px !important;
+            }
+
+            .tebex-footer-links a {
+                color: inherit !important;
+                text-decoration: underline !important;
+            }
+
+            .tebex-footer-links > a:not(:last-child) {
+                margin-right: 12px !important;
+            }
+
+            @media screen and (max-width: 900px) {
+                .tebex-footer-wrapper {
+                    min-height: 70px !important;
+                    padding: 8px 16px !important;
+                    flex-wrap: wrap !important;
+                }
+
+                .tebex-footer-image {
+                    display: none !important;
+                }
+
+                .tebex-footer-links {
+                    margin-top: 4px !important;
+                    min-width: unset !important;
+                }
+            }
+
+            @container (max-width: 900px) {
+                .tebex-footer-image {
+                    display: none !important;
+                }
+            }
+
+            @media screen and (max-width: 600px) {
+                .tebex-footer-wrapper{
+                    min-height: 80px !important;
+                    padding: 4px 16px !important;
+                }
+            }
+        </style>
+    </template>
+</tebex-footer>
+
+<script type="text/javascript">
+    (() => {
+
+        const notAllowed = () => {
+            const err = 'Removal of the Tebex footer violates our Terms & Conditions. Please refer to the documentation at https://docs.tebex.io/developers/templates/footer';
+            console.warn(err);
+        };
+
+        // Used to access DOM methods that are gated externally
+        const SHADOW_ROOT = Symbol();
+        const ATTACH_SHADOW = Symbol();
+        const QUERY_SELECTOR = Symbol();
+        const SET_ATTRIBUTE = Symbol();
+        const REMOVE_ATTRIBUTE = Symbol();
+        const GATE_ON = Symbol();
+
+        class TebexFooter extends HTMLElement {
+            constructor() {
+                super();
+
+                this[SHADOW_ROOT] = this.shadowRoot;
+                this[ATTACH_SHADOW] = this.attachShadow;
+                this[QUERY_SELECTOR] = this.querySelector;
+                this[SET_ATTRIBUTE] = this.setAttribute;
+                this[REMOVE_ATTRIBUTE] = this.removeAttribute;
+                this[GATE_ON] = true;
+
+                // Prevent shadow DOM access
+                this.attachShadow = notAllowed;
+                Object.defineProperty(this, 'shadowRoot', {
+                    get: () => null,
+                    set: notAllowed
+                });
+
+                // Polyfill for declarative shadow DOM
+                if (!this[SHADOW_ROOT]) {
+                    const template = this[QUERY_SELECTOR]('template[shadowrootmode]');
+                    if (template) {
+                        const mode = template.getAttribute('shadowrootmode') || 'open';
+                        const shadowRoot = this[ATTACH_SHADOW]({ mode });
+                        shadowRoot.appendChild(template.content);
+                        this[SHADOW_ROOT] = shadowRoot;
+                        template.remove();
+                    }
+                }
+
+                // Warn against edits to internal shadow DOM content
+                const root = this[SHADOW_ROOT] || this.shadowRoot;
+                if (root) {
+                    const observer = new MutationObserver((mutationList, observer) => {
+                        if (this[GATE_ON])
+                            notAllowed();
+                        this[GATE_ON] = true;
+                    });
+                    const observerConfig = {
+                        attributes: true,
+                        childList: true,
+                        characterData: true,
+                        subtree: true
+                    };
+                    observer.observe(root, observerConfig);
+
+                    // Handle file protocol relative links fallback if opened locally without server
+                    if (window.location.protocol === 'file:') {
+                        root.querySelectorAll('a').forEach(a => {
+                            const href = a.getAttribute('href');
+                            if (href && href.startsWith('/terms/')) {
+                                const page = href.replace('/terms/', '');
+                                const isInsideTerms = window.location.pathname.includes('/terms/');
+                                a.href = (isInsideTerms ? '../' : 'terms/') + page + '.html';
+                            }
+                        });
+                    }
+                }
+
+                this.#reposition();
+
+                document.addEventListener('DOMContentLoaded', () => {
+                    this.#reposition();
+                });
+
+                function debounce(func) {
+                    var timer;
+                    return function (event) {
+                        if (timer) clearTimeout(timer);
+                        timer = setTimeout(func, 100, event);
+                    };
+                }
+
+                addEventListener('resize', debounce(() => {
+                    this.#reposition();
+                }));
+
+                addEventListener('scroll', debounce(() => {
+                    this.#reposition();
+                }));
+            }
+
+            disconnectedCallback() {
+                notAllowed();
+            }
+
+            #reposition() {
+                this[GATE_ON] = false;
+                if (document.body.clientHeight < (window.innerHeight - this.clientHeight))
+                    this[SET_ATTRIBUTE]('absolute', '');
+                else
+                    this[REMOVE_ATTRIBUTE]('absolute');
+            }
+        }
+
+        if (!customElements.get('tebex-footer')) {
+            customElements.define('tebex-footer', TebexFooter);
+        }
+    })();
+</script>
+
+<script src="/assets/js/script.js"></script>
+</body>
+</html>

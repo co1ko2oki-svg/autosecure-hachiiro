@@ -1,5 +1,7 @@
 const getAliases = require("./getAliases");
 const decode = require("./decode");
+const fs = require("fs");
+const path = require("path");
 const {
   sanitizeAliasPrefix,
   normalizeEmail,
@@ -179,10 +181,22 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
       } else if (locLower.includes("addassocid") || locLower.includes("error.aspx") || locLower.includes("err=")) {
         classification = MUTATION_RESULTS.MUTATION_REJECTED;
         console.log(`[ADD_ALIAS][req=${reqId}] [!] Mutation possibly rejected by Microsoft: Redirected back to form (${location}). Verifying actual state...`);
+        // Debug Log
+        try {
+            const debugDir = path.join(__dirname, "../../../../debug");
+            if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+            fs.writeFileSync(path.join(debugDir, `add_alias_error_${reqId}.html`), rawData);
+        } catch(e) {}
         // Fall through to Step 4 authoritative state check instead of returning false
       } else if (locLower.includes("proofs") || locLower.includes("challenge") || locLower.includes("consent")) {
         classification = MUTATION_RESULTS.MUTATION_CHALLENGED;
         console.log(`[ADD_ALIAS][req=${reqId}] [X] Mutation challenged by Microsoft security (${location}).`);
+        // Debug Log
+        try {
+            const debugDir = path.join(__dirname, "../../../../debug");
+            if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+            fs.writeFileSync(path.join(debugDir, `add_alias_challenge_${reqId}.html`), rawData);
+        } catch(e) {}
         return false;
       } else {
         classification = MUTATION_RESULTS.MUTATION_REDIRECTED;
@@ -200,6 +214,12 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
       ) {
         classification = MUTATION_RESULTS.MUTATION_REJECTED;
         console.log(`[ADD_ALIAS][req=${reqId}] [!] Microsoft returned HTTP 200 logical error. Verifying actual state...`);
+        // Debug Log
+        try {
+            const debugDir = path.join(__dirname, "../../../../debug");
+            if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+            fs.writeFileSync(path.join(debugDir, `add_alias_error_200_${reqId}.html`), rawData);
+        } catch(e) {}
         // Fall through to Step 4 instead of returning false - alias may still exist
       } else {
         classification = MUTATION_RESULTS.MUTATION_UNKNOWN;

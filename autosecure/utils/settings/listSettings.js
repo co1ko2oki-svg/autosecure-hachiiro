@@ -1,6 +1,7 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
 const { queryParams } = require("../../../db/database");
-const { footer } = require("../../../config.json");
+const config = require("../../../config.json");
+const { footer } = config;
 
 module.exports = async (client, username, isFeaturePanel = null) => {
     let settings = await client.queryParams(`SELECT * FROM autosecure WHERE user_id=?`, [username]);
@@ -501,7 +502,7 @@ const featureMenu = new StringSelectMenuBuilder()
                 },
                 {
                     name: "Custom PFP",
-                    value: settings.pfp && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default",
+                    value: settings.pfp && settings.pfp !== (config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png") && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default",
                     inline: true
                 },
                 {

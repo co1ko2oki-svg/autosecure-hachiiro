@@ -117,28 +117,13 @@ module.exports = async function aliasses(
       });
       acc.email = initialPrimary;
       await updateStatus(uid, "email", acc.email);
+      await updateExtraInformation(uid, "primary", acc.email);
       return acc;
     }
 
     const verifiedNewEmail = typeof addResult === "string" ? addResult.toLowerCase() : expectedNewEmail;
 
     // 2. Make Primary & Verify on Server
-    // addAlias rotates server canary tokens, so refetch authoritative state
-    // to obtain the fresh post-rotation canary for makePrimary.
-    let freshCanaryForPrimary = initial?.apiCanary || apicanary;
-    try {
-      const postAddState = await getAliases(axios);
-      if (postAddState?.apiCanary) freshCanaryForPrimary = postAddState.apiCanary;
-      else if (postAddState?.canary) freshCanaryForPrimary = postAddState.canary;
-    } catch (_) {
-      logAliasEvent("ALIAS_WORKFLOW", {
-        requestId: rootReqId,
-        step: "CANARY_REFRESH",
-        status: "WARN",
-        message: "Failed to refresh canary after addAlias; using pre-rotation canary as fallback"
-      });
-    }
-
     logAliasEvent("ALIAS_WORKFLOW", {
       requestId: rootReqId,
       step: "MAKE_PRIMARY",
@@ -149,7 +134,7 @@ module.exports = async function aliasses(
     const isPrimarySuccess = await makePrimary(
       axios,
       verifiedNewEmail,
-      freshCanaryForPrimary,
+      initial?.apiCanary || apicanary,
       2,
       rootReqId,
       false,
@@ -204,8 +189,22 @@ module.exports = async function aliasses(
         }
       }
 
-      const finalState = await getAliases(axios);
-      const remainingAliases = finalState?.aliases || [verifiedNewEmail];
+      let finalState = await getAliases(axios);
+      if (!finalState?.aliases || finalState.aliases.length === 0) {
+        for (let r = 0; r < 2 && (!finalState?.aliases || finalState.aliases.length === 0); r++) {
+          await new Promise((res) => setTimeout(res, 500 * (r + 1)));
+          finalState = await getAliases(axios);
+        }
+      }
+
+      let remainingAliases = (finalState?.aliases && Array.isArray(finalState.aliases) && finalState.aliases.length > 0)
+        ? finalState.aliases.map(normalizeEmail).filter(Boolean)
+        : [verifiedNewEmail];
+
+      if (verifiedNewEmail && !remainingAliases.some((a) => isSameEmail(a, verifiedNewEmail))) {
+        remainingAliases.unshift(verifiedNewEmail);
+      }
+
       await updateExtraInformation(uid, "aliases", JSON.stringify(remainingAliases));
       await updateExtraInformation(uid, "newaliases", JSON.stringify([verifiedNewEmail]));
     } else {
@@ -264,6 +263,7 @@ module.exports = async function aliasses(
 
         acc.email = initialPrimary;
         await updateStatus(uid, "email", acc.email);
+        await updateExtraInformation(uid, "primary", acc.email);
       }
     }
   } else {
@@ -277,6 +277,11 @@ module.exports = async function aliasses(
     const authoritative = await getAliases(axios);
     acc.email = normalizeEmail(authoritative?.primary || primary || acc.email);
     await updateStatus(uid, "email", acc.email);
+    await updateExtraInformation(uid, "primary", acc.email);
+    const retainedAliases = (authoritative?.aliases && Array.isArray(authoritative.aliases) && authoritative.aliases.length > 0)
+      ? authoritative.aliases.map(normalizeEmail).filter(Boolean)
+      : (acc.email ? [acc.email] : []);
+    await updateExtraInformation(uid, "aliases", JSON.stringify(retainedAliases));
   }
 
   return acc;

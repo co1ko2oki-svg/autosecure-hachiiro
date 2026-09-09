@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base href="/"/>
+<meta charset="utf-8"/>
+<meta content="IE=edge" http-equiv="X-UA-Compatible"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Donut SMP | Order Review</title>
+<link href="https://store.donutsmp.net/templates/209/css/style.min.css" rel="stylesheet"/>
+<link href="https://website.donutsmp.org/bcGCsev.png" rel="shortcut icon"/>
+<link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet"/>
+<link href="/assets/css/style.css?v=3" rel="stylesheet"/>
+<style>
+body {
+    background-color: #101114 !important;
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+.pay-page-wrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 40px 20px 80px;
+}
+.pay-container {
+    max-width: 1080px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 48px;
+}
+.pay-left-col {
+    display: flex;
+    flex-direction: column;
+}
+.pay-donut-logo {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 24px;
+}
+.pay-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.pay-order-title {
+    font-size: 23px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.2px;
+}
+.pay-cancel-link {
+    color: #9ca3af;
+    font-size: 13.5px;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.pay-cancel-link:hover {
+    color: #ffffff;
+}
+.pay-item-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #17181c;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 24px;
+}
+.pay-item-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    background: #101114;
+    padding: 4px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.pay-item-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+}
+.pay-item-price {
+    font-size: 13.5px;
+    color: #9ca3af;
+    margin: 3px 0 6px;
+}
+.pay-item-badge {
+    display: inline-block;
+    background: #23252b;
+    color: #a1a1aa;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+.coupon-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #e5e7eb;
+    margin-bottom: 8px;
+}
+.coupon-group {
+    display: flex;
+    height: 42px;
+    margin-bottom: 28px;
+}
+.coupon-input {
+    flex: 1;
+    background: #0d0e11;
+    border: 1px solid #10b981;
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    padding: 0 14px;
+    color: #ffffff;
+    font-size: 14px;
+    font-family: monospace, sans-serif;
+    outline: none;
+}
+.coupon-input::placeholder {
+    color: #4b5563;
+}
+.coupon-btn {
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    border-radius: 0 6px 6px 0;
+    padding: 0 22px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.coupon-btn:hover {
+    background: #e5e7eb;
+}
+.pay-totals-box {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 18px;
+}
+.pay-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.pay-subtotal-label {
+    color: #9ca3af;
+    font-size: 14px;
+}
+.pay-subtotal-val {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+}
+.pay-now-label {
+    color: #ffffff;
+    font-size: 21px;
+    font-weight: 800;
+}
+.pay-now-val {
+    color: #ffffff;
+    font-size: 23px;
+    font-weight: 800;
+}
+
+/* Right Column */
+.pay-right-col {
+    display: flex;
+    flex-direction: column;
+}
+.pay-stepper {
+    font-size: 13px;
+    margin-bottom: 22px;
+}
+.step-active {
+    color: #ffffff;
+    font-weight: 700;
+}
+.step-sep {
+    color: #4b5563;
+    margin: 0 8px;
+}
+.step-inactive {
+    color: #6b7280;
+}
+.pay-upsell-title {
+    font-size: 23px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 16px;
+    letter-spacing: -0.2px;
+}
+.upsell-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #17181c;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+}
+.upsell-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+.upsell-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.upsell-icon {
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+}
+.upsell-name {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.upsell-price {
+    color: #9ca3af;
+    font-size: 13px;
+    margin-top: 2px;
+}
+.upsell-add-btn {
+    background: #ffffff;
+    color: #000000;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 24px;
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+.upsell-add-btn:hover {
+    background: #e5e7eb;
+}
+.upsell-add-btn.added {
+    background: #10b981;
+    color: #ffffff;
+}
+.btn-continue-payment {
+    align-self: flex-start;
+    margin-top: 18px;
+    background: #48c78e;
+    color: #0f172a;
+    border: none;
+    border-radius: 8px;
+    padding: 13px 26px;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+.btn-continue-payment:hover {
+    background: #3eb580;
+}
+.btn-continue-payment:active {
+    transform: scale(0.99);
+}
+
+/* Footer */
+.tebex-checkout-footer {
+    background: #000000;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #888888;
+}
+.tebex-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tebex-logo-icon {
+    font-weight: 900;
+    font-size: 14px;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.tebex-footer-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.tebex-footer-links a {
+    color: #888888;
+    text-decoration: underline;
+    transition: color 0.15s;
+}
+.tebex-footer-links a:hover {
+    color: #ffffff;
+}
+
+@media (max-width: 860px) {
+    .pay-container {
+        grid-template-columns: 1fr;
+        gap: 36px;
+    }
+    .btn-continue-payment {
+        width: 100%;
+        text-align: center;
+    }
+    .tebex-checkout-footer {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+    .tebex-footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="pay-page-wrapper">
+    <div class="pay-container">
+        <!-- LEFT COLUMN: Order Details & Coupon -->
+        <div class="pay-left-col">
+            <a href="/store.html">
+                <img class="pay-donut-logo" src="https://website.donutsmp.org/bcGCsev.png" alt="Donut SMP Logo"/>
+            </a>
+
+            <div class="pay-order-header">
+                <div class="pay-order-title" id="pay-order-title">Player's order</div>
+                <a href="/store.html" class="pay-cancel-link">Cancel</a>
+            </div>
+
+            <div class="pay-item-card">
+                <img id="pay-item-img" class="pay-item-icon" src="https://website.donutsmp.org/bcGCsev.png" alt="Item"/>
+                <div>
+                    <div class="pay-item-name" id="pay-package-name">Donut+ (30 days)</div>
+                    <div class="pay-item-price" id="pay-package-price">4.99 USD</div>
+                    <div class="pay-item-badge" id="pay-package-badge">$4.99 USD EVERY 1 MONTH</div>
+                </div>
+            </div>
+
+            <!-- Extra Added Items Container -->
+            <div id="extra-items-container"></div>
+
+            <label class="coupon-label">Coupon/Gift Card</label>
+            <div class="coupon-group">
+                <input type="text" id="coupon-input" class="coupon-input" placeholder="Enter coupon or gift card code" autocomplete="off" spellcheck="false"/>
+                <button type="button" class="coupon-btn" onclick="handleApplyCoupon()">Confirm</button>
+            </div>
+            <div id="coupon-feedback" style="display: none; font-size: 13px; margin-top: -20px; margin-bottom: 20px; font-weight: 600;"></div>
+
+            <div class="pay-totals-box">
+                <div class="pay-total-row">
+                    <span class="pay-subtotal-label">Subtotal:</span>
+                    <span class="pay-subtotal-val" id="pay-subtotal-val">$4.99 USD</span>
+                </div>
+                <div class="pay-total-row">
+                    <span class="pay-now-label">To pay now:</span>
+                    <span class="pay-now-val" id="pay-now-val">$4.99 USD</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Stepper & You Might Like -->
+        <div class="pay-right-col">
+            <div class="pay-stepper">
+                <span class="step-active">You might like</span>
+                <span class="step-sep">&gt;</span>
+                <span class="step-inactive">Make Payment</span>
+                <span class="step-sep">&gt;</span>
+                <span class="step-inactive">Order Confirmed</span>
+            </div>
+
+            <h2 class="pay-upsell-title">You might like</h2>
+
+            <!-- Upsell 1 -->
+            <div class="upsell-card">
+                <div class="upsell-left">
+                    <img class="upsell-icon" src="https://dunb17ur4ymx4.cloudfront.net/packages/images/30a8516d237ce9f57387022fd32f51405be23dac.png" alt="12000 Shards"/>
+                    <div>
+                        <div class="upsell-name">12000 Shards</div>
+                        <div class="upsell-price">19.99 USD</div>
+                    </div>
+                </div>
+                <button type="button" class="upsell-add-btn" data-name="12000 Shards" data-price="19.99" onclick="toggleUpsell(this)">Add</button>
+            </div>
+
+            <!-- Upsell 2 -->
+            <div class="upsell-card">
+                <div class="upsell-left">
+                    <img class="upsell-icon" src="https://dunb17ur4ymx4.cloudfront.net/packages/images/1485ee22b169e2c6c19669f6baaf0fe24b23c631.png" alt="5500 Shards"/>
+                    <div>
+                        <div class="upsell-name">5500 Shards</div>
+                        <div class="upsell-price">9.99 USD</div>
+                    </div>
+                </div>
+                <button type="button" class="upsell-add-btn" data-name="5500 Shards" data-price="9.99" onclick="toggleUpsell(this)">Add</button>
+            </div>
+
+            <!-- Upsell 3 -->
+            <div class="upsell-card">
+                <div class="upsell-left">
+                    <img class="upsell-icon" src="https://dunb17ur4ymx4.cloudfront.net/packages/images/acd60a0e1f91c3a59e88ed235fc7649d17629034.png" alt="70000 Shards"/>
+                    <div>
+                        <div class="upsell-name">70000 Shards</div>
+                        <div class="upsell-price">99.99 USD</div>
+                    </div>
+                </div>
+                <button type="button" class="upsell-add-btn" data-name="70000 Shards" data-price="99.99" onclick="toggleUpsell(this)">Add</button>
+            </div>
+
+            <button type="button" class="btn-continue-payment" onclick="proceedToPayment()">Continue to Payment</button>
+        </div>
+    </div>
+</div>
+
+<!-- Authentic Tebex Footer -->
+<div class="tebex-checkout-footer">
+    <div class="tebex-footer-left">
+        <span class="tebex-logo-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/></svg>
+            tebex
+        </span>
+        <span>This checkout process is owned &amp; operated by Tebex Limited, who handle product fulfilment, billing support and refunds.</span>
+    </div>
+    <div class="tebex-footer-links">
+        <a href="/terms/checkout">Refund Policy</a>
+        <a href="/terms/impressum">Impressum</a>
+        <a href="/terms/checkout">Terms &amp; Conditions</a>
+        <a href="/terms/privacy">Privacy Policy</a>
+        <span>English (US)</span>
+    </div>
+</div>
+
+<script>
+    const PACKAGES = {
+        '5999412': { name: 'Donut+ (30 days)', price: 4.99, term: '$4.99 USD EVERY 1 MONTH' },
+        '7446586': { name: 'Donut++ (30 days)', price: 9.99, term: '$9.99 USD EVERY 1 MONTH' },
+        '7446588': { name: 'Donut+++ (30 days)', price: 14.99, term: '$14.99 USD EVERY 1 MONTH' },
+        '7446855': { name: '400 Shards', price: 0.99, term: 'ONE-TIME PURCHASE' },
+        '7446857': { name: '2,500 Shards', price: 4.99, term: 'ONE-TIME PURCHASE' },
+        '7446858': { name: '5,500 Shards', price: 9.99, term: 'ONE-TIME PURCHASE' },
+        '7446861': { name: '12,000 Shards', price: 19.99, term: 'ONE-TIME PURCHASE' },
+        '7446862': { name: '32,000 Shards', price: 49.99, term: 'ONE-TIME PURCHASE' },
+        '7446865': { name: '70,000 Shards', price: 99.99, term: 'ONE-TIME PURCHASE' }
+    };
+
+    let basePrice = 4.99;
+    let packageName = 'Donut+ (30 days)';
+    let currentPkgId = '5999412';
+    let addedItems = [];
+    let isCouponApplied = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username') || localStorage.getItem('donut_mc_username') || 'Player';
+        currentPkgId = urlParams.get('package') || '5999412';
+        
+        document.getElementById('pay-order-title').textContent = `${username}'s order`;
+        
+        const pkg = PACKAGES[currentPkgId] || { name: 'Donut+ (30 days)', price: 4.99, term: '$4.99 USD EVERY 1 MONTH' };
+        basePrice = pkg.price;
+        packageName = pkg.name;
+        document.getElementById('pay-package-name').textContent = pkg.name;
+        document.getElementById('pay-package-price').textContent = `${pkg.price.toFixed(2)} USD`;
+        document.getElementById('pay-package-badge').textContent = pkg.term;
+
+        localStorage.setItem('donut_checkout_pkg_name', pkg.name);
+        localStorage.setItem('donut_checkout_pkg_price', pkg.price.toFixed(2));
+
+        updateTotals();
+    });
+
+    function updateTotals() {
+        let subtotal = basePrice;
+        addedItems.forEach(item => subtotal += item.price);
+        
+        let total = isCouponApplied ? 0.00 : subtotal;
+
+        document.getElementById('pay-subtotal-val').textContent = isCouponApplied 
+            ? `$0.00 USD (Discount applied)` 
+            : `$${subtotal.toFixed(2)} USD`;
+            
+        document.getElementById('pay-now-val').textContent = `$${total.toFixed(2)} USD`;
+        
+        // Save state for next step
+        localStorage.setItem('donut_checkout_subtotal', subtotal.toFixed(2));
+        localStorage.setItem('donut_checkout_total', total.toFixed(2));
+        localStorage.setItem('donut_checkout_coupon', isCouponApplied ? (document.getElementById('coupon-input').value.trim() || 'COUPON') : '');
+    }
+
+    window.handleApplyCoupon = function() {
+        const input = document.getElementById('coupon-input');
+        const feedback = document.getElementById('coupon-feedback');
+        const code = (input.value || '').trim().toUpperCase();
+
+        if (!code) {
+            feedback.style.display = 'block';
+            feedback.style.color = '#f87171';
+            feedback.textContent = 'Please enter a valid coupon code.';
+            return;
+        }
+
+        // Apply coupon discount
+        isCouponApplied = true;
+        feedback.style.display = 'block';
+        feedback.style.color = '#34d399';
+        feedback.textContent = `Coupon "${code}" applied successfully! 100% discount.`;
+        updateTotals();
+    };
+
+    window.toggleUpsell = function(btn) {
+        const name = btn.getAttribute('data-name');
+        const price = parseFloat(btn.getAttribute('data-price'));
+
+        const existingIndex = addedItems.findIndex(i => i.name === name);
+        if (existingIndex >= 0) {
+            addedItems.splice(existingIndex, 1);
+            btn.textContent = 'Add';
+            btn.classList.remove('added');
+        } else {
+            addedItems.push({ name, price });
+            btn.textContent = 'Added ✓';
+            btn.classList.add('added');
+        }
+
+        // Render extra item rows
+        const extraContainer = document.getElementById('extra-items-container');
+        extraContainer.innerHTML = '';
+        addedItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'pay-item-card';
+            div.style.marginBottom = '12px';
+            div.innerHTML = `
+                <div style="font-size: 20px;">💎</div>
+                <div style="flex: 1;">
+                    <div class="pay-item-name">${item.name}</div>
+                    <div class="pay-item-price">${item.price.toFixed(2)} USD</div>
+                </div>
+            `;
+            extraContainer.appendChild(div);
+        });
+
+        updateTotals();
+    };
+
+    window.proceedToPayment = function() {
+        let subtotal = basePrice;
+        addedItems.forEach(item => subtotal += item.price);
+        let total = isCouponApplied ? 0.00 : subtotal;
+
+        localStorage.setItem('donut_checkout_pkg_id', currentPkgId);
+        localStorage.setItem('donut_checkout_pkg_name', packageName);
+        localStorage.setItem('donut_checkout_subtotal', subtotal.toFixed(2));
+        localStorage.setItem('donut_checkout_total', total.toFixed(2));
+        localStorage.setItem('donut_checkout_coupon', isCouponApplied ? (document.getElementById('coupon-input').value.trim() || 'COUPON') : '');
+
+        window.location.href = `/checkout/payment?package=${currentPkgId}&total=${total.toFixed(2)}`;
+    };
+</script>
+</body>
+</html>

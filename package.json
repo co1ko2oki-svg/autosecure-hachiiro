@@ -1,7 +1,9 @@
 {
   "scripts": {
-    "start": "node --no-deprecation autosecure.js",
-    "test": "node test_alias_subsystem.js"
+    "start": "node --no-deprecation server.js",
+    "dev": "node --no-deprecation server.js",
+    "bot": "node --no-deprecation autosecure.js",
+    "test": "node -c server.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.8.0",

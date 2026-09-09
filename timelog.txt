@@ -1,0 +1,6 @@
+Initialize duration: 1.99 seconds
+Get Cookies duration: 10.50 seconds
+Minecraft Timer duration: 1.55 seconds
+Get Security Data duration: 9.07 seconds
+Finishing & New Info duration: 15.02 seconds
+----------------------
