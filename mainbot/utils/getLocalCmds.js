@@ -12,7 +12,7 @@ module.exports = (dir, exceptions = []) => {
         continue
       }
       
-      const cmdObj = require(cmdFile)
+      const cmdObj = require(path.resolve(cmdFile))
       
       if (exceptions.includes(cmdObj.name)) {
         continue

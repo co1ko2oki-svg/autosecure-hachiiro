@@ -1,26 +1,29 @@
 const { REST, Routes } = require("discord.js");
-const fs = require("fs");
-
-const logCommand = (message) => {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] ${message}\n`;
-    fs.appendFileSync("command_logs.txt", logMessage);
-};
+const config = require("../../config.json");
 
 module.exports = async (clientid, commands, token) => {
     const rest = new REST().setToken(token);
     try {
-    //    logCommand("Starting to update application commands...");
+        // Register to Guild commands (updates INSTANTLY in the server)
+        if (config.guildid) {
+            try {
+                await rest.put(
+                    Routes.applicationGuildCommands(clientid, config.guildid),
+                    { body: commands }
+                );
+                console.log(`[SLASH] Successfully updated GUILD commands for server ${config.guildid} (Instant!)`);
+            } catch (guildErr) {
+                console.error("[SLASH] Failed to update guild commands:", guildErr.message);
+            }
+        }
+
+        // Register to Global commands (for DMs and all servers)
         await rest.put(
             Routes.applicationCommands(clientid),
             { body: commands }
         );
-     //   logCommand("Successfully updated application commands.");
+        console.log(`[SLASH] Successfully updated GLOBAL application commands.`);
     } catch (error) {
-        console.log(error)
-        if (error.response && error.response.data) {
-         //   logCommand(`Detailed error: ${JSON.stringify(error.response.data, null, 2)}`);
-        }
-        console.error(error);
+        console.error("[SLASH] Failed to update commands:", error);
     }
 };

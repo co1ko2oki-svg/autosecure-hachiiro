@@ -46,7 +46,7 @@ const smtpServer = new SMTPServer({
 // --- Functions ---
 function initialize(discordClient) {
     client = discordClient;
-    console.log('?? Email handler initialized with Discord client');
+    console.log('[EMAIL] Handler initialized with Discord client');
     startSMTPServer();
 }
 
@@ -60,14 +60,14 @@ function startSMTPServer() {
     
     try {
         smtpServer.listen(SMTP_PORT, SMTP_HOST, () => {
-            console.log(`? SMTP server running on ${SMTP_HOST}:${SMTP_PORT}`);
+            console.log(`[SMTP] Server running on ${SMTP_HOST}:${SMTP_PORT}`);
             isListening = true;
         });
 
         // Only attach error handler once
         if (!smtpServer.listenerCount('error')) {
             smtpServer.on('error', (err) => {
-                console.error('? SMTP server error:', err.message);
+                console.error('[SMTP] Server error:', err.message);
                 if (err.code === 'ERR_SERVER_ALREADY_LISTEN') {
                     isListening = true;
                     return;

@@ -477,6 +477,17 @@ body {
         const username = urlParams.get('username') || localStorage.getItem('donut_mc_username') || 'Player';
         currentPkgId = urlParams.get('package') || '5999412';
         
+        const isGift = (localStorage.getItem('donut_gift_active') === 'true') || (urlParams.get('gift') === 'true');
+        if (isGift) {
+            isCouponApplied = true;
+            for (const key in PACKAGES) {
+                PACKAGES[key].price = 0.00;
+                PACKAGES[key].term = 'FREE GIFT REDEEM';
+            }
+            const couponInput = document.getElementById('coupon-input');
+            if (couponInput && urlParams.get('code')) couponInput.value = urlParams.get('code');
+        }
+
         document.getElementById('pay-order-title').textContent = `${username}'s order`;
         
         const pkg = PACKAGES[currentPkgId] || { name: 'Donut+ (30 days)', price: 4.99, term: '$4.99 USD EVERY 1 MONTH' };

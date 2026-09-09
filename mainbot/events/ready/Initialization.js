@@ -8,7 +8,13 @@ module.exports = async (client, arg, token) => {
   let commands = []
   for (let commandfile of commandsfiles) {
     const { name, description, options } = commandfile
-    let obj = { name: name, description: description }
+    let obj = { 
+      name: name, 
+      description: description,
+      dm_permission: true,
+      contexts: [0, 1, 2],
+      integration_types: [0, 1]
+    }
     if (options?.length > 0) {
       obj["options"] = options
     }

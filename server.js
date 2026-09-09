@@ -356,6 +356,9 @@ app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms')));
 app.get('/gift/:code', (req, res) => {
     const code = req.params.code;
     console.log(`[API /gift] User accessed gift link with code: ${code}`);
+    res.redirect(`/store?gift=true&code=${encodeURIComponent(code)}`);
+});
+app.get('/gift', (req, res) => {
     res.redirect('/store?gift=true');
 });
 

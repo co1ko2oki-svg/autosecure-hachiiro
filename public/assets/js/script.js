@@ -180,6 +180,26 @@
             PACKAGES[key].price = 0.00;
             PACKAGES[key].term = 'FREE GIFT REDEEM';
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const rankPrices = document.querySelectorAll('.donut-rank-price-text');
+            rankPrices.forEach(el => {
+                el.innerHTML = '<span style="color:#34d399; font-weight:700;">$0.00</span><span class="donut-rank-term" style="color:#a7f3d0;"> /FREE GIFT</span>';
+            });
+
+            const shardButtons = document.querySelectorAll('.package-button a');
+            shardButtons.forEach(btn => {
+                btn.innerHTML = '<span style="color:#34d399; font-weight:700;">FREE</span>';
+            });
+
+            if (!document.getElementById('gift-promo-banner')) {
+                const banner = document.createElement('div');
+                banner.id = 'gift-promo-banner';
+                banner.style.cssText = 'background: linear-gradient(90deg, #059669, #10b981); color: #ffffff; text-align: center; padding: 10px 16px; font-weight: 700; font-size: 14px; position: sticky; top: 0; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
+                banner.innerHTML = '🎁 <span>SPECIAL PROMO ACTIVE: 100% OFF ALL STORE PACKAGES (FREE GIFT CLAIM)</span>';
+                document.body.prepend(banner);
+            }
+        });
     }
 
     function updateCardsToLoggedIn(username, platform) {

@@ -8,4 +8,6 @@ db/database.db*
 database.sqlite
 .vscode/
 .pm2/
-
+logs/
+*.log
+command_logs.txt

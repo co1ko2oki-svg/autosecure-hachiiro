@@ -25,7 +25,7 @@ async function autoPostPanel(client, channelId, panelName, generateContent) {
             await channel.send(content);
         }
     } catch (error) {
-        console.error(`[AUTOPANEL] Error for ${panelName} panel (channel ${channelId}):`, error.message);
+        console.warn(`[AUTOPANEL] Skipping ${panelName} panel (channel ${channelId}): ${error.message}`);
     }
 }
 

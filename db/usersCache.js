@@ -1,6 +1,5 @@
     const { Client } = require("discord.js");
     const { tokens } = require("../config.json");
-    console.log("[USERS_CACHE] Initializing users cache system...");
     
     let client = null;
     if (tokens && tokens[0]) {
@@ -10,7 +9,6 @@
                 console.error("[USERS_CACHE] Failed to login:", err.message);
                 client = null;
             });
-            console.log("[USERS_CACHE] Discord client initialized");
         } catch (err) {
             console.error("[USERS_CACHE] Error creating Discord client:", err.message);
             client = null;
@@ -19,8 +17,7 @@
         console.error("[USERS_CACHE] No token found in config.json");
     }
 
-    let usersCache = new Map()
-    console.log("[USERS_CACHE] Users cache Map created");
+    let usersCache = new Map();
     
     async function getUser(id) {
         console.log(`[USERS_CACHE] getUser() called with ID: ${id}`);
@@ -72,5 +69,4 @@
             }
         }
     }
-    console.log("[USERS_CACHE] Module loaded successfully");
     module.exports = { getUser }

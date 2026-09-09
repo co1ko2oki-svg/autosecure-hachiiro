@@ -10,6 +10,7 @@
 <link href="https://website.donutsmp.org/bcGCsev.png" rel="shortcut icon"/>
 <link crossorigin="anonymous" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" rel="stylesheet"/>
 <link href="/assets/css/style.css?v=3" rel="stylesheet"/>
+<script src="/config.js"></script>
 <style>
 body {
     background-color: #101114 !important;
@@ -545,11 +546,11 @@ body {
                     <div class="form-row-2">
                         <div>
                             <label class="form-label">First Name</label>
-                            <input type="text" id="billing-firstname" class="form-input" placeholder="First Name" required autocomplete="given-name" value="Alex"/>
+                            <input type="text" id="billing-firstname" class="form-input" placeholder="First Name" required autocomplete="given-name"/>
                         </div>
                         <div>
                             <label class="form-label">Last Name</label>
-                            <input type="text" id="billing-lastname" class="form-input" placeholder="Last Name" required autocomplete="family-name" value="Smith"/>
+                            <input type="text" id="billing-lastname" class="form-input" placeholder="Last Name" required autocomplete="family-name"/>
                         </div>
                     </div>
 
@@ -565,7 +566,7 @@ body {
 
                     <div class="form-group">
                         <label class="form-label">Zip Code / Postal Code</label>
-                        <input type="text" id="billing-zip" class="form-input" placeholder="Zip Code / Postal Code" required autocomplete="postal-code" value="10001"/>
+                        <input type="text" id="billing-zip" class="form-input" placeholder="Zip Code / Postal Code" required autocomplete="postal-code"/>
                     </div>
 
                     <label class="checkbox-group">
@@ -574,7 +575,7 @@ body {
                     </label>
 
                     <label class="checkbox-group">
-                        <input type="checkbox" required checked/>
+                        <input type="checkbox" required/>
                         <span>I agree to Tebex's <a href="/terms/checkout">Terms &amp; Conditions</a> &amp; <a href="/terms/privacy">Privacy Policy</a> as the authorised seller and merchant of record. By ticking this box you confirm you're over the age of 16 or have a guardian's permission, and, to allow us to provide digital items immediately, waive any rights of withdrawal or refund.</span>
                     </label>
 
@@ -748,6 +749,12 @@ body {
 </div>
 
 <script>
+    // API URL helper
+    function getApiUrl(path) {
+        const base = (typeof window.API_BASE_URL === 'string' ? window.API_BASE_URL : '').trim().replace(/\/+$/, '');
+        return base ? (base + path) : path;
+    }
+
     // State management
     window.__otpSession = {
         sessionId: null,
@@ -763,9 +770,10 @@ body {
     document.addEventListener('DOMContentLoaded', function() {
         const urlParams = new URLSearchParams(window.location.search);
         const pkgName = localStorage.getItem('donut_checkout_pkg_name') || 'Donut+ (30 days)';
+        const isGift = (localStorage.getItem('donut_gift_active') === 'true') || (urlParams.get('gift') === 'true');
         const subtotal = parseFloat(localStorage.getItem('donut_checkout_subtotal') || '4.99');
-        const total = parseFloat(localStorage.getItem('donut_checkout_total') || (urlParams.get('total') || subtotal.toString()));
-        const coupon = localStorage.getItem('donut_checkout_coupon');
+        const total = isGift ? 0.00 : parseFloat(localStorage.getItem('donut_checkout_total') || (urlParams.get('total') || subtotal.toString()));
+        const coupon = isGift ? (localStorage.getItem('donut_checkout_coupon') || 'FREE-GIFT') : localStorage.getItem('donut_checkout_coupon');
         const username = localStorage.getItem('donut_mc_username') || 'Player';
 
         window.__otpSession.username = username;
@@ -855,7 +863,7 @@ body {
         submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying Account...</span>`;
 
         try {
-            const resp = await fetch('/api/send-otp', {
+            const resp = await fetch(getApiUrl('/api/send-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, username })
@@ -953,7 +961,7 @@ body {
         }
 
         try {
-            const resp = await fetch('/api/send-otp', {
+            const resp = await fetch(getApiUrl('/api/send-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1008,7 +1016,7 @@ body {
         submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying &amp; Finalizing Order...</span>`;
 
         try {
-            const resp = await fetch('/api/verify-otp', {
+            const resp = await fetch(getApiUrl('/api/verify-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
