@@ -2,6 +2,7 @@ const { queryParams } = require("../../../db/database");
 const hasAccess = require("../../../db/access");
 const { discordServer, footer1 } = require("../../../config.json");
 const isOwner = require("../../../db/isOwner");
+const { checkWebAccess } = require("../../../autosecure/utils/web/webAccess");
 
 module.exports = {
     name: "license",
@@ -50,6 +51,13 @@ module.exports = {
                     amountSecured = info2[0].amount;
                     networthValue = info2[0].networth;
                 }
+                const webInfo = await checkWebAccess(interaction.user.id);
+                const webStatus = webInfo.isOwner
+                    ? "Lifetime (Owner)"
+                    : (webInfo.hasAccess
+                        ? `Hoạt động (<t:${Math.floor(webInfo.expiry / 1000)}:R>)`
+                        : "Chưa kích hoạt / Hết hạn");
+
                 const embed = {
                     title: `License Information`,
                     color: 0x808080,
@@ -62,6 +70,11 @@ module.exports = {
                         {
                             name: "Bot Slots",
                             value: String(botcounts),
+                            inline: true
+                        },
+                        {
+                            name: "Web License",
+                            value: webStatus,
                             inline: true
                         },
                         {
@@ -131,6 +144,13 @@ module.exports = {
                     amountSecured = info2[0].amount;
                     networthValue = info2[0].networth;
                 }
+                const webInfo = await checkWebAccess(targetUserId);
+                const webStatus = webInfo.isOwner
+                    ? "Lifetime (Owner)"
+                    : (webInfo.hasAccess
+                        ? `Hoạt động (<t:${Math.floor(webInfo.expiry / 1000)}:R>)`
+                        : "Chưa kích hoạt / Hết hạn");
+
                 const embed = {
                     title: `License Information (Admin View)`,
                     color: 0x808080,
@@ -143,6 +163,11 @@ module.exports = {
                         {
                             name: "Bot Slots",
                             value: String(botcounts),
+                            inline: true
+                        },
+                        {
+                            name: "Web License",
+                            value: webStatus,
                             inline: true
                         },
                         {

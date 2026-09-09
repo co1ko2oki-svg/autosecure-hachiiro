@@ -37,6 +37,13 @@ const featurepanel = require("../../utils/featurepanel");
 const purchasepanel = require("../../utils/purchasepanel");
 const { getMessageId, generateLeaderboardComponentsV2, updatemessageid } = require("../../utils/leaderboardupdater");
 const { sendComponentsV2 } = require("../../utils/componentsV2");
+const {
+  createWebLicenses,
+  listWebLicenses,
+  deleteWebLicense,
+  grantWebAccess,
+  removeWebAccess
+} = require("../../../autosecure/utils/web/webAccess");
 
 const isOwner = async (userId) => {
   return owners.includes(userId);
@@ -152,17 +159,22 @@ module.exports = {
       const choices = [
         { name: "---Manage Keys---", value: "placeholder"},
         { name: "Create Autosecure Key", value: "create_key" },
+        { name: "Create Web Key (Monthly)", value: "create_webkey" },
         { name: "Create Slot Key", value: "create_slotkey" },
+        { name: "Grant Web Access", value: "grant_webaccess" },
         { name: "Extend All Keys", value: "extend_all_keys" },
         { name: "Transfer License", value: "transfer" },
         { name: "---Remove Keys---", value: "placeholder"},
         { name: "Delete Autosecure Key", value: "delete_key" },
+        { name: "Delete Web Key", value: "delete_webkey" },
+        { name: "Remove Web Access", value: "remove_webaccess" },
         { name: "Delete All Keys", value: "delete_all" },
         { name: "Remove Access", value: "remove_user" },
         { name: "Remove User Slot", value: "remove_slot" },
         { name: "Blacklist User", value: "blacklist_user" },
         { name: "Unblacklist User", value: "unblacklist_user" },
         { name: "---View Lists---", value: "placeholder"},
+        { name: "View Web Keys", value: "view_webkeys" },
         { name: "View Blacklist", value: "view_blacklist" },
         { name: "View All Keys", value: "view_keys" },
         { name: "View All Users", value: "view_users" },
@@ -238,9 +250,14 @@ module.exports = {
             content: 'You must specify a user ID to blacklist.',
             ephemeral: true
           });
-        } else if ((option === 'remove_user' || option === 'remove_slot') && !interaction.options.getString('user_id')) {
+        } else if ((option === 'remove_user' || option === 'remove_slot' || option === 'grant_webaccess' || option === 'remove_webaccess') && !interaction.options.getString('user_id')) {
           return await interaction.reply({
-            content: 'You must specify a user ID to remove access/slots from.',
+            content: 'You must specify a user ID for this option.',
+            ephemeral: true
+          });
+        } else if (option === 'delete_webkey' && !interaction.options.getString('key')) {
+          return await interaction.reply({
+            content: 'You must specify a web license key to delete.',
             ephemeral: true
           });
         } else if (option === 'unblacklist_user' && !interaction.options.getString('user_id')) {
@@ -261,6 +278,21 @@ module.exports = {
             break;
           case 'create_key':
             await handleCreateKey(client, interaction);
+            break;
+          case 'create_webkey':
+            await handleCreateWebKey(client, interaction);
+            break;
+          case 'grant_webaccess':
+            await handleGrantWebAccess(client, interaction);
+            break;
+          case 'delete_webkey':
+            await handleDeleteWebKey(client, interaction);
+            break;
+          case 'remove_webaccess':
+            await handleRemoveWebAccess(client, interaction);
+            break;
+          case 'view_webkeys':
+            await handleViewWebKeys(client, interaction);
             break;
           case 'create_slotkey':
             await handlecreateslotkey(client, interaction);
@@ -298,8 +330,9 @@ module.exports = {
           case 'transfer':
             await handletransfer(client, interaction)
             break; 
-            case "key_redeemed":
-              await handlecheckredeemed(client, interaction)
+          case "key_redeemed":
+            await handlecheckredeemed(client, interaction)
+            break;
           default:
             await interaction.reply({
               content: 'Invalid option selected.',
@@ -1393,6 +1426,112 @@ responseContent += `\n\n\`\`\`\n${generatedLicenses.join('\n')}\n\`\`\``;
         content: "An error occurred while generating license keys." 
       });
     }
+  }
+}
+
+async function handleCreateWebKey(client, interaction) {
+  try {
+    const amount = interaction.options.getInteger('amount') || 1;
+    const durationDays = interaction.options.getString('duration') || "30";
+    const durationNum = parseFloat(durationDays);
+    if (isNaN(durationNum) || durationNum <= 0) {
+      return interaction.reply({
+        content: "Vui lòng nhập số ngày hợp lệ (mặc định 30 ngày).",
+        ephemeral: true
+      });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const keys = await createWebLicenses(durationNum, amount, interaction.user.id);
+    let responseContent = `✅ **Đã tạo thành công ${amount} Key Web:**\n` +
+      `📅 **Thời hạn:** ${durationNum} ngày\n\n` +
+      `\`\`\`\n${keys.join('\n')}\n\`\`\`\n` +
+      `💡 *Hướng dẫn user: Dùng lệnh \`/redeem\` trên bot để kích hoạt key web.*`;
+
+    await interaction.editReply({ content: responseContent });
+    autosecurelogs(client, "createweblicense", interaction.user.id, null, null, null, `${amount}|${durationNum}`);
+  } catch (error) {
+    console.error("Error in handleCreateWebKey:", error);
+    await interaction.editReply({ content: "Lỗi tạo Key Web: " + error.message });
+  }
+}
+
+async function handleGrantWebAccess(client, interaction) {
+  try {
+    const targetUserId = interaction.options.getString('user_id');
+    const durationDays = interaction.options.getString('duration') || "30";
+    const durationNum = parseFloat(durationDays) || 30;
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const result = await grantWebAccess(targetUserId, durationNum, "ADMIN_DIRECT_GRANT");
+    const expiryTimestamp = Math.floor(result.expiry / 1000);
+
+    await interaction.editReply({
+      content: `✅ Đã cấp quyền sử dụng Web cho <@${targetUserId}>:\n` +
+        `• Số ngày thêm: **${result.daysAdded} ngày**\n` +
+        `• Hết hạn: <t:${expiryTimestamp}:R> (<t:${expiryTimestamp}:F>)`
+    });
+  } catch (error) {
+    console.error("Error in handleGrantWebAccess:", error);
+    await interaction.editReply({ content: "Lỗi cấp quyền Web: " + error.message });
+  }
+}
+
+async function handleDeleteWebKey(client, interaction) {
+  try {
+    const key = interaction.options.getString('key');
+    await deleteWebLicense(key);
+    return interaction.reply({
+      content: `✅ Đã xoá Key Web: \`${key}\``,
+      ephemeral: true
+    });
+  } catch (error) {
+    console.error("Error in handleDeleteWebKey:", error);
+    return interaction.reply({ content: "Lỗi xoá key: " + error.message, ephemeral: true });
+  }
+}
+
+async function handleRemoveWebAccess(client, interaction) {
+  try {
+    const targetUserId = interaction.options.getString('user_id');
+    await removeWebAccess(targetUserId);
+    return interaction.reply({
+      content: `✅ Đã thu hồi quyền sử dụng Web của <@${targetUserId}>.`,
+      ephemeral: true
+    });
+  } catch (error) {
+    console.error("Error in handleRemoveWebAccess:", error);
+    return interaction.reply({ content: "Lỗi thu hồi quyền web: " + error.message, ephemeral: true });
+  }
+}
+
+async function handleViewWebKeys(client, interaction) {
+  try {
+    const keys = await listWebLicenses();
+    if (!keys || keys.length === 0) {
+      return interaction.reply({
+        content: "Hiện không có Key Web nào chưa sử dụng.",
+        ephemeral: true
+      });
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Danh Sách Key Web Chưa Sử Dụng (${keys.length})`)
+      .setColor('#57F287')
+      .setTimestamp();
+
+    const formatted = keys.map(k => {
+      const createdDate = k.created_at ? `<t:${Math.floor(k.created_at / 1000)}:d>` : "N/A";
+      return `• \`${k.license}\` | ${k.duration} ngày (Tạo: ${createdDate})`;
+    });
+
+    embed.setDescription(formatted.slice(0, 30).join('\n'));
+    return interaction.reply({ embeds: [embed], ephemeral: true });
+  } catch (error) {
+    console.error("Error in handleViewWebKeys:", error);
+    return interaction.reply({ content: "Lỗi xem danh sách key web: " + error.message, ephemeral: true });
   }
 }
 

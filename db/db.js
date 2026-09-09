@@ -277,6 +277,20 @@ accountsbyuser: `CREATE TABLE IF NOT EXISTS accountsbyuser(
     duration TEXT
   )`,
 
+  web_licenses: `CREATE TABLE IF NOT EXISTS web_licenses(
+    license TEXT UNIQUE,
+    duration TEXT,
+    created_at INTEGER,
+    created_by TEXT
+  )`,
+
+  web_access: `CREATE TABLE IF NOT EXISTS web_access(
+    user_id TEXT PRIMARY KEY,
+    expiry TEXT,
+    last_license TEXT,
+    updated_at INTEGER
+  )`,
+
   autosecureblacklist: `CREATE TABLE IF NOT EXISTS autosecureblacklist(
     user_id TEXT UNIQUE,
     reason TEXT 
@@ -437,7 +451,8 @@ accountsbyuser: `CREATE TABLE IF NOT EXISTS accountsbyuser(
   idx_accounts_user: `CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id)`,
   idx_accountsbyuser_user: `CREATE INDEX IF NOT EXISTS idx_accountsbyuser_user ON accountsbyuser(user_id)`,
   idx_stats_name: `CREATE INDEX IF NOT EXISTS idx_stats_name ON stats(name)`,
-  idx_cosmetics_name: `CREATE INDEX IF NOT EXISTS idx_cosmetics_name ON cosmetics(name)`
+  idx_cosmetics_name: `CREATE INDEX IF NOT EXISTS idx_cosmetics_name ON cosmetics(name)`,
+  idx_web_access_expiry: `CREATE INDEX IF NOT EXISTS idx_web_access_expiry ON web_access(expiry)`
 };
 
 

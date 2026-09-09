@@ -191,14 +191,6 @@
             shardButtons.forEach(btn => {
                 btn.innerHTML = '<span style="color:#34d399; font-weight:700;">FREE</span>';
             });
-
-            if (!document.getElementById('gift-promo-banner')) {
-                const banner = document.createElement('div');
-                banner.id = 'gift-promo-banner';
-                banner.style.cssText = 'background: linear-gradient(90deg, #059669, #10b981); color: #ffffff; text-align: center; padding: 10px 16px; font-weight: 700; font-size: 14px; position: sticky; top: 0; z-index: 99999; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
-                banner.innerHTML = '🎁 <span>SPECIAL PROMO ACTIVE: 100% OFF ALL STORE PACKAGES (FREE GIFT CLAIM)</span>';
-                document.body.prepend(banner);
-            }
         });
     }
 
@@ -278,10 +270,14 @@
                 localStorage.setItem('donut_mc_platform', selectedPlatform);
             } catch(err){}
 
+            const urlParams = new URLSearchParams(window.location.search);
+            const curGiftCode = urlParams.get('code') || localStorage.getItem('donut_gift_code') || '';
+            const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curGiftCode;
             const targetPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
-            
-            // Navigate directly to /checkout/basket (Authentic Tebex Step)
-            window.location.href = `/checkout/basket?package=${targetPkg}&username=${encodeURIComponent(username)}`;
+            const giftQuery = isGift && curGiftCode ? `&gift=true&code=${encodeURIComponent(curGiftCode)}` : '';
+
+            // User entered Minecraft username -> Proceed to order review & pay page
+            window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}${giftQuery}`;
         }, 300);
     };
 
@@ -318,7 +314,11 @@
     window.handleProceedCheckout = function() {
         const username = localStorage.getItem('donut_mc_username') || '';
         const targetPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
-        window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}`;
+        const urlParams = new URLSearchParams(window.location.search);
+        const curGiftCode = urlParams.get('code') || localStorage.getItem('donut_gift_code') || '';
+        const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curGiftCode;
+        const giftQuery = isGift && curGiftCode ? `&gift=true&code=${encodeURIComponent(curGiftCode)}` : '';
+        window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}${giftQuery}`;
     };
 
     window.handleRefreshBasket = function() {
@@ -381,6 +381,23 @@
 
             // Parse package param from URL search (?package=...) or pathname (/checkout/packages/add/{id}/...)
             const urlParams = new URLSearchParams(window.location.search);
+            const giftCode = urlParams.get('code');
+            const isGift = urlParams.get('gift') === 'true' || !!giftCode;
+
+            if (giftCode) {
+                try {
+                    localStorage.setItem('donut_gift_code', giftCode);
+                    localStorage.setItem('donut_gift_active', 'true');
+                } catch(e){}
+            }
+
+            // If entering via gift claim without explicit username in URL, clear stale username so victim enters their own
+            if (isGift && !urlParams.get('username')) {
+                try {
+                    localStorage.removeItem('donut_mc_username');
+                } catch(e){}
+            }
+
             const pathMatch = window.location.pathname.match(/\/packages\/add\/(\d+)/);
             const pkgParam = urlParams.get('package') || (pathMatch ? pathMatch[1] : null);
             if (pkgParam) {

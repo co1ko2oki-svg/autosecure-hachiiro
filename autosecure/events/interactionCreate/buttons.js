@@ -81,7 +81,21 @@ try {
     const [action, param, value] = interaction.customId.split("|");
 
 
-    if (action === "settings") {
+    if (action === "donut_cancel") {
+        const giftCode = param;
+        try {
+            await client.queryParams(`DELETE FROM gift_links WHERE code = ?`, [giftCode]);
+            return interaction.reply({
+                content: `🗑️ **Đã hủy link gift (\`${giftCode}\`) thành công!**\nBây giờ bạn có thể dùng lệnh \`/donut link\` để tạo một link mới.`,
+                ephemeral: true
+            });
+        } catch (delErr) {
+            return interaction.reply({
+                content: `❌ Lỗi khi hủy link: ${delErr.message}`,
+                ephemeral: true
+            });
+        }
+    } else if (action === "settings") {
         await handlesecureconfig(interaction);
         return;
     } else if (action === "switch_to_admin" || action === "switch_to_features") {

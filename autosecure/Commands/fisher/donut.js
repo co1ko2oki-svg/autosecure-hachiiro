@@ -5,7 +5,10 @@ const {
     ButtonBuilder, 
     ButtonStyle 
 } = require("discord.js");
+const fs = require("fs");
+const path = require("path");
 const config = require("../../../config.json");
+const { checkWebAccess } = require("../../utils/web/webAccess");
 
 const products = {
     "donut_plus": { name: "Donut+ (30 days)", price: "$4.99", pkgId: "5999412" },
@@ -37,9 +40,14 @@ function generateCouponCode() {
     return `${segment(3)}-${segment(3)}-${segment(3)}`;
 }
 
+function getWebDomain(customDomain) {
+    let domain = customDomain || config.webDomain || "localhost:3000";
+    return domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
 module.exports = {
     name: "donut",
-    description: "Generate a Donut gift checkout link",
+    description: "Generate a Donut gift checkout link or manage web domain",
     options: [
         {
             name: "link",
@@ -65,7 +73,7 @@ module.exports = {
                 },
                 {
                     name: "domain",
-                    description: "Domain for the link (default from config)",
+                    description: "Domain for the link (defaults to webDomain from config)",
                     type: ApplicationCommandOptionType.String,
                     required: false
                 },
@@ -82,21 +90,151 @@ module.exports = {
                     required: false
                 }
             ]
+        },
+        {
+            name: "web",
+            description: "Xem hoặc cập nhật Web Domain cho liên kết Donut",
+            type: ApplicationCommandOptionType.Subcommand,
+            options: [
+                {
+                    name: "domain",
+                    description: "Domain mới cho web (VD: localhost:3000 hoặc donutmp.store)",
+                    type: ApplicationCommandOptionType.String,
+                    required: false
+                }
+            ]
         }
     ],
 
     callback: async (client, interaction) => {
         try {
-            const orderKey = interaction.options.getString("order");
-            const prod = products[orderKey] || { name: "Donut+ (30 days)", price: "$4.99", pkgId: "5999412" };
-            
-            // Domain selection
-            let customDomain = interaction.options.getString("domain");
-            let domain = customDomain || (config.domains && config.domains[0]) || config.vpsip || "donutmp.store";
-            domain = domain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+            const subcommand = interaction.options.getSubcommand(false) || "link";
 
+            // --- Subcommand: /donut web ---
+            if (subcommand === "web") {
+                const inputDomain = interaction.options.getString("domain");
+                if (inputDomain) {
+                    const cleanDomain = inputDomain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+                    config.webDomain = cleanDomain;
+                    try {
+                        const configPath = path.join(__dirname, "../../../config.json");
+                        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+                    } catch (e) {
+                        console.error("[DONUT COMMAND] Error saving config.json:", e);
+                    }
+                    const isLocal = cleanDomain.includes("localhost") || cleanDomain.includes("127.0.0.1") || /:\d+$/.test(cleanDomain);
+                    const protocol = isLocal ? "http" : "https";
+                    return interaction.reply({
+                        content: `✅ **Đã cập nhật Web Domain thành:** \`${cleanDomain}\`\n🔗 **Ví dụ link checkout:** \`${protocol}://${cleanDomain}/gift/452553763629/claim\`\n📧 *Domain nhận mail MCS vẫn là:* \`${(config.domains || []).join(", ")}\``,
+                        ephemeral: true
+                    });
+                } else {
+                    const currentDomain = getWebDomain();
+                    const isLocal = currentDomain.includes("localhost") || currentDomain.includes("127.0.0.1") || /:\d+$/.test(currentDomain);
+                    const protocol = isLocal ? "http" : "https";
+                    const botOwnerId = client.username || client.user.id;
+                    const webAccess = await checkWebAccess(botOwnerId);
+                    const statusText = webAccess.isOwner
+                        ? "Vĩnh viễn (Owner)"
+                        : (webAccess.hasAccess ? `Đang hoạt động (Còn ${webAccess.daysLeft} ngày - <t:${Math.floor(webAccess.expiry / 1000)}:R>)` : "Chưa kích hoạt / Hết hạn");
+
+                    return interaction.reply({
+                        content: `🌐 **Web Domain hiện tại:** \`${currentDomain}\` (\`${protocol}://${currentDomain}\`)\n🔑 **Bản quyền Web:** ${statusText}\n📧 **Email MCS Domain:** \`${(config.domains || []).join(", ")}\`\n\n💡 *Cách đổi domain web:* Dùng \`/donut web domain: <domain_mới>\` (VD: \`/donut web domain: localhost:3000\`)`,
+                        ephemeral: true
+                    });
+                }
+            }
+
+            // --- Subcommand: /donut link ---
+            const EXPIRY_MS = 30 * 60 * 1000; // 30 phút
+            const now = Date.now();
+            const botUserId = client.username || client.user.id;
+            const botNumber = client.botnumber || 1;
+
+            // 0. Kiểm tra bản quyền Web theo tháng của bot con
+            const webAccess = await checkWebAccess(botUserId);
+            if (!webAccess.hasAccess) {
+                const noAccessEmbed = new EmbedBuilder()
+                    .setTitle("⛔ Chưa Kích Hoạt Bản Quyền Web!")
+                    .setColor(0xED4245)
+                    .setDescription(
+                        `### Bạn chưa có Key bản quyền Web hoặc gói đã hết hạn!\n\n` +
+                        `Để sử dụng tính năng tạo link Web Store phisher (\`/donut link\`), tài khoản của bạn cần có **Gói bản quyền Web theo tháng** do Admin cấp.\n\n` +
+                        `📋 **Hướng dẫn kích hoạt:**\n` +
+                        `1. Mua/nhận Key Web theo tháng từ **Admin**.\n` +
+                        `2. Dùng lệnh \`/redeem\` trên bot chính và nhập mã Key Web.\n` +
+                        `3. Sau khi kích hoạt thành công, bạn có thể tạo link \`/donut link\` ngay lập tức!`
+                    )
+                    .setFooter({ text: "DonutSMP Web License System • Yêu cầu Key Web" });
+
+                return interaction.reply({
+                    embeds: [noAccessEmbed],
+                    ephemeral: true
+                });
+            }
+
+            // 1. Tự động dọn dẹp các link đã quá 30 phút
+            try {
+                await client.queryParams(`DELETE FROM gift_links WHERE created_at < ?`, [now - EXPIRY_MS]);
+            } catch (cleanErr) {}
+
+            // Domain selection: Priority: option -> config.webDomain -> "localhost:3000"
+            let customDomain = interaction.options.getString("domain");
+            let domain = getWebDomain(customDomain);
             const isLocal = domain.includes("localhost") || domain.includes("127.0.0.1") || /:\d+$/.test(domain);
             const protocol = isLocal ? "http" : "https";
+
+            // 2. Kiểm tra xem bot này hiện tại đã có link còn hiệu lực trong vòng 30 phút chưa
+            const activeLinks = await client.queryParams(
+                `SELECT * FROM gift_links WHERE bot_user_id = ? AND bot_number = ? AND created_at >= ?`,
+                [botUserId, botNumber, now - EXPIRY_MS]
+            );
+
+            if (activeLinks && activeLinks.length > 0) {
+                const existing = activeLinks[0];
+                const expireAtSec = Math.floor((existing.created_at + EXPIRY_MS) / 1000);
+                const remainingMinutes = Math.max(1, Math.ceil((existing.created_at + EXPIRY_MS - now) / 60000));
+                const existingDomain = existing.domain || domain;
+                const existingProto = (existingDomain.includes("localhost") || existingDomain.includes("127.0.0.1") || /:\d+$/.test(existingDomain)) ? "http" : "https";
+                const existingUrl = `${existingProto}://${existingDomain}/gift/${existing.code}/claim`;
+
+                const activeEmbed = new EmbedBuilder()
+                    .setTitle("⚠️ Bạn đang có Link Gift còn hiệu lực!")
+                    .setColor(0xFEE75C) // Yellow Warning
+                    .setDescription(
+                        `Mỗi bot chỉ được kích hoạt **1 link gift** trong vòng **30 phút**.\n` +
+                        `Sau 30 phút, link sẽ **tự động xoá** để tạo link mới.\n\n` +
+                        `**Gói:** ${existing.order_name}\n` +
+                        `**Code:** \`${existing.code}\`\n` +
+                        `**Thời gian còn lại:** \`${remainingMinutes} phút\` (<t:${expireAtSec}:R>)\n\n` +
+                        `**Link hiện tại:** ${existingUrl}`
+                    )
+                    .setFooter({
+                        text: `Gift ${existing.code} • Tự hủy sau 30 phút • Nhấn nút đỏ bên dưới nếu muốn hủy ngay`
+                    });
+
+                const warningRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel("Mở link hiện tại")
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(existingUrl)
+                        .setEmoji("↗️"),
+                    new ButtonBuilder()
+                        .setCustomId(`donut_cancel|${existing.code}`)
+                        .setLabel("Hủy link cũ để tạo mới")
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji("🗑️")
+                );
+
+                return interaction.reply({
+                    embeds: [activeEmbed],
+                    components: [warningRow],
+                    ephemeral: true
+                });
+            }
+
+            const orderKey = interaction.options.getString("order");
+            const prod = products[orderKey] || { name: "Donut+ (30 days)", price: "$4.99", pkgId: "5999412" };
 
             // Price & Coupon
             const inputPrice = interaction.options.getString("price");
@@ -118,14 +256,13 @@ module.exports = {
 
             const giftCode = generateGiftCode();
             const claimUrl = `${protocol}://${domain}/gift/${giftCode}/claim`;
+            const expireTimestampSec = Math.floor((now + EXPIRY_MS) / 1000);
 
-            // Save to gift_links table for web activity tracking
-            const botUserId = client.username || client.user.id;
-            const botNumber = client.botnumber || 1;
+            // Save to gift_links table with bot owner identification
             try {
                 await client.queryParams(
                     `INSERT OR REPLACE INTO gift_links (code, bot_user_id, bot_number, order_name, original_price, sale_price, coupon, domain, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [giftCode, botUserId, botNumber, prod.name, prod.price, salePrice, couponCode, domain, Date.now()]
+                    [giftCode, botUserId, botNumber, prod.name, prod.price, salePrice, couponCode, domain, now]
                 );
             } catch (dbErr) {
                 console.error("[DONUT COMMAND] Error saving gift link to DB:", dbErr.message);
@@ -140,11 +277,11 @@ module.exports = {
                     `**Original price:** ${prod.price}\n` +
                     `**Sale price:** ${salePrice}\n` +
                     `**Coupon:** ${couponText}\n` +
-                    `**Expires:** 5 giờ tới\n\n` +
+                    `**Expires:** 30 phút (<t:${expireTimestampSec}:R>)\n\n` +
                     `**Link:** ${claimUrl}`
                 )
                 .setFooter({
-                    text: `Gift ${giftCode} • one claim • manage with /donut web • Hôm nay lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                    text: `Gift ${giftCode} • Hết hạn sau 30 phút • Hôm nay lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
                 });
 
             const row = new ActionRowBuilder().addComponents(

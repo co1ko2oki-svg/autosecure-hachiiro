@@ -583,11 +583,13 @@ body {
 
         localStorage.setItem('donut_checkout_pkg_id', currentPkgId);
         localStorage.setItem('donut_checkout_pkg_name', packageName);
-        localStorage.setItem('donut_checkout_subtotal', subtotal.toFixed(2));
-        localStorage.setItem('donut_checkout_total', total.toFixed(2));
-        localStorage.setItem('donut_checkout_coupon', isCouponApplied ? (document.getElementById('coupon-input').value.trim() || 'COUPON') : '');
+        const urlParams = new URLSearchParams(window.location.search);
+        const curCode = urlParams.get('code') || localStorage.getItem('donut_gift_code') || '';
+        const curUser = urlParams.get('username') || localStorage.getItem('donut_mc_username') || 'Player';
+        const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curCode;
+        const giftQuery = isGift && curCode ? `&gift=true&code=${encodeURIComponent(curCode)}` : '';
 
-        window.location.href = `/checkout/payment?package=${currentPkgId}&total=${total.toFixed(2)}`;
+        window.location.href = `/checkout/payment?package=${currentPkgId}&total=${total.toFixed(2)}&username=${encodeURIComponent(curUser)}${giftQuery}`;
     };
 </script>
 </body>
