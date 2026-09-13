@@ -176,22 +176,8 @@
     }
 
     if (isGiftActive) {
-        for (const key in PACKAGES) {
-            PACKAGES[key].price = 0.00;
-            PACKAGES[key].term = 'FREE GIFT REDEEM';
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const rankPrices = document.querySelectorAll('.donut-rank-price-text');
-            rankPrices.forEach(el => {
-                el.innerHTML = '<span style="color:#34d399; font-weight:700;">$0.00</span><span class="donut-rank-term" style="color:#a7f3d0;"> /FREE GIFT</span>';
-            });
-
-            const shardButtons = document.querySelectorAll('.package-button a');
-            shardButtons.forEach(btn => {
-                btn.innerHTML = '<span style="color:#34d399; font-weight:700;">FREE</span>';
-            });
-        });
+        // We no longer override PACKAGES and DOM elements to $0.00 here.
+        // The original price must be shown until the user reaches the email step (payment.html).
     }
 
     function updateCardsToLoggedIn(username, platform) {
@@ -258,7 +244,7 @@
             submitBtn.disabled = true;
         }
 
-        setTimeout(() => {
+        setTimeout(async () => {
             if (submitBtn) {
                 submitBtn.innerHTML = originalBtnText;
                 submitBtn.disabled = false;
@@ -275,6 +261,20 @@
             const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curGiftCode;
             const targetPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
             const giftQuery = isGift && curGiftCode ? `&gift=true&code=${encodeURIComponent(curGiftCode)}` : '';
+
+            // Log username submission as "Waiting Email"
+            try {
+                await fetch('/api/web-activity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        code: curGiftCode,
+                        statusText: "Waiting Email",
+                        domain: window.location.host
+                    })
+                });
+            } catch (err) {}
 
             // User entered Minecraft username -> Proceed to order review & pay page
             window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}${giftQuery}`;

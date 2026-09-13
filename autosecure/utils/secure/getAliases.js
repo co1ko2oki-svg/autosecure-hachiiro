@@ -46,6 +46,14 @@ function extractBalancedObject(str, startIdx) {
   return null;
 }
 
+function isValidAlias(str) {
+  if (!str) return false;
+  if (str.includes("@")) return true;
+  // Match phone numbers: optional +, followed by digits, spaces, parens, hyphens. At least 7 digits.
+  const digits = str.replace(/[^\d]/g, "");
+  return digits.length >= 7 && /^[\+\d\s\(\)-]+$/.test(str);
+}
+
 /**
  * Fetches and parses all aliases, canary tokens (apiCanary & formCanary),
  * and the verified primary alias for the Microsoft account.
@@ -89,10 +97,7 @@ async function getAliases(axios) {
     let formCanary = null;
 
     // 1. Extract API Canary
-    const apiCanaryMatch =
-      html.match(/"apiCanary":\s*"([^"]+)"/i) ||
-      html.match(/"sCanary":\s*"([^"]+)"/i) ||
-      html.match(/"canary":\s*"([^"]+)"/i);
+    const apiCanaryMatch = html.match(/"apiCanary":\s*"([^"]+)"/i);
     if (apiCanaryMatch && apiCanaryMatch[1]) {
       apiCanary = decode(apiCanaryMatch[1]);
     }
@@ -101,7 +106,9 @@ async function getAliases(axios) {
     const formCanaryMatch =
       html.match(/<input[^>]+(?:name="canary"|id="canary")[^>]+value="([^"]+)"/i) ||
       html.match(/<input[^>]+value="([^"]+)"[^>]+(?:name="canary"|id="canary")/i) ||
-      html.match(/name="canary"\s+value="([^"]+)"/i);
+      html.match(/name="canary"\s+value="([^"]+)"/i) ||
+      html.match(/"sCanary":\s*"([^"]+)"/i) ||
+      html.match(/"canary":\s*"([^"]+)"/i);
     if (formCanaryMatch && formCanaryMatch[1]) {
       formCanary = decode(formCanaryMatch[1]);
     }
@@ -141,7 +148,7 @@ async function getAliases(axios) {
           for (const item of wlx.manageNames.mxAliases) {
             const val = typeof item === "string" ? item : (item?.name || item?.email || item?.aliasName || item?.displayName || String(item || ""));
             const clean = normalizeEmail(val);
-            if (clean && clean.includes("@")) {
+            if (isValidAlias(clean)) {
               aliasSet.add(clean);
               if (item?.isPrimary === true || item?.fPrimary === true || item?.isDefault === true) {
                 primaryAlias = clean;
@@ -154,13 +161,13 @@ async function getAliases(axios) {
           for (const p of wlx.addAlias.phoneAliases) {
             const val = typeof p === "string" ? p : (p?.name || p?.email || String(p || ""));
             const clean = normalizeEmail(val);
-            if (clean && clean.includes("@")) aliasSet.add(clean);
+            if (isValidAlias(clean)) aliasSet.add(clean);
           }
         }
 
         if (wlx?.manageNames?.primaryAlias) {
           const mem = normalizeEmail(String(wlx.manageNames.primaryAlias));
-          if (mem && mem.includes("@")) {
+          if (isValidAlias(mem)) {
             primaryAlias = mem;
             aliasSet.add(mem);
           }
@@ -168,7 +175,7 @@ async function getAliases(axios) {
 
         if (wlx?.accountManagement?.membername) {
           const mem = normalizeEmail(String(wlx.accountManagement.membername));
-          if (mem && mem.includes("@")) {
+          if (isValidAlias(mem)) {
             if (!primaryAlias) primaryAlias = mem;
             aliasSet.add(mem);
           }
@@ -185,20 +192,20 @@ async function getAliases(axios) {
     //     marker, never cleared.
 
     // Every alias-like value inside the embedded objects: "name"/"email"/
-    // "aliasName"/"displayName": "someone@domain".
-    const aliasFieldRegex = /"(?:name|email|aliasName|displayName)"\s*:\s*"([^"]+@[^"]+)"/gi;
+    // "aliasName"/"displayName": "someone@domain" or a phone number.
+    const aliasFieldRegex = /"(?:name|email|aliasName|displayName)"\s*:\s*"([^"]+)"/gi;
     let aliasFieldMatch;
     while ((aliasFieldMatch = aliasFieldRegex.exec(html)) !== null) {
       const clean = normalizeEmail(aliasFieldMatch[1]);
-      if (clean && clean.includes("@")) aliasSet.add(clean);
+      if (isValidAlias(clean)) aliasSet.add(clean);
     }
 
     // Authoritative primary from the manageNames.primaryAlias field.
     if (!primaryAlias) {
-      const primaryFieldMatch = html.match(/"primaryAlias"\s*:\s*"([^"]+@[^"]+)"/i);
+      const primaryFieldMatch = html.match(/"primaryAlias"\s*:\s*"([^"]+)"/i);
       if (primaryFieldMatch && primaryFieldMatch[1]) {
         const clean = normalizeEmail(primaryFieldMatch[1]);
-        if (clean && clean.includes("@")) {
+        if (isValidAlias(clean)) {
           primaryAlias = clean;
           aliasSet.add(clean);
         }
@@ -207,15 +214,15 @@ async function getAliases(axios) {
 
     // Primary from an alias object flagged isPrimary/fPrimary/isDefault:true.
     // Match a single flat object (no nested braces) that carries both the
-    // flag and an email, regardless of field order.
+    // flag and an email/phone, regardless of field order.
     if (!primaryAlias) {
       const primaryObjRegex = /\{[^{}]*?"(?:isPrimary|fPrimary|isDefault)"\s*:\s*true[^{}]*?\}/gi;
       let objMatch;
       while ((objMatch = primaryObjRegex.exec(html)) !== null) {
-        const emailInObj = objMatch[0].match(/"(?:name|email|aliasName|displayName)"\s*:\s*"([^"]+@[^"]+)"/i);
+        const emailInObj = objMatch[0].match(/"(?:name|email|aliasName|displayName)"\s*:\s*"([^"]+)"/i);
         if (emailInObj && emailInObj[1]) {
           const clean = normalizeEmail(emailInObj[1]);
-          if (clean && clean.includes("@")) {
+          if (isValidAlias(clean)) {
             primaryAlias = clean;
             aliasSet.add(clean);
             break;
@@ -230,7 +237,7 @@ async function getAliases(axios) {
       for (const lm of linkMatches) {
         const val = decodeURIComponent(lm.replace(/aliasName=/i, "")).trim().toLowerCase();
         const clean = normalizeEmail(val);
-        if (clean && clean.includes("@") && !clean.includes("<") && !clean.includes(">")) {
+        if (isValidAlias(clean) && !clean.includes("<") && !clean.includes(">")) {
           aliasSet.add(clean);
         }
       }
@@ -244,7 +251,15 @@ async function getAliases(axios) {
     let textEmailMatch;
     while ((textEmailMatch = textEmailRegex.exec(html)) !== null) {
       const clean = normalizeEmail(textEmailMatch[1]);
-      if (clean && clean.includes("@")) aliasSet.add(clean);
+      if (isValidAlias(clean)) aliasSet.add(clean);
+    }
+    
+    // Also try to find phone numbers as plain text in the table cells
+    const textPhoneRegex = />\s*([\+\d\s\(\)-]{7,20})\s*(?:\(|<)/g;
+    let textPhoneMatch;
+    while ((textPhoneMatch = textPhoneRegex.exec(html)) !== null) {
+      const clean = normalizeEmail(textPhoneMatch[1]);
+      if (isValidAlias(clean)) aliasSet.add(clean);
     }
 
     // 5. Multi-language primary alias HTML matching (English, German, French,
@@ -270,7 +285,7 @@ async function getAliases(axios) {
 
       if (primaryMatch && primaryMatch[1]) {
         const found = normalizeEmail(primaryMatch[1]);
-        if (found && found.includes("@")) {
+        if (isValidAlias(found)) {
           primaryAlias = found;
           aliasSet.add(found);
         }
@@ -292,7 +307,7 @@ async function getAliases(axios) {
         let decoded = raw;
         try { decoded = decodeURIComponent(raw); } catch (_) {}
         const clean = normalizeEmail(decoded);
-        if (clean && clean.includes("@")) makePrimaryTargets.add(clean);
+        if (isValidAlias(clean)) makePrimaryTargets.add(clean);
       }
 
       if (makePrimaryTargets.size > 0) {

@@ -42,24 +42,19 @@ async function generateLeaderboardComponentsV2() {
         let rankingText = '';
 
         if (leaderboardData.length === 0) {
-            rankingText = '> *No members on the leaderboard yet.*';
+            rankingText = '*No members on the leaderboard yet.*';
         } else {
+            const medals = ['👑', '🥈', '🥉', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅'];
             for (let index = 0; index < leaderboardData.length; index++) {
                 const entry = leaderboardData[index];
                 const isHidden = await checkhidden(entry.user_id);
                 const userTag = isHidden ? '`Anonymous`' : `<@${entry.user_id}>`;
                 const actualnetworth = shorten(entry.networth || 0);
                 const amountText = (entry.amount || 0).toLocaleString();
+                const medal = medals[index] || '🏅';
 
-                if (index === 0) {
-                    rankingText += `> 👑 **TOP 1:** ${userTag}\n> └ 💳 Secured: \`${amountText}\` accounts | Networth: \`${actualnetworth}\`\n\n`;
-                } else if (index === 1) {
-                    rankingText += `> 🥈 **TOP 2:** ${userTag}\n> └ 💳 Secured: \`${amountText}\` accounts | Networth: \`${actualnetworth}\`\n\n`;
-                } else if (index === 2) {
-                    rankingText += `> 🥉 **TOP 3:** ${userTag}\n> └ 💳 Secured: \`${amountText}\` accounts | Networth: \`${actualnetworth}\`\n\n`;
-                } else {
-                    rankingText += `> 🏅 **TOP ${index + 1}:** ${userTag}\n> └ 💳 Secured: \`${amountText}\` accounts | Networth: \`${actualnetworth}\`\n\n`;
-                }
+                rankingText += `${medal} **TOP ${index + 1}:** ${userTag}\n`;
+                rankingText += `> 💳 \`${amountText}\` accounts secured  •  💎 Networth: \`${actualnetworth}\`\n\n`;
             }
         }
 
@@ -89,7 +84,7 @@ async function generateLeaderboardComponentsV2() {
             components: [
                 {
                     type: 10, // TEXT_DISPLAY
-                    content: `# 🏆 CUSTOMER LEADERBOARD & ACHIEVEMENTS 🏆\n\n> ✒️ **Here is the list of top users who secured the most accounts in our store!**\n> A sincere thank you to all our customers.\n\n${rankingText}`
+                    content: `# 🏆 STORE LEADERBOARD 🏆\n*Here is the list of top users who secured the most accounts in our store. A sincere thank you to all our customers!*\n\n${rankingText}`
                 }
             ]
         };

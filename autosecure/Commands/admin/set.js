@@ -173,10 +173,38 @@ function isUserChannel(name) {
                     if (logsSet && hitsSet && notisSet && usersSet) break;
                 }
 
-                if (!logsSet) reply.push(`Logs channel: Not found`);
-                if (!hitsSet) reply.push(`Hits channel: Not found`);
-                if (!notisSet) reply.push(`Notification channel: Not found`);
-                if (!usersSet) reply.push(`Users channel: Not found`);
+                if (!logsSet) {
+                    try {
+                        const newChannel = await guild.channels.create({ name: 'logs', type: ChannelType.GuildText });
+                        await client.queryParams(`UPDATE autosecure SET logs_channel=? WHERE user_id=?`, [`${newChannel.id}|${guildId}`, userId]);
+                        reply.push(`Logs channel: Created and set to <#${newChannel.id}>`);
+                        newChannel.send({ content: `Will send logs in this channel!` });
+                    } catch(e) { reply.push(`Logs channel: Failed to create (check permissions)`); }
+                }
+                if (!hitsSet) {
+                    try {
+                        const newChannel = await guild.channels.create({ name: 'hits', type: ChannelType.GuildText });
+                        await client.queryParams(`UPDATE autosecure SET hits_channel=? WHERE user_id=?`, [`${newChannel.id}|${guildId}`, userId]);
+                        reply.push(`Hits channel: Created and set to <#${newChannel.id}>`);
+                        newChannel.send({ content: `Will send hits in this channel!` });
+                    } catch(e) { reply.push(`Hits channel: Failed to create (check permissions)`); }
+                }
+                if (!notisSet) {
+                    try {
+                        const newChannel = await guild.channels.create({ name: 'notifications', type: ChannelType.GuildText });
+                        await client.queryParams(`UPDATE autosecure SET notification_channel=? WHERE user_id=?`, [`${newChannel.id}|${guildId}`, userId]);
+                        reply.push(`Notification channel: Created and set to <#${newChannel.id}>`);
+                        newChannel.send({ content: `Will send notifications to this channel!` });
+                    } catch(e) { reply.push(`Notification channel: Failed to create`); }
+                }
+                if (!usersSet) {
+                    try {
+                        const newChannel = await guild.channels.create({ name: 'users', type: ChannelType.GuildText });
+                        await client.queryParams(`UPDATE autosecure SET users_channel=? WHERE user_id=?`, [`${newChannel.id}|${guildId}`, userId]);
+                        reply.push(`Users channel: Created and set to <#${newChannel.id}>`);
+                        newChannel.send({ content: `Will send messages for your user in this channel! The emails/usernames/codes will be hidden!` });
+                    } catch(e) { reply.push(`Users channel: Failed to create`); }
+                }
 
                 interaction.reply({ content: reply.join("\n"), ephemeral: true });
                 break;

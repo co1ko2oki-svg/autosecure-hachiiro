@@ -50,7 +50,7 @@ module.exports = {
        // console.log(`Profiles received mainbot: ${JSON.stringify(profiles)}`)
        
           try {
-if (!profiles?.Credentials) {
+if (!profiles) {
   return interaction.respond([
     { name: "Email doesn't exist!", value: "invalid_email" }
   ]);
@@ -94,20 +94,24 @@ securityOptionsCache.set(email, proofs);
         ]);
       }
       
-            const filteredOptions = securityOptions.filter(option => 
-        option.display.toLowerCase().includes(focusedOption.value.toLowerCase())
-      );
-      
-            const responseOptions = filteredOptions.map(option => {
-                const shortId = generate(8);         
-                securityDataCache.set(`${shortId}|${email}`, option.data);
-                securityDisplayCache.set(`${shortId}|${email}`, option.display);
-        
-        return {
-          name: option.display,
-          value: `${shortId}|${email}`         };
+            const focusedVal = (focusedOption.value || "").toLowerCase();
+      const filteredOptions = securityOptions.filter(option => {
+        const text = (option.display || option.data || "").toLowerCase();
+        return text.includes(focusedVal);
       });
-      
+
+      const responseOptions = filteredOptions.slice(0, 25).map(option => {
+        const shortId = generate(8);
+        const disp = String(option.display || option.data || "Security Option").substring(0, 100);
+        securityDataCache.set(`${shortId}|${email}`, option.data);
+        securityDisplayCache.set(`${shortId}|${email}`, disp);
+
+        return {
+          name: disp,
+          value: `${shortId}|${email}`.substring(0, 100)
+        };
+      });
+
       return interaction.respond(responseOptions);
     }
   },

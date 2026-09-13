@@ -1,6 +1,8 @@
 const https = require('https');
 const axios = require('axios');
-const { HttpsProxyAgent } = require('https-proxy-agent'); // ✅ FIXED
+const { SocksProxyAgent } = require('socks-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+
 
 module.exports = async function checklocked(email) {
   const config = require('../../../config.json');
@@ -17,8 +19,8 @@ module.exports = async function checklocked(email) {
         if (proxies.length > 0 && proxies[0]) {
           const proxy = proxies[Math.floor(Math.random() * proxies.length)];
           const [PROXY_HOST, PROXY_PORT, PROXY_USER, PROXY_PASS] = proxy.split(':');
-          const proxyUrl = `http://${PROXY_USER}:${PROXY_PASS}@${PROXY_HOST}:${PROXY_PORT}`;
-          proxyAgent = new HttpsProxyAgent(proxyUrl);
+          const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${auth}${PROXY_HOST}:${PROXY_PORT}`;
+          const proxyAgent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
           console.log(`🔍 Checking account lock status using proxy: ${PROXY_HOST}:${PROXY_PORT}`);
         }
       }

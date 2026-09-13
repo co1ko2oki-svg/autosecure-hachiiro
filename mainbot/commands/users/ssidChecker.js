@@ -28,7 +28,7 @@ callback: async (client, interaction) => {
         title: '❌ SSID Check Error',
         description: `An error occurred while checking your SSID.`,
         thumbnail: {
-          url: 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'
+          url: (require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
         },
         fields: [{
           name: '🔧 Error Details',

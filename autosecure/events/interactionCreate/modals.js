@@ -39,7 +39,7 @@ module.exports = async (client, interaction) => {
         if (!modal) return;
 
         if (modal.ownerOnly) {
-            if (interaction.user.id !== client.username) {
+            if (interaction.user.id !== config.owner && interaction.user.id !== client.username && !hasPermission) {
                 return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
             }
         }

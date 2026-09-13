@@ -4,116 +4,68 @@ const path = require("path");
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-// ===========================================================================
-// 0. DESIGN SYSTEM TOKENS & RESPONSIVE GRID LAYOUT
-// ===========================================================================
+// Register fonts if available
+const fontDir = path.join(__dirname, 'assets', 'fonts');
+const mcFont = path.join(fontDir, 'minecraftia.ttf');
+if (fs.existsSync(mcFont)) {
+  try {
+    registerFont(mcFont, { family: 'Minecraftia' });
+  } catch (e) {}
+}
 
 const DESIGN = {
+  width: 1280,
+  height: 680,
   radius: {
-    panel: 14,
-    card: 10,
-    badge: 7,
-    sm: 4
-  },
-  padding: {
-    panel: 16,
-    card: 14
+    card: 18,
+    pill: 999,
+    badge: 8
   },
   colors: {
-    bgDark: '#080c14',
-    panelBg: 'rgba(10, 16, 30, 0.78)',
-    panelBorder: 'rgba(255, 255, 255, 0.10)',
-    cardBg: 'rgba(14, 22, 40, 0.76)',
-    cardBorder: 'rgba(255, 255, 255, 0.08)',
-    divider: 'rgba(255, 255, 255, 0.08)',
+    bgDark: '#06080E',
+    panelBg: 'rgba(13, 18, 32, 0.82)',
+    panelBgHover: 'rgba(18, 26, 46, 0.92)',
+    borderTop: 'rgba(255, 255, 255, 0.22)',
+    borderBottom: 'rgba(255, 255, 255, 0.04)',
     textPrimary: '#FFFFFF',
-    textSecondary: '#94A3B8',
-    textMuted: '#64748B',
+    textSecondary: '#E2E8F0',
+    textMuted: '#94A3B8',
+    textDim: '#64748B',
     accentGold: '#FBBF24',
-    accentGreen: '#34D399',
+    accentGoldDeep: '#D97706',
+    accentGreen: '#10B981',
+    accentEmerald: '#34D399',
     accentBlue: '#38BDF8',
+    accentSky: '#0284C7',
     accentPurple: '#C084FC',
-    accentRed: '#F87171'
+    accentViolet: '#8B5CF6',
+    accentRed: '#F87171',
+    accentRose: '#FB7185'
   },
   fonts: {
-    family: '"Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif'
+    family: '"Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial, sans-serif',
+    mcFamily: '"Minecraftia", "Segoe UI", sans-serif'
   }
 };
 
-/**
- * Computes a unified 3-column layout grid for 1200x600 canvas.
- * Outer padding: 36px | Gaps: 14px
- * Content width: 1128px (Hero 330px + Gap 14px + Center 440px + Gap 14px + Right 330px)
- * Content height: 520px (from Y=36 to Y=556)
- */
-function computeLayout(canvasWidth = 1200, canvasHeight = 600) {
-  const padding = 36;
-  const gap = 14;
-  const contentHeight = 520;
-  const topY = padding;
-
-  const heroWidth = 330;
-  const centerWidth = 440;
-  const rightWidth = 330;
-
-  const heroX = padding;
-  const centerX = heroX + heroWidth + gap;
-  const rightX = centerX + centerWidth + gap;
-
-  return {
-    canvasWidth,
-    canvasHeight,
-    padding,
-    gap,
-    contentHeight,
-    hero: {
-      x: heroX,
-      y: topY,
-      width: heroWidth,
-      height: contentHeight,
-      bottom: topY + contentHeight
-    },
-    center: {
-      x: centerX,
-      y: topY,
-      width: centerWidth,
-      height: contentHeight,
-      bottom: topY + contentHeight
-    },
-    right: {
-      x: rightX,
-      y: topY,
-      width: rightWidth,
-      height: contentHeight,
-      bottom: topY + contentHeight
-    },
-    footer: {
-      y: canvasHeight - 16,
-      leftX: padding,
-      rightX: canvasWidth - padding
-    }
-  };
-}
-
-// Rank visual configurations with authentic Hypixel colors & glow tags
 const RANK_CONFIG = {
-  'OWNER': { tag: 'OWNER', bracket: '#FF5555', body: '#FF5555', plus: '#FF5555', bg: 'rgba(255, 85, 85, 0.18)', border: '#FF5555' },
-  'ADMIN': { tag: 'ADMIN', bracket: '#FF5555', body: '#FF5555', plus: '#FF5555', bg: 'rgba(255, 85, 85, 0.18)', border: '#FF5555' },
-  'GM': { tag: 'GM', bracket: '#00AA00', body: '#00AA00', plus: '#00AA00', bg: 'rgba(0, 170, 0, 0.18)', border: '#00AA00' },
-  'MOD': { tag: 'MOD', bracket: '#00AA00', body: '#00AA00', plus: '#00AA00', bg: 'rgba(0, 170, 0, 0.18)', border: '#00AA00' },
-  'HELPER': { tag: 'HELPER', bracket: '#5555FF', body: '#5555FF', plus: '#5555FF', bg: 'rgba(85, 85, 255, 0.18)', border: '#5555FF' },
-  'YOUTUBE': { tag: 'YOUTUBE', bracket: '#FF5555', body: '#FFFFFF', plus: '#FF5555', bg: 'rgba(255, 85, 85, 0.20)', border: '#FF5555' },
-  'PIG+++': { tag: 'PIG+++', bracket: '#FF69B4', body: '#FFB6C1', plus: '#55FFFF', bg: 'rgba(255, 105, 180, 0.20)', border: '#FF69B4' },
-  'MVP++': { tag: 'MVP++', bracket: '#FFAA00', body: '#00FFFF', plus: '#FF5555', bg: 'rgba(255, 170, 0, 0.20)', border: '#FFAA00' },
-  'MVP+': { tag: 'MVP+', bracket: '#00FFFF', body: '#00FFFF', plus: '#FF5555', bg: 'rgba(0, 255, 255, 0.18)', border: '#00FFFF' },
-  'MVP': { tag: 'MVP', bracket: '#00FFFF', body: '#00FFFF', plus: '', bg: 'rgba(0, 255, 255, 0.14)', border: '#00FFFF' },
-  'VIP+': { tag: 'VIP+', bracket: '#55FF55', body: '#55FF55', plus: '#FFAA00', bg: 'rgba(85, 255, 85, 0.18)', border: '#55FF55' },
-  'VIP': { tag: 'VIP', bracket: '#55FF55', body: '#55FF55', plus: '', bg: 'rgba(85, 255, 85, 0.14)', border: '#55FF55' },
-  'NONE': { tag: 'DEFAULT', bracket: '#AAAAAA', body: '#AAAAAA', plus: '', bg: 'rgba(170, 170, 170, 0.10)', border: '#666666' },
+  'OWNER': { tag: 'OWNER', bracket: '#FF5555', body: '#FF5555', plus: '#FF5555', aura: 'rgba(255, 85, 85, 0.5)' },
+  'ADMIN': { tag: 'ADMIN', bracket: '#FF5555', body: '#FF5555', plus: '#FF5555', aura: 'rgba(255, 85, 85, 0.5)' },
+  'GM': { tag: 'GM', bracket: '#00AA00', body: '#00AA00', plus: '#00AA00', aura: 'rgba(0, 170, 0, 0.45)' },
+  'MOD': { tag: 'MOD', bracket: '#00AA00', body: '#00AA00', plus: '#00AA00', aura: 'rgba(0, 170, 0, 0.45)' },
+  'HELPER': { tag: 'HELPER', bracket: '#5555FF', body: '#5555FF', plus: '#5555FF', aura: 'rgba(85, 85, 255, 0.45)' },
+  'YOUTUBE': { tag: 'YOUTUBE', bracket: '#FF5555', body: '#FFFFFF', plus: '#FF5555', aura: 'rgba(255, 85, 85, 0.5)' },
+  'PIG+++': { tag: 'PIG+++', bracket: '#FF69B4', body: '#FFB6C1', plus: '#55FFFF', aura: 'rgba(255, 105, 180, 0.5)' },
+  'MVP++': { tag: 'MVP++', bracket: '#FFAA00', body: '#00FFFF', plus: '#FF5555', aura: 'rgba(255, 170, 0, 0.5)' },
+  'MVP+': { tag: 'MVP+', bracket: '#00FFFF', body: '#00FFFF', plus: '#FF5555', aura: 'rgba(0, 255, 255, 0.5)' },
+  'MVP': { tag: 'MVP', bracket: '#00FFFF', body: '#00FFFF', plus: '', aura: 'rgba(0, 255, 255, 0.4)' },
+  'VIP+': { tag: 'VIP+', bracket: '#55FF55', body: '#55FF55', plus: '#FFAA00', aura: 'rgba(85, 255, 85, 0.45)' },
+  'VIP': { tag: 'VIP', bracket: '#55FF55', body: '#55FF55', plus: '', aura: 'rgba(85, 255, 85, 0.4)' },
+  'NONE': { tag: 'DEFAULT', bracket: '#94A3B8', body: '#94A3B8', plus: '', aura: 'rgba(148, 163, 184, 0.25)' },
 };
 
 // ===========================================================================
-// 1. GLOBAL DRAWING & TEXT FITTING HELPERS
+// GEOMETRIC & DRAWING HELPERS
 // ===========================================================================
 
 function drawRoundedRect(ctx, x, y, width, height, radius) {
@@ -129,41 +81,61 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 /**
- * Draws a glassmorphic container panel.
+ * Premium Glassmorphic Panel with dual-stop gradient and specular top highlight
  */
-function drawPanel(ctx, x, y, width, height, radius = DESIGN.radius.panel, options = {}) {
+function drawGlassPanel(ctx, x, y, width, height, radius = DESIGN.radius.card, options = {}) {
+  const {
+    bgGradient = null,
+    borderColor = null,
+    glowColor = null,
+    glowBlur = 0,
+    fillAlpha = 0.85
+  } = options;
+
   ctx.save();
-  ctx.fillStyle = options.bg || DESIGN.colors.panelBg;
+
+  // Glow shadow if specified
+  if (glowColor && glowBlur > 0) {
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = glowBlur;
+  }
+
+  // Background gradient fill
+  if (bgGradient) {
+    ctx.fillStyle = bgGradient;
+  } else {
+    const bg = ctx.createLinearGradient(x, y, x, y + height);
+    bg.addColorStop(0, `rgba(15, 22, 38, ${fillAlpha})`);
+    bg.addColorStop(1, `rgba(8, 12, 22, ${Math.min(1, fillAlpha + 0.1)})`);
+    ctx.fillStyle = bg;
+  }
+
   drawRoundedRect(ctx, x, y, width, height, radius);
   ctx.fill();
 
-  ctx.strokeStyle = options.border || DESIGN.colors.panelBorder;
-  ctx.lineWidth = options.borderWidth || 1;
+  // Reset shadow for crisp border
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+
+  // Multi-tier specular border
+  if (borderColor) {
+    ctx.strokeStyle = borderColor;
+  } else {
+    const borderGrad = ctx.createLinearGradient(x, y, x, y + height);
+    borderGrad.addColorStop(0, 'rgba(255, 255, 255, 0.22)');
+    borderGrad.addColorStop(0.2, 'rgba(255, 255, 255, 0.07)');
+    borderGrad.addColorStop(0.8, 'rgba(255, 255, 255, 0.02)');
+    borderGrad.addColorStop(1, 'rgba(255, 255, 255, 0.06)');
+    ctx.strokeStyle = borderGrad;
+  }
+
+  ctx.lineWidth = 1.2;
   drawRoundedRect(ctx, x, y, width, height, radius);
   ctx.stroke();
+
   ctx.restore();
 }
 
-/**
- * Draws an internal card component.
- */
-function drawCard(ctx, x, y, width, height, radius = DESIGN.radius.card, options = {}) {
-  ctx.save();
-  ctx.fillStyle = options.bg || DESIGN.colors.cardBg;
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.fill();
-
-  ctx.strokeStyle = options.border || DESIGN.colors.cardBorder;
-  ctx.lineWidth = options.borderWidth || 1;
-  drawRoundedRect(ctx, x, y, width, height, radius);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/**
- * Dynamic text fitting helper: scales down font size and truncates with ellipsis if necessary.
- * Guarantees zero text overflow.
- */
 function fitText(ctx, text, maxWidth, initialSize = 16, minSize = 10, weight = 'bold', family = DESIGN.fonts.family) {
   let str = String(text ?? '');
   let size = initialSize;
@@ -181,15 +153,37 @@ function fitText(ctx, text, maxWidth, initialSize = 16, minSize = 10, weight = '
     str = str + '...';
   }
 
-  return {
-    fontSize: size,
-    text: str,
-    font: `${weight} ${size}px ${family}`
-  };
+  return { fontSize: size, text: str, font: `${weight} ${size}px ${family}` };
 }
 
-function fitFontSize(ctx, text, maxWidth, initialSize = 16, minSize = 10, weight = 'bold', family = DESIGN.fonts.family) {
+function fitFontSize(ctx, text, maxWidth, initialSize, minSize, weight, family) {
   return fitText(ctx, text, maxWidth, initialSize, minSize, weight, family).fontSize;
+}
+
+function cleanCurrency(val) {
+  if (!val && val !== 0) return '$0';
+  const str = String(val).trim();
+  if (!str) return '$0';
+  if (str.toLowerCase() === 'unknown') return 'Unknown';
+  const clean = str.replace(/[^0-9.]/g, '');
+  const num = parseFloat(clean);
+  if (isNaN(num)) return str;
+  return `$${Math.floor(num).toLocaleString('en-US')}`;
+}
+
+function formatCompactNumber(val) {
+  if (!val && val !== 0) return '$0';
+  const str = String(val).trim();
+  if (str.toLowerCase() === 'unknown') return 'Unknown';
+  const clean = str.replace(/[^0-9.]/g, '');
+  const num = parseFloat(clean);
+  if (isNaN(num)) return str;
+
+  if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
+  if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
+  if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
+  if (num >= 1e3) return `$${(num / 1e3).toFixed(1)}K`;
+  return `$${Math.floor(num).toLocaleString('en-US')}`;
 }
 
 function obscureUsername(username) {
@@ -200,110 +194,211 @@ function obscureUsername(username) {
   return `${first}${'*'.repeat(Math.max(4, username.length - 4))}${last}`;
 }
 
-async function fetchPlayerRank(username) {
-  try {
-    let cleanUsername = (username || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/[^\w\d_\-]/g, '').slice(0, 16);
-    if (!cleanUsername) return 'NONE';
+// ===========================================================================
+// VECTOR ICONS (Drawn natively on Canvas)
+// ===========================================================================
 
-    let correctedName = cleanUsername;
-    try {
-      const { data } = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${cleanUsername}`, { timeout: 4000 });
-      if (data && data.name) correctedName = data.name;
-    } catch (e) { }
+function drawIconShield(ctx, cx, cy, size, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  const w = size;
+  const h = size * 1.15;
+  const top = cy - h / 2;
+  const left = cx - w / 2;
+  const right = cx + w / 2;
+  const bottom = cy + h / 2;
 
-    try {
-      const { data } = await axios.get(`https://track.wreeper.com/player/${correctedName}`, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-        timeout: 4000
-      });
-      const $ = cheerio.load(data);
-      const rankRaw = $("div").first().text();
-      const rankMatch = rankRaw.match(/\[([^\]]+)\]/);
-      if (rankMatch && rankMatch[1]) {
-        return rankMatch[1].trim();
-      }
-    } catch (e) { }
+  ctx.moveTo(cx, top);
+  ctx.lineTo(right, top + h * 0.2);
+  ctx.lineTo(right, cy + h * 0.1);
+  ctx.quadraticCurveTo(right, bottom - h * 0.1, cx, bottom);
+  ctx.quadraticCurveTo(left, bottom - h * 0.1, left, cy + h * 0.1);
+  ctx.lineTo(left, top + h * 0.2);
+  ctx.closePath();
+  ctx.fill();
 
-    return 'NONE';
-  } catch (err) {
-    return 'NONE';
-  }
+  // Inner subtle checkmark
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = size * 0.14;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - size * 0.22, cy);
+  ctx.lineTo(cx - size * 0.05, cy + size * 0.18);
+  ctx.lineTo(cx + size * 0.25, cy - size * 0.16);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
-// ===========================================================================
-// 2. BACKGROUND LOADER & DETERMINISTIC SELECTION
-// ===========================================================================
+function drawIconCoin(ctx, cx, cy, radius, primaryColor = '#FBBF24') {
+  ctx.save();
+  const r = radius;
 
-function loadBackgrounds() {
-  const possibleDirs = [
-    path.join(__dirname, 'assets', 'backgrounds'),
-    path.join(__dirname, 'assets'),
-    path.join(process.cwd(), 'assets', 'backgrounds'),
-    path.join(process.cwd(), 'autosecure', 'utils', 'assets', 'backgrounds')
+  // Outer glowing coin
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+  grad.addColorStop(0, '#FEF08A');
+  grad.addColorStop(0.5, primaryColor);
+  grad.addColorStop(1, '#B45309');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Inner rim
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.76, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.lineWidth = r * 0.15;
+  ctx.stroke();
+
+  // Center Dollar sign
+  ctx.font = `900 ${Math.round(r * 1.1)}px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('$', cx, cy + 1);
+
+  ctx.restore();
+}
+
+function drawIconStar(ctx, cx, cy, r, color = '#FBBF24') {
+  ctx.save();
+  ctx.beginPath();
+  const spikes = 5;
+  const innerR = r * 0.45;
+  let rot = (Math.PI / 2) * 3;
+  const step = Math.PI / spikes;
+
+  ctx.moveTo(cx, cy - r);
+  for (let i = 0; i < spikes; i++) {
+    ctx.lineTo(cx + Math.cos(rot) * r, cy + Math.sin(rot) * r);
+    rot += step;
+    ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - r);
+  ctx.closePath();
+
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawIconCrystal(ctx, cx, cy, size, color = '#C084FC') {
+  ctx.save();
+  const w = size * 0.8;
+  const h = size * 1.1;
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - h / 2);
+  ctx.lineTo(cx + w / 2, cy - h * 0.1);
+  ctx.lineTo(cx + w * 0.3, cy + h / 2);
+  ctx.lineTo(cx - w * 0.3, cy + h / 2);
+  ctx.lineTo(cx - w / 2, cy - h * 0.1);
+  ctx.closePath();
+
+  const grad = ctx.createLinearGradient(cx - w, cy - h, cx + w, cy + h);
+  grad.addColorStop(0, '#E879F9');
+  grad.addColorStop(0.5, color);
+  grad.addColorStop(1, '#7E22CE');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Facet highlight
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - h / 2);
+  ctx.lineTo(cx, cy + h / 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawIconSwords(ctx, cx, cy, size, color = '#38BDF8') {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size * 0.15;
+  ctx.lineCap = 'round';
+
+  const len = size * 0.6;
+  // Blade 1
+  ctx.beginPath();
+  ctx.moveTo(cx - len, cy - len);
+  ctx.lineTo(cx + len, cy + len);
+  ctx.stroke();
+
+  // Crossguard 1
+  ctx.beginPath();
+  ctx.moveTo(cx - len * 0.4, cy - len * 0.1);
+  ctx.lineTo(cx - len * 0.1, cy - len * 0.4);
+  ctx.stroke();
+
+  // Blade 2
+  ctx.beginPath();
+  ctx.moveTo(cx + len, cy - len);
+  ctx.lineTo(cx - len, cy + len);
+  ctx.stroke();
+
+  // Crossguard 2
+  ctx.beginPath();
+  ctx.moveTo(cx + len * 0.4, cy - len * 0.1);
+  ctx.lineTo(cx + len * 0.1, cy - len * 0.4);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawIconDonut(ctx, cx, cy, size, color = '#F472B6') {
+  ctx.save();
+  const r = size * 0.55;
+  const holeR = r * 0.38;
+
+  // Donut base
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#F59E0B';
+  ctx.fill();
+
+  // Frosting top
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.9, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Hole cut
+  ctx.beginPath();
+  ctx.arc(cx, cy, holeR, 0, Math.PI * 2);
+  ctx.fillStyle = DESIGN.colors.bgDark;
+  ctx.fill();
+
+  // Sprinkles
+  const sprinkles = [
+    { x: cx - r * 0.5, y: cy - r * 0.2, c: '#38BDF8' },
+    { x: cx + r * 0.45, y: cy - r * 0.35, c: '#34D399' },
+    { x: cx + r * 0.35, y: cy + r * 0.4, c: '#FEF08A' },
+    { x: cx - r * 0.25, y: cy + r * 0.5, c: '#F87171' }
   ];
-
-  const validExts = ['.png', '.jpg', '.jpeg', '.webp'];
-  const backgrounds = [];
-  const visitedPaths = new Set();
-
-  for (const dir of possibleDirs) {
-    if (!fs.existsSync(dir)) continue;
-    try {
-      const files = fs.readdirSync(dir);
-      for (const file of files) {
-        const ext = path.extname(file).toLowerCase();
-        if (validExts.includes(ext)) {
-          const fullPath = path.join(dir, file);
-          if (!visitedPaths.has(fullPath)) {
-            visitedPaths.add(fullPath);
-            try {
-              const stat = fs.statSync(fullPath);
-              if (stat.isFile()) {
-                backgrounds.push({ name: file, path: fullPath, dir });
-              }
-            } catch (e) { }
-          }
-        }
-      }
-    } catch (e) { }
+  for (const s of sprinkles) {
+    ctx.fillStyle = s.c;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, size * 0.08, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  return backgrounds;
+  ctx.restore();
 }
 
-function selectBackground(stats, backgrounds) {
-  if (!backgrounds || backgrounds.length === 0) return null;
-
-  if (stats.background && typeof stats.background === 'string') {
-    const target = stats.background.toLowerCase();
-    const found = backgrounds.find(b => b.name.toLowerCase() === target || b.path.toLowerCase().endsWith(target));
-    if (found) return found;
-  }
-
-  if (typeof stats.backgroundIndex === 'number' && Number.isInteger(stats.backgroundIndex)) {
-    const idx = Math.abs(stats.backgroundIndex) % backgrounds.length;
-    return backgrounds[idx];
-  }
-
-  const user = stats.username || 'default';
-  let hash = 0;
-  for (let i = 0; i < user.length; i++) {
-    hash = ((hash << 5) - hash) + user.charCodeAt(i);
-    hash |= 0;
-  }
-  const selectedIdx = Math.abs(hash) % backgrounds.length;
-  return backgrounds[selectedIdx];
-}
+// ===========================================================================
+// BACKGROUND & AMBIENT ATMOSPHERE
+// ===========================================================================
 
 function drawImageCover(ctx, image, x, y, width, height) {
   const imageRatio = image.width / image.height;
   const targetRatio = width / height;
-
-  let drawWidth;
-  let drawHeight;
-  let offsetX;
-  let offsetY;
-
+  let drawWidth, drawHeight, offsetX, offsetY;
   if (imageRatio > targetRatio) {
     drawHeight = height;
     drawWidth = height * imageRatio;
@@ -315,98 +410,107 @@ function drawImageCover(ctx, image, x, y, width, height) {
     offsetX = x;
     offsetY = y + (height - drawHeight) / 2;
   }
-
   ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
 }
 
-async function drawBackground(ctx, selectedBg, stats, width, height) {
-  ctx.fillStyle = DESIGN.colors.bgDark;
+async function drawAtmosphericBackground(ctx, selectedBg, stats, width, height) {
+  // 1. Deep midnight gradient base
+  const bgBase = ctx.createLinearGradient(0, 0, width, height);
+  bgBase.addColorStop(0, '#06080E');
+  bgBase.addColorStop(0.5, '#090D18');
+  bgBase.addColorStop(1, '#040508');
+  ctx.fillStyle = bgBase;
   ctx.fillRect(0, 0, width, height);
 
-  let imageLoaded = false;
+  // 2. Load and overlay background image if available
   let bgImg = null;
-
   if (selectedBg && selectedBg.path) {
-    try {
-      bgImg = await loadImage(selectedBg.path);
-      imageLoaded = true;
-    } catch (err) {
-      imageLoaded = false;
+    try { bgImg = await loadImage(selectedBg.path); } catch (err) {}
+  }
+  if (!bgImg) {
+    const fallbackTemplate = path.join(__dirname, 'assets', 'template.png');
+    if (fs.existsSync(fallbackTemplate)) {
+      try { bgImg = await loadImage(fallbackTemplate); } catch (err) {}
     }
   }
 
-  const overlayOpacity = stats.overlayOpacity !== undefined ? stats.overlayOpacity : 0.40;
-
-  if (imageLoaded && bgImg) {
+  if (bgImg) {
     ctx.save();
-    // 1. Draw Real Artwork with COVER mode
     drawImageCover(ctx, bgImg, 0, 0, width, height);
 
-    // 2. Localized horizontal gradient shield:
-    // Left (Hero) retains vivid artwork visibility; Center and Right panels have high text contrast
-    const darkOverlay = ctx.createLinearGradient(0, 0, width, 0);
-    darkOverlay.addColorStop(0, `rgba(5, 8, 15, ${overlayOpacity * 0.35})`);
-    darkOverlay.addColorStop(0.32, `rgba(7, 10, 18, ${overlayOpacity * 0.70})`);
-    darkOverlay.addColorStop(0.66, `rgba(6, 9, 16, ${overlayOpacity + 0.30})`);
-    darkOverlay.addColorStop(1, `rgba(4, 7, 13, ${overlayOpacity + 0.45})`);
-
-    ctx.fillStyle = darkOverlay;
+    // Multi-layer dark cinematic overlay
+    const overlayGrad = ctx.createLinearGradient(0, 0, width, 0);
+    overlayGrad.addColorStop(0, 'rgba(4, 7, 14, 0.40)');
+    overlayGrad.addColorStop(0.28, 'rgba(4, 7, 14, 0.65)');
+    overlayGrad.addColorStop(0.55, 'rgba(6, 10, 20, 0.88)');
+    overlayGrad.addColorStop(1, 'rgba(4, 7, 14, 0.94)');
+    ctx.fillStyle = overlayGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle edge vignette
-    const vignette = ctx.createRadialGradient(width * 0.5, height * 0.5, width * 0.35, width * 0.5, height * 0.5, width * 0.75);
-    vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.42)');
-    ctx.fillStyle = vignette;
+    // Bottom dark gradient to anchor cards
+    const bottomVignette = ctx.createLinearGradient(0, height * 0.5, 0, height);
+    bottomVignette.addColorStop(0, 'rgba(4, 6, 12, 0)');
+    bottomVignette.addColorStop(1, 'rgba(4, 6, 12, 0.85)');
+    ctx.fillStyle = bottomVignette;
     ctx.fillRect(0, 0, width, height);
 
     ctx.restore();
-  } else {
-    const fallbackGrad = ctx.createLinearGradient(0, 0, width, height);
-    fallbackGrad.addColorStop(0, '#0f172a');
-    fallbackGrad.addColorStop(0.6, '#111827');
-    fallbackGrad.addColorStop(1, '#030712');
-    ctx.fillStyle = fallbackGrad;
-    ctx.fillRect(0, 0, width, height);
   }
 
-  // Single subtle outer border frame
+  // 3. Ambient Rank-Themed Backlight
+  const rankKey = (stats.rank || 'NONE').toUpperCase();
+  const rankInfo = RANK_CONFIG[rankKey] || RANK_CONFIG['NONE'];
+  const auraColor = rankInfo.aura || 'rgba(0, 255, 255, 0.35)';
+
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+  // Hero avatar aura burst
+  const skinAura = ctx.createRadialGradient(180, 360, 20, 180, 360, 320);
+  skinAura.addColorStop(0, auraColor);
+  skinAura.addColorStop(0.6, auraColor.replace(/[\d.]+\)$/, '0.12)'));
+  skinAura.addColorStop(1, 'transparent');
+  ctx.fillStyle = skinAura;
+  ctx.fillRect(0, 0, 500, height);
+
+  // Subtle top-right accent glow
+  const topAccent = ctx.createRadialGradient(width - 150, 120, 10, width - 150, 120, 380);
+  topAccent.addColorStop(0, 'rgba(56, 189, 248, 0.12)');
+  topAccent.addColorStop(1, 'transparent');
+  ctx.fillStyle = topAccent;
+  ctx.fillRect(width - 550, 0, 550, 450);
+
+  // Subtle decorative stars/motes on background
+  const seed = (stats.username || 'default').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+  for (let i = 0; i < 20; i++) {
+    const px = (seed * (i + 13) * 79) % (width - 60) + 30;
+    const py = (seed * (i + 37) * 43) % (height - 60) + 30;
+    const pr = ((i % 3) + 1) * 0.8;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Card outer perimeter border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
   ctx.lineWidth = 1;
-  drawRoundedRect(ctx, 12, 12, width - 24, height - 24, 16);
+  drawRoundedRect(ctx, 12, 12, width - 24, height - 24, 22);
   ctx.stroke();
+
   ctx.restore();
 }
 
 // ===========================================================================
-// 3. MINECRAFT CHARACTER (HERO ELEMENT)
+// 3D CHARACTER WITH HOLOGRAPHIC PEDESTAL & SPARKS
 // ===========================================================================
 
-async function drawCharacter(ctx, stats, heroX, heroY, heroW, heroH) {
-  // Support either (ctx, stats, layout.hero) or individual coordinates
-  let x, y, width, height;
-  if (typeof heroX === 'object' && heroX !== null) {
-    x = heroX.x;
-    y = heroX.y;
-    width = heroX.width;
-    height = heroX.height;
-  } else {
-    x = heroX;
-    y = heroY;
-    width = heroW;
-    height = heroH;
-  }
-
+async function drawCharacterStage(ctx, stats, x, y, width, height) {
   const username = stats.username || "Steve";
   const usernameForAvatar = username.toLowerCase();
   const imageDir = path.join(__dirname, 'db', 'image');
-  if (!fs.existsSync(imageDir)) {
-    fs.mkdirSync(imageDir, { recursive: true });
-  }
+  if (!fs.existsSync(imageDir)) fs.mkdirSync(imageDir, { recursive: true });
 
   const localImagePath = path.join(imageDir, `${usernameForAvatar}.png`);
-  let avt;
+  let avt = null;
 
   try {
     if (fs.existsSync(localImagePath)) {
@@ -417,7 +521,6 @@ async function drawCharacter(ctx, stats, heroX, heroY, heroW, heroH) {
         `https://mc-heads.net/body/${encodeURIComponent(username)}/512`,
         `https://minotar.net/armor/body/${encodeURIComponent(username)}/512.png`
       ];
-
       let downloadSuccess = false;
       for (const url of avatarUrls) {
         try {
@@ -431,536 +534,760 @@ async function drawCharacter(ctx, stats, heroX, heroY, heroW, heroH) {
             downloadSuccess = true;
             break;
           }
-        } catch (e) { }
+        } catch (e) {}
       }
-
-      if (downloadSuccess) {
-        avt = await loadImage(localImagePath);
-      } else {
-        throw new Error('Avatar download fallback');
-      }
+      if (downloadSuccess) avt = await loadImage(localImagePath);
     }
-  } catch (e) {
+  } catch (e) {}
+
+  if (!avt) {
     try {
       const defaultPath = path.join(imageDir, 'steve.png');
-      if (fs.existsSync(defaultPath)) {
-        avt = await loadImage(defaultPath);
-      }
-    } catch (err) { }
+      if (fs.existsSync(defaultPath)) avt = await loadImage(defaultPath);
+    } catch (err) {}
   }
 
-  // 1. Dynamic ground baseline calculation (feet rest consistently near bottom)
-  const groundBaselineY = y + height - 20;
+  const rankKey = (stats.rank || 'NONE').toUpperCase();
+  const rankInfo = RANK_CONFIG[rankKey] || RANK_CONFIG['NONE'];
+  const auraColor = rankInfo.bracket || '#38BDF8';
 
-  // 2. Realistic ground shadow (Soft contact ellipse)
-  const shadowCenterX = x + width / 2;
-  const shadowCenterY = groundBaselineY;
+  const pedestalX = x + width / 2;
+  const pedestalY = y + height - 55;
+
   ctx.save();
-  const groundShadow = ctx.createRadialGradient(shadowCenterX, shadowCenterY, 8, shadowCenterX, shadowCenterY, 115);
-  groundShadow.addColorStop(0, 'rgba(0, 0, 0, 0.70)');
-  groundShadow.addColorStop(0.5, 'rgba(0, 0, 0, 0.32)');
-  groundShadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = groundShadow;
+
+  // 1. Holographic Pedestal Base
+  // Deep ground contact shadow
+  const shadowGrad = ctx.createRadialGradient(pedestalX, pedestalY, 15, pedestalX, pedestalY, 140);
+  shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0.95)');
+  shadowGrad.addColorStop(0.6, 'rgba(0, 0, 0, 0.6)');
+  shadowGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = shadowGrad;
   ctx.beginPath();
-  ctx.ellipse(shadowCenterX, shadowCenterY, 115, 22, 0, 0, Math.PI * 2);
+  ctx.ellipse(pedestalX, pedestalY, 135, 26, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Outer glowing light ring
+  ctx.beginPath();
+  ctx.ellipse(pedestalX, pedestalY - 2, 115, 20, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = auraColor;
+  ctx.lineWidth = 3.5;
+  ctx.shadowColor = auraColor;
+  ctx.shadowBlur = 20;
+  ctx.stroke();
+
+  // Inner bright core ring
+  ctx.beginPath();
+  ctx.ellipse(pedestalX, pedestalY - 2, 75, 12, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Holographic beam and sparks removed for a cleaner, modern look
   ctx.restore();
 
-  // 3. Render Hero Character: Auto-scaled to available height, centered in hero column
+  // 2. Render Minecraft Avatar
   if (avt) {
     ctx.save();
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetY = 8;
+    // Ambient character shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 35;
+    ctx.shadowOffsetY = 15;
 
     const avtRatio = avt.width / avt.height;
-    const maxCharacterHeight = 460;
-    const targetH = Math.min(height * 0.88, maxCharacterHeight);
+    const targetH = height * 0.85;
     const targetW = targetH * avtRatio;
     const targetX = x + (width - targetW) / 2;
-    const targetY = groundBaselineY - targetH;
+    const targetY = pedestalY - targetH + 8;
 
     ctx.drawImage(avt, targetX, targetY, targetW, targetH);
     ctx.restore();
   }
+
+  // 3. Floating Player Pill Badge under pedestal
+  const badgeW = 200;
+  const badgeH = 28;
+  const badgeX = x + (width - badgeW) / 2;
+  const badgeY = pedestalY + 16;
+
+  ctx.save();
+  ctx.fillStyle = 'rgba(10, 15, 28, 0.90)';
+  drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 14);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 1;
+  drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 14);
+  ctx.stroke();
+
+  // Dot indicator
+  ctx.beginPath();
+  ctx.arc(badgeX + 18, badgeY + 14, 4, 0, Math.PI * 2);
+  ctx.fillStyle = DESIGN.colors.accentGreen;
+  ctx.shadowColor = DESIGN.colors.accentGreen;
+  ctx.shadowBlur = 8;
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.font = `800 11px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textSecondary;
+  ctx.textAlign = 'left';
+  ctx.fillText('MINECRAFT VERIFIED', badgeX + 30, badgeY + 18);
+  ctx.restore();
 }
 
 // ===========================================================================
-// 4. USERNAME & RANK IDENTITY
+// TOP HEADER BAR (Rank Badge + Large Username + Hit Status)
 // ===========================================================================
 
-function drawIdentity(ctx, stats, x, y, maxWidth) {
-  ctx.save();
+function drawHeaderBar(ctx, stats, x, y, width, height) {
+  drawGlassPanel(ctx, x, y, width, height, 16, {
+    fillAlpha: 0.84
+  });
 
-  // Resolve Rank
+  const cy = y + height / 2;
+  let curX = x + 24;
+
   const rankKey = (stats.rank || 'NONE').toUpperCase();
   const rankInfo = RANK_CONFIG[rankKey] || RANK_CONFIG['NONE'];
   const tagText = rankInfo.tag;
-
-  // 1. Rank Badge Pill
-  ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
   const fullTag = `[${tagText}]`;
-  const tagW = ctx.measureText(fullTag).width + 16;
-  const tagH = 28;
-  const badgeY = y + 2;
 
-  ctx.fillStyle = rankInfo.bg;
-  drawRoundedRect(ctx, x, badgeY, tagW, tagH, DESIGN.radius.badge);
+  // 1. Rank Badge
+  ctx.font = `900 16px ${DESIGN.fonts.family}`;
+  const tagWidth = ctx.measureText(fullTag).width + 24;
+  const tagHeight = 38;
+  const badgeY = cy - tagHeight / 2;
+
+  ctx.save();
+  // Rank badge container
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  drawRoundedRect(ctx, curX, badgeY, tagWidth, tagHeight, 8);
   ctx.fill();
-  ctx.strokeStyle = rankInfo.border;
-  ctx.lineWidth = 1.5;
-  drawRoundedRect(ctx, x, badgeY, tagW, tagH, DESIGN.radius.badge);
+
+  ctx.strokeStyle = rankInfo.bracket;
+  ctx.lineWidth = 1.6;
+  ctx.shadowColor = rankInfo.bracket;
+  ctx.shadowBlur = 12;
+  drawRoundedRect(ctx, curX, badgeY, tagWidth, tagHeight, 8);
   ctx.stroke();
 
-  // Formatted Rank Text inside badge (Brackets + Body + Plus)
-  let curX = x + 8;
-  const tagTextY = badgeY + 19;
-  ctx.fillStyle = rankInfo.bracket;
-  ctx.fillText('[', curX, tagTextY);
-  curX += ctx.measureText('[').width;
-
+  // Render bracket, body, plus
+  let textX = curX + 12;
+  const textY = badgeY + 25;
   const baseMatch = tagText.match(/^([A-Z\s]+)(\+*)$/i);
   const baseText = baseMatch ? baseMatch[1] : tagText;
   const plusText = baseMatch ? baseMatch[2] : '';
 
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = rankInfo.bracket;
+  ctx.fillText('[', textX, textY);
+  textX += ctx.measureText('[').width;
+
   ctx.fillStyle = rankInfo.body;
-  ctx.fillText(baseText, curX, tagTextY);
-  curX += ctx.measureText(baseText).width;
+  ctx.fillText(baseText, textX, textY);
+  textX += ctx.measureText(baseText).width;
 
   if (plusText) {
     ctx.fillStyle = rankInfo.plus || '#FF5555';
-    ctx.fillText(plusText, curX, tagTextY);
-    curX += ctx.measureText(plusText).width;
+    ctx.fillText(plusText, textX, textY);
+    textX += ctx.measureText(plusText).width;
   }
 
   ctx.fillStyle = rankInfo.bracket;
-  ctx.fillText(']', curX, tagTextY);
+  ctx.fillText(']', textX, textY);
+  ctx.restore();
 
-  // 2. Username with dynamic text fitting & optical center alignment with rank badge
+  curX += tagWidth + 22;
+
+  // 2. Player Username + Subtitle
   const username = stats.username || 'Player';
   const displayName = stats.showFullUsername ? username : obscureUsername(username);
 
-  const usernameX = x + tagW + 12;
-  const availableUserW = maxWidth - tagW - 12;
-  const fittedUser = fitText(ctx, displayName, availableUserW, 30, 16, 'bold');
+  ctx.save();
+  const maxUserWidth = width - tagWidth - 260;
+  const userFit = fitText(ctx, displayName, maxUserWidth, 32, 22, '900');
 
-  const badgeCenterY = badgeY + tagH / 2;
-  ctx.font = fittedUser.font;
-  ctx.fillStyle = DESIGN.colors.textPrimary;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-  ctx.shadowBlur = 6;
-  ctx.textBaseline = 'middle';
-  ctx.fillText(fittedUser.text, usernameX, badgeCenterY);
+  // Primary Username
+  ctx.font = userFit.font;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+  ctx.shadowBlur = 14;
+  ctx.fillText(userFit.text, curX, cy + 2);
+
+  // Subtitle
   ctx.shadowBlur = 0;
-  ctx.textBaseline = 'alphabetic';
-
-  // 3. Subtle horizontal divider spanning exactly maxWidth
-  ctx.strokeStyle = DESIGN.colors.divider;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x, y + 44);
-  ctx.lineTo(x + maxWidth, y + 44);
-  ctx.stroke();
-
+  ctx.font = `700 11px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textDim;
+  ctx.fillText('Hypixel Network & DonutSMP Account Verified', curX, cy + 20);
   ctx.restore();
-}
 
-// ===========================================================================
-// 5. PRIMARY STATS (NETWORTH + EQUAL PROGRESSION CARDS)
-// ===========================================================================
+  // 3. Right Status Pill (⚡ HIT SECURED)
+  const statusW = 165;
+  const statusH = 36;
+  const statusX = x + width - statusW - 20;
+  const statusY = cy - statusH / 2;
 
-function drawPrimaryStats(ctx, stats, x, y, width) {
   ctx.save();
-
-  // Card 1: TOTAL NETWORTH (Full width card: 84px height)
-  const nwCardH = 84;
-  drawCard(ctx, x, y, width, nwCardH, DESIGN.radius.card, {
-    border: 'rgba(251, 191, 36, 0.38)'
-  });
-
-  // Label
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textSecondary;
-  ctx.fillText('TOTAL NETWORTH', x + 16, y + 24);
-
-  // Badge tag on top right
-  ctx.font = 'bold 10px "Segoe UI", Arial, sans-serif';
-  const tagLabel = 'SkyBlock Economy';
-  const tagW = ctx.measureText(tagLabel).width + 12;
-  const tagX = x + width - tagW - 16;
-  ctx.fillStyle = 'rgba(251, 191, 36, 0.15)';
-  drawRoundedRect(ctx, tagX, y + 12, tagW, 20, 5);
+  const statusGrad = ctx.createLinearGradient(statusX, statusY, statusX + statusW, statusY);
+  statusGrad.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+  statusGrad.addColorStop(1, 'rgba(6, 182, 212, 0.18)');
+  ctx.fillStyle = statusGrad;
+  drawRoundedRect(ctx, statusX, statusY, statusW, statusH, 18);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(251, 191, 36, 0.35)';
-  ctx.lineWidth = 1;
-  drawRoundedRect(ctx, tagX, y + 12, tagW, 20, 5);
+
+  ctx.strokeStyle = '#10B981';
+  ctx.lineWidth = 1.4;
+  ctx.shadowColor = '#10B981';
+  ctx.shadowBlur = 12;
+  drawRoundedRect(ctx, statusX, statusY, statusW, statusH, 18);
   ctx.stroke();
-  ctx.fillStyle = DESIGN.colors.accentGold;
-  ctx.fillText(tagLabel, tagX + 6, y + 26);
 
-  // Networth Value with fitText (Prevents any card overflow)
-  const nwValue = stats.networth || '$0';
-  const fittedNw = fitText(ctx, nwValue, width - 36, 32, 18, 'bold');
-  ctx.font = fittedNw.font;
-  ctx.fillStyle = DESIGN.colors.textPrimary;
-  ctx.fillText(fittedNw.text, x + 16, y + 62);
+  ctx.shadowBlur = 0;
+  drawIconShield(ctx, statusX + 22, cy, 14, '#10B981');
 
-  // Row 2: SKYBLOCK LEVEL & BEDWARS STARS (2 equal cards, 12px gap, 84px height)
-  const cardGap = 12;
-  const colW = (width - cardGap) / 2;
-  const row2Y = y + nwCardH + 12;
-  const card2H = 84;
-
-  const items = [
-    {
-      label: 'SKYBLOCK LEVEL',
-      value: String(stats.sbLevel || '0'),
-      color: DESIGN.colors.accentPurple,
-      sub: 'Progression',
-      border: 'rgba(192, 132, 252, 0.32)'
-    },
-    {
-      label: 'BEDWARS STARS',
-      value: `${stats.bedwars || '0'} ★`,
-      color: DESIGN.colors.accentGreen,
-      sub: 'Competitive',
-      border: 'rgba(52, 211, 153, 0.32)'
-    }
-  ];
-
-  for (let i = 0; i < 2; i++) {
-    const item = items[i];
-    const colX = x + i * (colW + cardGap);
-
-    drawCard(ctx, colX, row2Y, colW, card2H, DESIGN.radius.card, {
-      border: item.border
-    });
-
-    // Label
-    ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = DESIGN.colors.textSecondary;
-    ctx.fillText(item.label, colX + 16, row2Y + 24);
-
-    // Subtitle on top right
-    ctx.font = '10px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = DESIGN.colors.textMuted;
-    ctx.textAlign = 'right';
-    ctx.fillText(item.sub, colX + colW - 16, row2Y + 24);
-    ctx.textAlign = 'left';
-
-    // Value with fitText
-    const fittedVal = fitText(ctx, item.value, colW - 32, 26, 16, 'bold');
-    ctx.font = fittedVal.font;
-    ctx.fillStyle = item.color;
-    ctx.fillText(fittedVal.text, colX + 16, row2Y + 60);
-  }
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#34D399';
+  ctx.textAlign = 'left';
+  ctx.fillText('HIT SECURED', statusX + 38, cy + 4);
 
   ctx.restore();
 }
 
 // ===========================================================================
-// 6. SECONDARY STATS (UNIFIED 2-COLUMN STATS PANEL)
-// ===========================================================================
-
-function drawSecondaryStats(ctx, stats, x, y, width, height = 260) {
-  ctx.save();
-
-  // Unified panel background
-  drawPanel(ctx, x, y, width, height, DESIGN.radius.panel);
-
-  // Section Header
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textSecondary;
-  ctx.fillText('⚡ STATISTICS OVERVIEW', x + 16, y + 26);
-
-  // Divider below title
-  ctx.strokeStyle = DESIGN.colors.divider;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + 16, y + 38);
-  ctx.lineTo(x + width - 16, y + 38);
-  ctx.stroke();
-
-  // 6 Balanced Items (3 per column)
-  const secItems = [
-    { label: 'Network Level', value: String(stats.networkLevel || '0'), color: DESIGN.colors.accentBlue },
-    { label: 'Duel KDR', value: String(stats.duelKDR || '0.00'), color: DESIGN.colors.accentRed },
-    { label: 'Duel Winstreak', value: String(stats.duelWinstreak || '0'), color: DESIGN.colors.accentGold },
-    { label: 'Plus Colour', value: String(stats.plusColour || 'None'), color: DESIGN.colors.accentGreen },
-    { label: 'Gifted Ranks', value: String(stats.gifted || '0'), color: DESIGN.colors.accentPurple },
-    { label: 'Security Status', value: 'Secured', color: DESIGN.colors.accentGreen }
-  ];
-
-  const colWidth = (width - 32) / 2;
-  const startRowY = y + 70;
-  const rowHeight = 44;
-
-  // Center vertical divider
-  const midX = x + width / 2;
-  ctx.strokeStyle = DESIGN.colors.divider;
-  ctx.beginPath();
-  ctx.moveTo(midX, y + 48);
-  ctx.lineTo(midX, y + height - 16);
-  ctx.stroke();
-
-  for (let i = 0; i < secItems.length; i++) {
-    const item = secItems[i];
-    const isRightCol = i >= 3;
-    const rowIndex = i % 3;
-
-    const rowY = startRowY + rowIndex * rowHeight;
-    const colStartX = isRightCol ? midX + 16 : x + 16;
-    const colEndX = isRightCol ? x + width - 16 : midX - 16;
-    const maxValW = (colEndX - colStartX) * 0.48;
-
-    // Label on left
-    ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = DESIGN.colors.textMuted;
-    ctx.textAlign = 'left';
-    ctx.fillText(item.label, colStartX, rowY);
-
-    // Value on right aligned along vertical axis
-    const fitted = fitText(ctx, item.value, maxValW, 14, 10, 'bold');
-    ctx.font = fitted.font;
-    ctx.fillStyle = item.color;
-    ctx.textAlign = 'right';
-    ctx.fillText(fitted.text, colEndX, rowY);
-
-    // Subtle row divider (except after last row)
-    if (rowIndex < 2) {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-      ctx.beginPath();
-      ctx.moveTo(colStartX, rowY + 14);
-      ctx.lineTo(colEndX, rowY + 14);
-      ctx.stroke();
-    }
-  }
-
-  ctx.restore();
-}
-
-// ===========================================================================
-// 7. DONUT PROGRESS RINGS & DONUT SMP STATS (RIGHT PANEL)
+// STAT CARDS (High-Density, Luxury Aesthetics)
 // ===========================================================================
 
 /**
- * Draws a clean, crisp Donut / Doughnut progress chart.
+ * Featured Networth Hero Card (Top of Column 1)
  */
-function drawDonutStat(ctx, { x, y, radius, value, max, label, color, sublabel }) {
-  const numVal = parseFloat(String(value).replace(/[^0-9.]/g, '')) || 0;
+function drawNetworthHeroCard(ctx, stats, x, y, width, height) {
+  const heroGrad = ctx.createLinearGradient(x, y, x, y + height);
+  heroGrad.addColorStop(0, 'rgba(32, 26, 16, 0.90)');
+  heroGrad.addColorStop(1, 'rgba(14, 16, 28, 0.94)');
+
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card, {
+    bgGradient: heroGrad,
+    borderColor: 'rgba(251, 191, 36, 0.40)',
+    glowColor: 'rgba(245, 158, 11, 0.28)',
+    glowBlur: 16
+  });
+
+  // Top header: Icon + Label + Tag
+  drawIconCoin(ctx, x + 24, y + 26, 11, '#FBBF24');
+
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#FBBF24';
+  ctx.textAlign = 'left';
+  ctx.fillText('TOTAL NETWORTH', x + 44, y + 30);
+
+  // Top Right Tag
+  const tagText = 'SKYBLOCK';
+  ctx.font = `800 10px ${DESIGN.fonts.family}`;
+  const tagW = ctx.measureText(tagText).width + 14;
+  const tagX = x + width - tagW - 16;
+  const tagY = y + 16;
+
+  ctx.fillStyle = 'rgba(251, 191, 36, 0.18)';
+  drawRoundedRect(ctx, tagX, tagY, tagW, 20, 6);
+  ctx.fill();
+  ctx.fillStyle = '#FDE68A';
+  ctx.fillText(tagText, tagX + 7, tagY + 14);
+
+  // Formatted values
+  const exactNw = cleanCurrency(stats.networth);
+  const compactNw = formatCompactNumber(stats.networth);
+  const numClean = parseFloat(String(stats.networth).replace(/[^0-9.]/g, '')) || 0;
+  const primaryDisplay = (numClean >= 100000) ? compactNw : exactNw;
+  const secondaryDisplay = (numClean >= 100000) ? `Exact: ${exactNw}` : 'Estimated Skyblock Networth';
+
+  ctx.save();
+  const nwFit = fitText(ctx, primaryDisplay, width - 40, 44, 28, '900');
+
+  const goldTextGrad = ctx.createLinearGradient(x, y + 45, x, y + 105);
+  goldTextGrad.addColorStop(0, '#FFFBEB');
+  goldTextGrad.addColorStop(0.3, '#FEF08A');
+  goldTextGrad.addColorStop(1, '#F59E0B');
+
+  ctx.font = nwFit.font;
+  ctx.fillStyle = goldTextGrad;
+  ctx.shadowColor = 'rgba(245, 158, 11, 0.65)';
+  ctx.shadowBlur = 18;
+  ctx.fillText(nwFit.text, x + 20, y + 84);
+  ctx.restore();
+
+  // Bottom Sub-detail bar
+  const subY = y + height - 24;
+  ctx.font = `700 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.fillText(secondaryDisplay, x + 20, subY);
+}
+
+/**
+ * Skyblock Level Card (Column 1, Card 2)
+ */
+function drawSkyblockLevelCard(ctx, stats, x, y, width, height) {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
+
+  // Icon + Header
+  drawIconCrystal(ctx, x + 24, y + 26, 16, DESIGN.colors.accentPurple);
+
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.textAlign = 'left';
+  ctx.fillText('SKYBLOCK LEVEL', x + 44, y + 30);
+
+  // Badge
+  const bW = 68;
+  const bX = x + width - bW - 16;
+  const bY = y + 16;
+  ctx.fillStyle = 'rgba(192, 132, 252, 0.15)';
+  drawRoundedRect(ctx, bX, bY, bW, 20, 6);
+  ctx.fill();
+  ctx.fillStyle = DESIGN.colors.accentPurple;
+  ctx.font = `800 10px ${DESIGN.fonts.family}`;
+  ctx.fillText('HYPIXEL', bX + 11, bY + 14);
+
+  // Big Level Value + "LVL" tag
+  const sbLvl = parseInt(String(stats.sbLevel).replace(/[^0-9]/g, ''), 10) || 0;
+  const sbProgress = Math.min(1, sbLvl / 480);
+  const percent = Math.round(sbProgress * 100);
+
+  ctx.save();
+  ctx.font = `900 42px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.accentPurple;
+  ctx.shadowColor = DESIGN.colors.accentPurple;
+  ctx.shadowBlur = 16;
+  ctx.fillText(`${sbLvl}`, x + 20, y + 84);
+  const numW = ctx.measureText(`${sbLvl}`).width;
+
+  // Small "LEVEL" label next to number
+  ctx.shadowBlur = 0;
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#E9D5FF';
+  ctx.fillText('LEVEL', x + 24 + numW, y + 80);
+  ctx.restore();
+
+  // Progress bar
+  const barW = width - 40;
+  const barH = 7;
+  const barX = x + 20;
+  const barY = y + 106;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  drawRoundedRect(ctx, barX, barY, barW, barH, 4);
+  ctx.fill();
+
+  if (sbProgress > 0) {
+    const barGrad = ctx.createLinearGradient(barX, barY, barX + barW * sbProgress, barY);
+    barGrad.addColorStop(0, '#A855F7');
+    barGrad.addColorStop(1, '#EC4899');
+    ctx.fillStyle = barGrad;
+    ctx.shadowColor = '#A855F7';
+    ctx.shadowBlur = 8;
+    drawRoundedRect(ctx, barX, barY, Math.max(8, barW * sbProgress), barH, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Bottom text: Progression ratio + percentage
+  const bottomY = y + height - 24;
+  ctx.font = `700 11px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.fillText(`Progression: ${sbLvl} / 480`, x + 20, bottomY);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = DESIGN.colors.accentPurple;
+  ctx.fillText(`${percent}%`, x + width - 20, bottomY);
+  ctx.textAlign = 'left';
+}
+
+/**
+ * Bedwars Stars Card (Column 1, Card 3)
+ */
+function drawBedwarsStarsCard(ctx, stats, x, y, width, height) {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
+
+  // Icon + Header
+  drawIconStar(ctx, x + 24, y + 26, 10, DESIGN.colors.accentGold);
+
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.textAlign = 'left';
+  ctx.fillText('BEDWARS STARS', x + 44, y + 30);
+
+  // Badge
+  const bW = 62;
+  const bX = x + width - bW - 16;
+  const bY = y + 16;
+  ctx.fillStyle = 'rgba(251, 191, 36, 0.15)';
+  drawRoundedRect(ctx, bX, bY, bW, 20, 6);
+  ctx.fill();
+  ctx.fillStyle = DESIGN.colors.accentGold;
+  ctx.font = `800 10px ${DESIGN.fonts.family}`;
+  ctx.fillText('COMBAT', bX + 8, bY + 14);
+
+  // Big Stars Value
+  const bwStars = parseInt(String(stats.bedwars).replace(/[^0-9]/g, ''), 10) || 0;
+  const bwTarget = Math.max(1000, Math.ceil((bwStars + 1) / 500) * 500);
+  const bwProgress = Math.min(1, bwStars / bwTarget);
+  const percent = Math.round(bwProgress * 100);
+
+  ctx.save();
+  ctx.font = `900 40px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.accentGold;
+  ctx.shadowColor = DESIGN.colors.accentGold;
+  ctx.shadowBlur = 16;
+  ctx.fillText(`${bwStars} ★`, x + 20, y + 84);
+  ctx.restore();
+
+  // Progress bar
+  const barW = width - 40;
+  const barH = 7;
+  const barX = x + 20;
+  const barY = y + 106;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  drawRoundedRect(ctx, barX, barY, barW, barH, 4);
+  ctx.fill();
+
+  if (bwProgress > 0) {
+    const barGrad = ctx.createLinearGradient(barX, barY, barX + barW * bwProgress, barY);
+    barGrad.addColorStop(0, '#F59E0B');
+    barGrad.addColorStop(1, '#EF4444');
+    ctx.fillStyle = barGrad;
+    ctx.shadowColor = '#F59E0B';
+    ctx.shadowBlur = 8;
+    drawRoundedRect(ctx, barX, barY, Math.max(8, barW * bwProgress), barH, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Bottom text: Prestige Goal + percentage
+  const bottomY = y + height - 24;
+  ctx.font = `700 11px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.fillText(`Milestone: ${bwStars} / ${bwTarget} ★`, x + 20, bottomY);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = DESIGN.colors.accentGold;
+  ctx.fillText(`${percent}%`, x + width - 20, bottomY);
+  ctx.textAlign = 'left';
+}
+
+/**
+ * Cyber Radial Gauge Card (Bedwars / Network)
+ */
+function drawRadialGaugeCard(ctx, title, current, max, unit, x, y, width, height, color) {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
+
+  const numVal = parseFloat(String(current).replace(/[^0-9.]/g, '')) || 0;
   const numMax = parseFloat(String(max).replace(/[^0-9.]/g, '')) || 100;
   const ratio = numMax > 0 ? Math.max(0, Math.min(1, numVal / numMax)) : 0;
   const percent = Math.round(ratio * 100);
 
-  ctx.save();
+  // Left Content
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.textAlign = 'left';
+  ctx.fillText(title.toUpperCase(), x + 20, y + 30);
 
-  // 1. Background Track Ring
+  // Main Ratio / Value
+  ctx.font = `900 26px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillText(`${current} ${unit || ''}`, x + 20, y + 70);
+
+  // Subtitle / Target
+  ctx.font = `700 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textDim;
+  ctx.fillText(`Target: ${numMax} ${unit || ''}`, x + 20, y + 96);
+
+  // Status tag
+  ctx.fillStyle = color;
+  ctx.font = `800 11px ${DESIGN.fonts.family}`;
+  ctx.fillText(`${percent}% Completed`, x + 20, y + 130);
+
+  // Right Side: Cyber Radial Gauge
+  const r = 42;
+  const cx = x + width - r - 26;
+  const cy = y + height / 2;
+
+  ctx.save();
+  // Outer subtle background track
   ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
-  ctx.lineWidth = 5.5;
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 7;
   ctx.stroke();
 
-  // 2. Colored Progress Arc
+  // Progress Arc
   if (ratio > 0) {
     const startAngle = -Math.PI / 2;
     const endAngle = startAngle + ratio * Math.PI * 2;
 
     ctx.beginPath();
-    ctx.arc(x, y, radius, startAngle, endAngle, false);
-    ctx.strokeStyle = color || DESIGN.colors.accentBlue;
-    ctx.lineWidth = 5.5;
+    ctx.arc(cx, cy, r, startAngle, endAngle, false);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 7;
     ctx.lineCap = 'round';
-    ctx.shadowColor = color || DESIGN.colors.accentBlue;
-    ctx.shadowBlur = 8;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 14;
     ctx.stroke();
-    ctx.shadowBlur = 0;
+
+    // End point glowing pip
+    const pipX = cx + Math.cos(endAngle) * r;
+    const pipY = cy + Math.sin(endAngle) * r;
+    ctx.beginPath();
+    ctx.arc(pipX, pipY, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.fill();
   }
 
-  // 3. Center Percentage
-  ctx.font = 'bold 15px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textPrimary;
+  // Percentage inside gauge
+  ctx.shadowBlur = 0;
+  ctx.font = `900 17px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${percent}%`, x, y);
-
-  // 4. Label below donut
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textPrimary;
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(label, x, y + radius + 18);
-
-  // 5. Sublabel below label
-  if (sublabel) {
-    ctx.font = '10px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = DESIGN.colors.textSecondary;
-    ctx.fillText(sublabel, x, y + radius + 32);
-  }
+  ctx.fillText(`${percent}%`, cx, cy);
 
   ctx.restore();
 }
 
 /**
- * Draws Right Panel containing DonutSMP 2x2 grid and Hypixel Progress Rings.
+ * Detailed Stats Card (General / PvP / Donut)
  */
-function drawDonutStats(ctx, stats, x, y, width, height) {
-  ctx.save();
+function drawStatsListCard(ctx, title, items, x, y, width, height, iconType = 'swords') {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
 
-  // Panel background
-  drawPanel(ctx, x, y, width, height, DESIGN.radius.panel);
+  // Header
+  const iconX = x + 24;
+  const iconY = y + 26;
+  if (iconType === 'swords') drawIconSwords(ctx, iconX, iconY, 14, '#38BDF8');
+  else if (iconType === 'donut') drawIconDonut(ctx, iconX, iconY, 16, '#F472B6');
 
-  // ----------------------------------------------------
-  // SECTION 1: DONUT SMP STATS
-  // ----------------------------------------------------
-  const donutData = stats.donut || {};
-  const donutMoney = stats.donutMoney || donutData.moneyFormatted || (donutData.money ? `$${donutData.money}` : '$0');
-  const donutShards = stats.donutShards || donutData.shardsFormatted || String(donutData.shards || '0');
-  const donutPlaytime = stats.donutPlaytime || donutData.playtime || '0m';
-  const donutRank = stats.donutRank || donutData.rank || 'None';
-  const donutKDR = stats.donutKDR || donutData.kdr || '0.00';
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.textAlign = 'left';
+  ctx.fillText(title.toUpperCase(), x + 44, y + 30);
 
-  // Header Title
-  ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.accentGold;
-  ctx.fillText('🍩 DONUT SMP STATS', x + 16, y + 26);
-
-  // Donut Rank Badge on top right of panel
-  if (donutRank && donutRank !== 'None') {
-    const rankText = donutRank.toUpperCase();
-    ctx.font = 'bold 10px "Segoe UI", Arial, sans-serif';
-    const rw = ctx.measureText(rankText).width + 14;
-    const rx = x + width - rw - 16;
-    const ry = y + 14;
-
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.18)';
-    drawRoundedRect(ctx, rx, ry, rw, 20, DESIGN.radius.badge);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(245, 158, 11, 0.5)';
-    ctx.lineWidth = 1;
-    drawRoundedRect(ctx, rx, ry, rw, 20, DESIGN.radius.badge);
-    ctx.stroke();
-
-    ctx.fillStyle = DESIGN.colors.accentGold;
-    ctx.fillText(rankText, rx + 7, ry + 14);
-  }
-
-  // 4 DonutSMP Stat Cards (2x2 Grid)
-  const donutCards = [
-    { label: 'BALANCE', value: donutMoney, color: DESIGN.colors.accentGreen },
-    { label: 'SHARDS', value: donutShards, color: DESIGN.colors.accentPurple },
-    { label: 'PLAYTIME', value: donutPlaytime, color: DESIGN.colors.accentBlue },
-    { label: 'K/D RATIO', value: donutKDR, color: DESIGN.colors.accentRed }
-  ];
-
-  const gridY = y + 46;
-  const gridGap = 10;
-  const innerPad = 14;
-  const cardW = (width - 2 * innerPad - gridGap) / 2; // ~146px
-  const cardH = 68;
-
-  for (let i = 0; i < donutCards.length; i++) {
-    const c = donutCards[i];
-    const col = i % 2;
-    const row = Math.floor(i / 2);
-    const cx = x + innerPad + col * (cardW + gridGap);
-    const cy = gridY + row * (cardH + gridGap);
-
-    drawCard(ctx, cx, cy, cardW, cardH, DESIGN.radius.card);
-
-    // Label
-    ctx.font = 'bold 10px "Segoe UI", Arial, sans-serif';
-    ctx.fillStyle = DESIGN.colors.textMuted;
-    ctx.fillText(c.label, cx + 12, cy + 22);
-
-    // Value with fitText (Prevents any card overflow)
-    const fitted = fitText(ctx, c.value, cardW - 24, 18, 11, 'bold');
-    ctx.font = fitted.font;
-    ctx.fillStyle = c.color;
-    ctx.fillText(fitted.text, cx + 12, cy + 50);
-  }
-
-  // Divider between DonutSMP and Progress
-  const divY = gridY + 2 * cardH + gridGap + 16;
-  ctx.strokeStyle = DESIGN.colors.divider;
-  ctx.lineWidth = 1;
+  // Divider
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
   ctx.beginPath();
-  ctx.moveTo(x + 16, divY);
-  ctx.lineTo(x + width - 16, divY);
+  ctx.moveTo(x + 20, y + 42);
+  ctx.lineTo(x + width - 20, y + 42);
   ctx.stroke();
 
-  // ----------------------------------------------------
-  // SECTION 2: HYPIXEL PROGRESS RINGS
-  // ----------------------------------------------------
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textSecondary;
-  ctx.fillText('⚡ HYPIXEL PROGRESS', x + 16, divY + 24);
+  // Rows
+  const count = items.length;
+  const availableH = height - 56;
+  const rowH = availableH / count;
 
-  const rawBedwars = parseInt(String(stats.bedwars).replace(/[^0-9]/g, ''), 10) || 0;
-  const rawNetwork = parseInt(String(stats.networkLevel).replace(/[^0-9]/g, ''), 10) || 0;
+  for (let i = 0; i < count; i++) {
+    const item = items[i];
+    const rowY = y + 54 + i * rowH + rowH * 0.45;
 
-  // Progress Bug Fix: Synchronize arc max and subtitle from the exact same variable
-  const bedwarsMax = Math.max(1000, Math.ceil((rawBedwars + 1) / 500) * 500);
-  const networkMax = Math.max(250, Math.ceil((rawNetwork + 1) / 100) * 100);
+    // Alternating subtle row backdrop
+    if (i % 2 === 1) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.025)';
+      drawRoundedRect(ctx, x + 16, rowY - 14, width - 32, rowH - 2, 6);
+      ctx.fill();
+    }
 
-  const ring1X = x + width * 0.28;
-  const ring2X = x + width * 0.72;
-  const ringY = divY + 84;
+    // Label with mini dot
+    ctx.beginPath();
+    ctx.arc(x + 24, rowY - 4, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = item.color || DESIGN.colors.accentBlue;
+    ctx.fill();
 
-  // Donut Ring 1: Bedwars
-  drawDonutStat(ctx, {
-    x: ring1X,
-    y: ringY,
-    radius: 34,
-    value: rawBedwars,
-    max: bedwarsMax,
-    label: 'BEDWARS',
-    color: DESIGN.colors.accentGreen,
-    sublabel: `${rawBedwars} / ${bedwarsMax} ★`
-  });
+    ctx.font = `700 12px ${DESIGN.fonts.family}`;
+    ctx.fillStyle = DESIGN.colors.textMuted;
+    ctx.textAlign = 'left';
+    ctx.fillText(item.label, x + 34, rowY);
 
-  // Donut Ring 2: Network Level
-  drawDonutStat(ctx, {
-    x: ring2X,
-    y: ringY,
-    radius: 34,
-    value: rawNetwork,
-    max: networkMax,
-    label: 'NETWORK',
-    color: DESIGN.colors.accentBlue,
-    sublabel: `Lvl ${rawNetwork} / ${networkMax}`
-  });
-
-  ctx.restore();
+    // Value
+    const valStr = String(item.value ?? '');
+    ctx.font = `900 13px ${DESIGN.fonts.family}`;
+    ctx.fillStyle = item.color || '#FFFFFF';
+    ctx.textAlign = 'right';
+    ctx.fillText(valStr, x + width - 20, rowY);
+  }
 }
 
-// ===========================================================================
-// 8. FOOTER BAR & BRANDING
-// ===========================================================================
+/**
+ * DonutSMP Balance Card (Column 3, Card 1)
+ */
+function drawDonutBalanceCard(ctx, donutMoney, x, y, width, height) {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
 
-function drawFooter(ctx, stats, width, height, layout = null) {
-  ctx.save();
+  // Icon + Title
+  drawIconCoin(ctx, x + 24, y + 26, 10, DESIGN.colors.accentGreen);
 
-  const footerY = layout ? layout.footer.y : height - 16;
-  const leftX = layout ? layout.center.x : 380;
-  const rightX = layout ? layout.footer.rightX : width - 36;
-
-  ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
-  ctx.fillStyle = DESIGN.colors.textSecondary;
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-  ctx.shadowBlur = 4;
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
   ctx.textAlign = 'left';
-  ctx.fillText('HACHIIRO V2 • MINECRAFT PLAYER ANALYTICS', leftX, footerY);
+  ctx.fillText('DONUT BALANCE', x + 44, y + 30);
 
-  const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-  ctx.textAlign = 'right';
-  ctx.fillText(`SECURED AT ${timeStr} UTC`, rightX, footerY);
-  ctx.shadowBlur = 0;
+  // Badge
+  const bW = 76;
+  const bX = x + width - bW - 16;
+  const bY = y + 16;
+  ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+  drawRoundedRect(ctx, bX, bY, bW, 20, 6);
+  ctx.fill();
+  ctx.fillStyle = DESIGN.colors.accentGreen;
+  ctx.font = `800 10px ${DESIGN.fonts.family}`;
+  ctx.fillText('DONUTSMP', bX + 9, bY + 14);
+
+  // Big Value
+  const exactMoney = cleanCurrency(donutMoney);
+  const compactMoney = formatCompactNumber(donutMoney);
+  const numClean = parseFloat(String(donutMoney).replace(/[^0-9.]/g, '')) || 0;
+  const primaryMoney = (numClean >= 100000) ? compactMoney : exactMoney;
+  const secondaryMoney = (numClean >= 100000) ? `Exact: ${exactMoney}` : 'Server In-Game Cash';
+
+  ctx.save();
+  const valFit = fitText(ctx, primaryMoney, width - 40, 42, 26, '900');
+  ctx.font = valFit.font;
+  ctx.fillStyle = DESIGN.colors.accentGreen;
+  ctx.shadowColor = DESIGN.colors.accentGreen;
+  ctx.shadowBlur = 14;
+  ctx.fillText(valFit.text, x + 20, y + 84);
   ctx.restore();
+
+  // Bottom Subtext
+  const bottomY = y + height - 24;
+  ctx.font = `700 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textDim;
+  ctx.fillText(secondaryMoney, x + 20, bottomY);
+}
+
+/**
+ * DonutSMP Shards Card (Column 3, Card 2)
+ */
+function drawDonutShardsCard(ctx, donutShards, x, y, width, height) {
+  drawGlassPanel(ctx, x, y, width, height, DESIGN.radius.card);
+
+  // Icon + Title
+  drawIconCrystal(ctx, x + 24, y + 26, 16, DESIGN.colors.accentPurple);
+
+  ctx.font = `800 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textMuted;
+  ctx.textAlign = 'left';
+  ctx.fillText('DONUT SHARDS', x + 44, y + 30);
+
+  // Badge
+  const bW = 66;
+  const bX = x + width - bW - 16;
+  const bY = y + 16;
+  ctx.fillStyle = 'rgba(192, 132, 252, 0.15)';
+  drawRoundedRect(ctx, bX, bY, bW, 20, 6);
+  ctx.fill();
+  ctx.fillStyle = DESIGN.colors.accentPurple;
+  ctx.font = `800 10px ${DESIGN.fonts.family}`;
+  ctx.fillText('PREMIUM', bX + 9, bY + 14);
+
+  // Big Shards Value
+  ctx.save();
+  const shardStr = String(donutShards || '0');
+  const valFit = fitText(ctx, shardStr, width - 40, 42, 26, '900');
+  ctx.font = valFit.font;
+  ctx.fillStyle = DESIGN.colors.accentPurple;
+  ctx.shadowColor = DESIGN.colors.accentPurple;
+  ctx.shadowBlur = 14;
+  ctx.fillText(valFit.text, x + 20, y + 84);
+  ctx.restore();
+
+  // Bottom Subtext
+  const bottomY = y + height - 24;
+  ctx.font = `700 12px ${DESIGN.fonts.family}`;
+  ctx.fillStyle = DESIGN.colors.textDim;
+  ctx.fillText('Hardcore Economy Shards', x + 20, bottomY);
 }
 
 // ===========================================================================
-// 9. MAIN EXPORTED FUNCTION (WIDE 1200x600 LANDSCAPE CARD)
+// BACKGROUND RESOLUTION
 // ===========================================================================
+
+function loadBackgrounds() {
+  const possibleDirs = [
+    path.join(__dirname, 'assets', 'backgrounds'),
+    path.join(__dirname, 'assets'),
+    path.join(process.cwd(), 'assets', 'backgrounds'),
+    path.join(process.cwd(), 'autosecure', 'utils', 'assets', 'backgrounds')
+  ];
+  const validExts = ['.png', '.jpg', '.jpeg', '.webp'];
+  const backgrounds = [];
+  const visitedPaths = new Set();
+  for (const dir of possibleDirs) {
+    if (!fs.existsSync(dir)) continue;
+    try {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const ext = path.extname(file).toLowerCase();
+        if (validExts.includes(ext)) {
+          const fullPath = path.join(dir, file);
+          if (!visitedPaths.has(fullPath)) {
+            visitedPaths.add(fullPath);
+            try {
+              const stat = fs.statSync(fullPath);
+              if (stat.isFile()) backgrounds.push({ name: file, path: fullPath, dir });
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  return backgrounds;
+}
+
+function selectBackground(stats, backgrounds) {
+  if (!backgrounds || backgrounds.length === 0) return null;
+  if (stats.background && typeof stats.background === 'string') {
+    const target = stats.background.toLowerCase();
+    const found = backgrounds.find(b => b.name.toLowerCase() === target || b.path.toLowerCase().endsWith(target));
+    if (found) return found;
+  }
+  if (typeof stats.backgroundIndex === 'number' && Number.isInteger(stats.backgroundIndex)) {
+    const idx = Math.abs(stats.backgroundIndex) % backgrounds.length;
+    return backgrounds[idx];
+  }
+  const user = stats.username || 'default';
+  let hash = 0;
+  for (let i = 0; i < user.length; i++) {
+    hash = ((hash << 5) - hash) + user.charCodeAt(i);
+    hash |= 0;
+  }
+  const selectedIdx = Math.abs(hash) % backgrounds.length;
+  return backgrounds[selectedIdx];
+}
+
+async function fetchPlayerRank(username) {
+  try {
+    let cleanUsername = (username || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/[^\w\d_\-]/g, '').slice(0, 16);
+    if (!cleanUsername) return 'NONE';
+    let correctedName = cleanUsername;
+    try {
+      const { data } = await axios.get(`https://api.mojang.com/users/profiles/minecraft/${cleanUsername}`, { timeout: 4000 });
+      if (data && data.name) correctedName = data.name;
+    } catch (e) {}
+    try {
+      const { data } = await axios.get(`https://track.wreeper.com/player/${correctedName}`, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+        timeout: 4000
+      });
+      const $ = cheerio.load(data);
+      const rankRaw = $("div").first().text();
+      const rankMatch = rankRaw.match(/\[([^\]]+)\]/);
+      if (rankMatch && rankMatch[1]) return rankMatch[1].trim();
+    } catch (e) {}
+    return 'NONE';
+  } catch (err) {
+    return 'NONE';
+  }
+}
 
 function isValidMinecraftUsername(name) {
   if (!name || typeof name !== 'string') return false;
@@ -969,77 +1296,125 @@ function isValidMinecraftUsername(name) {
   return /^[a-zA-Z0-9_]{2,16}$/.test(name.trim());
 }
 
-/**
- * Generate Wide Horizontal Minecraft Player Card (1200x600, 2:1)
- * Uses strict grid-based composition, unified spacing, and typography hierarchy.
- * 
- * @param {Object} stats Player stats object
- * @param {string} outputPath Output PNG path
- * @returns {Promise<Buffer>} Image buffer
- */
-async function makeCard(stats, outputPath = "output.png") {
-  if (!stats || !isValidMinecraftUsername(stats.username)) {
-    console.log(`[drawHit] Aborting card generation: Invalid or placeholder username '${stats?.username}'`);
-    return null;
-  }
+// ===========================================================================
+// MAIN CARD GENERATOR
+// ===========================================================================
 
-  const width = 1200;
-  const height = 600;
+async function makeCard(stats, outputPath = "output.png") {
+  if (!stats || !isValidMinecraftUsername(stats.username)) return null;
+
+  const width = DESIGN.width;
+  const height = DESIGN.height;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // 1. Compute Strict Grid Layout System
-  const layout = computeLayout(width, height);
-
-  // 2. Scan and select real background asset
   const backgrounds = loadBackgrounds();
   const selectedBg = selectBackground(stats, backgrounds);
 
-  // 3. Auto-fetch DonutSMP stats if not provided
+  // Auto-fetch DonutSMP stats if missing
   if (!stats.donut && !stats.donutMoney && stats.username) {
     try {
       const getDonutStats = require('./donutapi/getDonutStats');
       const donutRes = await getDonutStats(stats.username);
-      if (donutRes && donutRes.hasData) {
-        stats.donut = donutRes;
-      }
-    } catch (e) { }
+      if (donutRes && donutRes.hasData) stats.donut = donutRes;
+    } catch (e) {}
   }
 
-  // 4. Render Background with Localized Text Shield
-  await drawBackground(ctx, selectedBg, stats, width, height);
+  // 1. Draw Atmospheric Multi-Layer Background
+  await drawAtmosphericBackground(ctx, selectedBg, stats, width, height);
 
-  // 5. LEFT HERO COLUMN (Hero 3D Character)
-  await drawCharacter(ctx, stats, layout.hero);
+  // Geometry layout
+  const pad = 24;
+  const gap = 16;
+  const skinW = 320;
 
-  // 6. CENTER COLUMN (Vertical Rhythm: Identity -> Networth -> Skyblock/Bedwars -> Secondary)
-  // 6.1 Identity Header
-  drawIdentity(ctx, stats, layout.center.x, layout.center.y, layout.center.width);
+  // Left 3D Character Stage
+  await drawCharacterStage(ctx, stats, pad, pad, skinW, height - pad * 2);
 
-  // 6.2 Primary Networth Card
-  const primaryY = layout.center.y + 60;
-  drawPrimaryStats(ctx, stats, layout.center.x, primaryY, layout.center.width);
+  // Right Side Grid Area
+  const gridX = pad + skinW + gap;
+  const gridW = width - gridX - pad;
+  const headerH = 78;
 
-  // 6.3 Secondary Stats Panel
-  const secondaryY = primaryY + 192; // 60 + 84 + 12 + 84 + 12 = 252
-  const secondaryH = layout.center.bottom - secondaryY; // 556 - 288 = 268px
-  drawSecondaryStats(ctx, stats, layout.center.x, secondaryY, layout.center.width, secondaryH);
+  // 2. Draw Top Profile Header Bar
+  drawHeaderBar(ctx, stats, gridX, pad, gridW, headerH);
 
-  // 7. RIGHT COLUMN (DonutSMP Grid + Progress Rings)
-  drawDonutStats(ctx, stats, layout.right.x, layout.right.y, layout.right.width, layout.right.height);
+  // 3 Columns layout
+  const colsY = pad + headerH + gap;
+  const colsH = height - pad - colsY;
+  const colW = (gridW - gap * 2) / 3;
+  const cardH = (colsH - gap * 2) / 3;
 
-  // 8. FOOTER (Aligned with grid boundaries inside safe margins)
-  drawFooter(ctx, stats, width, height, layout);
+  const col1X = gridX;
+  const col2X = col1X + colW + gap;
+  const col3X = col2X + colW + gap;
 
-  // 9. Save and return buffer
+  const row1Y = colsY;
+  const row2Y = colsY + cardH + gap;
+  const row3Y = colsY + (cardH + gap) * 2;
+
+  // -------------------------------------------------------------------------
+  // COLUMN 1: Hypixel Wealth & Progression
+  // -------------------------------------------------------------------------
+  // Card 1.1: Total Networth (Hero Featured Card)
+  drawNetworthHeroCard(ctx, stats, col1X, row1Y, colW, cardH);
+
+  // Card 1.2: Skyblock Level
+  drawSkyblockLevelCard(ctx, stats, col1X, row2Y, colW, cardH);
+
+  // Card 1.3: Bedwars Stars
+  drawBedwarsStarsCard(ctx, stats, col1X, row3Y, colW, cardH);
+
+  // -------------------------------------------------------------------------
+  // COLUMN 2: PvP & Gauges
+  // -------------------------------------------------------------------------
+  // Card 2.1: General & Duel PvP Stats
+  const pvpItems = [
+    { label: 'Network Level', value: String(stats.networkLevel || '0'), color: DESIGN.colors.accentBlue },
+    { label: 'Duel KDR', value: String(stats.duelKDR || '0.00'), color: DESIGN.colors.accentGreen },
+    { label: 'Duel Winstreak', value: `${stats.duelWinstreak || '0'} 🔥`, color: '#F97316' },
+    { label: 'Plus Color', value: String(stats.plusColour || 'None'), color: '#38BDF8' }
+  ];
+  drawStatsListCard(ctx, 'PvP & Network Info', pvpItems, col2X, row1Y, colW, cardH, 'swords');
+
+  // Card 2.2: Bedwars Cyber Gauge
+  const rawBedwars = parseInt(String(stats.bedwars).replace(/[^0-9]/g, ''), 10) || 0;
+  const bedwarsTarget = Math.max(1000, Math.ceil((rawBedwars + 1) / 500) * 500);
+  drawRadialGaugeCard(ctx, 'Bedwars Milestone', rawBedwars, bedwarsTarget, '★', col2X, row2Y, colW, cardH, DESIGN.colors.accentEmerald);
+
+  // Card 2.3: Network Level Cyber Gauge
+  const rawNetwork = parseInt(String(stats.networkLevel).replace(/[^0-9]/g, ''), 10) || 0;
+  const networkTarget = Math.max(250, Math.ceil((rawNetwork + 1) / 100) * 100);
+  drawRadialGaugeCard(ctx, 'Network Level', rawNetwork, networkTarget, 'Lvl', col2X, row3Y, colW, cardH, DESIGN.colors.accentBlue);
+
+  // -------------------------------------------------------------------------
+  // COLUMN 3: Donut SMP Economy
+  // -------------------------------------------------------------------------
+  const donutData = stats.donut || {};
+  const donutMoney = stats.donutMoney || donutData.moneyFormatted || (donutData.money ? `$${donutData.money}` : '$0');
+  const donutShards = stats.donutShards || donutData.shardsFormatted || String(donutData.shards || '0');
+
+  // Card 3.1: Donut Balance
+  drawDonutBalanceCard(ctx, donutMoney, col3X, row1Y, colW, cardH);
+
+  // Card 3.2: Donut Shards
+  drawDonutShardsCard(ctx, donutShards, col3X, row2Y, colW, cardH);
+
+  // Card 3.3: Donut Profile Info
+  const donutItems = [
+    { label: 'Playtime', value: stats.donutPlaytime || donutData.playtime || '0m', color: DESIGN.colors.textSecondary },
+    { label: 'K/D Ratio', value: stats.donutKDR || donutData.kdr || '0.00', color: DESIGN.colors.accentGreen },
+    { label: 'Server Rank', value: (stats.donutRank || donutData.rank || 'Default').toUpperCase(), color: DESIGN.colors.accentGold }
+  ];
+  drawStatsListCard(ctx, 'DonutSMP Profile', donutItems, col3X, row3Y, colW, cardH, 'donut');
+
+  // Write output
   const buffer = canvas.toBuffer("image/png");
-  const outputDir = path.dirname(outputPath);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+  if (outputPath) {
+    const outputDir = path.dirname(outputPath);
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(outputPath, buffer);
   }
-
-  fs.writeFileSync(outputPath, buffer);
-  console.log(`[drawHit] Saved wide horizontal card to: ${outputPath}`);
 
   return buffer;
 }
@@ -1051,31 +1426,17 @@ module.exports = {
   obscureUsername,
   loadBackgrounds,
   selectBackground,
-  drawImageCover,
-  drawBackground,
-  drawCharacter,
-  drawIdentity,
-  drawPrimaryStats,
-  drawDonutStat,
-  drawDonutStats,
-  drawSecondaryStats,
-  drawFooter,
-  computeLayout,
   DESIGN,
   RANK_CONFIG,
   fitText,
-  fitFontSize,
-  drawPanel,
-  drawCard
+  fitFontSize
 };
 
-// Self-test runner
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const targetUser = args[0] || "Technoblade";
   const dummyStats = {
-    username: targetUser,
-    rank: args[1] || "PIG+++",
+    username: args[0] || "Technoblade",
+    rank: args[1] || "MVP++",
     networth: args[2] || "$15,450,000,000",
     bedwars: args[3] || "1250",
     networkLevel: "480",
@@ -1084,11 +1445,15 @@ if (require.main === module) {
     duelWinstreak: "150",
     plusColour: "Aqua",
     gifted: "50",
-    debugBackground: true
+    donutMoney: "$2,450,000",
+    donutShards: "1,250",
+    donutPlaytime: "148h",
+    donutRank: "Vip",
+    donutKDR: "3.45",
+    showFullUsername: true
   };
-
-  const testFile = path.join(__dirname, `../../test_output.png`);
+  const testFile = path.join(__dirname, `../../test_output_premium_v2.png`);
   makeCard(dummyStats, testFile).then(() => {
-    console.log(`\n✨ Test wide player card created: ${testFile}`);
+    console.log(`Test completed: ${testFile}`);
   }).catch(console.error);
 }

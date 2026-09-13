@@ -34,6 +34,7 @@ app.use('/api', (req, res) => {
         method: req.method,
         headers: {
             ...req.headers,
+            'x-forwarded-host': req.headers.host || '',
             host: `127.0.0.1:${BACKEND_PORT}`
         }
     }, (proxyRes) => {
@@ -63,7 +64,7 @@ app.use(async (req, res, next) => {
                 return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
             }
         }
-    } catch (e) {}
+    } catch (e) { }
     next();
 });
 
@@ -82,11 +83,11 @@ app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms'), {
     maxAge: '1h'
 }));
 
-// Periodic cleanup of expired gift links (> 30 mins) every 5 minutes
+// Periodic cleanup of expired gift links (> 3 hours) every 5 minutes
 setInterval(async () => {
     try {
-        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [Date.now() - 30 * 60 * 1000]);
-    } catch (e) {}
+        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [Date.now() - 3 * 60 * 60 * 1000]);
+    } catch (e) { }
 }, 5 * 60 * 1000);
 
 // Donut Gift Link Claim Routes
@@ -95,44 +96,17 @@ app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
     const host = req.headers.host || config.webDomain || 'donuttsmp.store';
-    const EXPIRY_MS = 30 * 60 * 1000;
+    const EXPIRY_MS = 3 * 60 * 60 * 1000; // 3 hours
     const now = Date.now();
 
     try {
         // 1. Dọn dẹp link cũ
-        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [now - EXPIRY_MS]).catch(() => {});
+        await queryParams('DELETE FROM gift_links WHERE created_at < ?', [now - EXPIRY_MS]).catch(() => { });
 
-        // 2. Kiểm tra link có tồn tại và còn hạn 30 phút không
+        // 2. Kiểm tra link có tồn tại và còn hạn không
         const rows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [code]);
         if (!rows || rows.length === 0) {
-            return res.status(410).send(`
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="utf-8">
-    <title>Gift Link Expired - DonutSMP Store</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { background: #0f1117; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
-        .card { background: #1a1d26; border: 1px solid #2d3343; border-radius: 16px; padding: 40px 30px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.6); }
-        .icon { font-size: 56px; margin-bottom: 16px; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
-        h1 { font-size: 22px; margin: 0 0 12px; color: #f87171; font-weight: 700; }
-        p { color: #9ca3af; font-size: 15px; line-height: 1.6; margin: 0 0 26px; }
-        .btn { display: inline-block; background: #eab308; color: #111; text-decoration: none; padding: 13px 28px; border-radius: 10px; font-weight: 700; font-size: 14px; transition: 0.2s; }
-        .btn:hover { background: #facc15; transform: translateY(-2px); }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="icon">⌛</div>
-        <h1>Link Gift Đã Hết Hạn / Không Tồn Tại</h1>
-        <p>Liên kết quà tặng này chỉ có hiệu lực trong <strong>30 phút</strong> và hiện đã tự động hết hạn hoặc bị xóa.<br><br>Vui lòng yêu cầu người gửi tạo link gift mới để tiếp tục!</p>
-        <a href="/store" class="btn">Quay lại Trang Chủ Store</a>
-    </div>
-</body>
-</html>
-            `);
+            return res.redirect('/store');
         }
 
         // 3. Kiểm tra bản quyền Web của người tạo link

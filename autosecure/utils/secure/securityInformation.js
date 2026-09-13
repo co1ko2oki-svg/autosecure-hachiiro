@@ -100,14 +100,16 @@ async function securityInformation(axios) {
             );
             console.log(`[SEC_INFO] [✔] Successfully verified security email: ${secTargetEmail}!`);
           } catch (vErr) {
-            console.log(`[SEC_INFO] Error during VerifyOtt POST:`, vErr.message);
+            console.error(`[SEC_INFO] Error during VerifyOtt POST:`, vErr.message);
+            if (vErr.response) console.error(`[SEC_INFO] VerifyOtt Response:`, vErr.response.data);
           }
         } else {
-          console.log(`[SEC_INFO] Timed out waiting for code on ${secTargetEmail}`);
+          console.error(`[SEC_INFO] Timed out waiting for code on ${secTargetEmail}`);
         }
       }
     } catch (err) {
-      console.log(`[SEC_INFO] Error sending OTT to security email:`, err.message);
+      console.error(`[SEC_INFO] Error sending OTT to security email:`, err.message);
+      if (err.response) console.error(`[SEC_INFO] SendOtt Response:`, err.response.data);
     }
   }
 
@@ -363,24 +365,101 @@ async function removeSecurityMethod(axios, accountId, methodId, authorization = 
       };
     }
 
-    try {
-      await axios.post(endpoint, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-          Accept: "application/json",
-          ...(proofs.canary ? { canary: proofs.canary } : {})
-        },
-        validateStatus: (status) => status >= 200 && status < 500
-      });
-    } catch (postErr) {
-      opLogger.logEvent({
-        step: "EXECUTE_MUTATION",
-        status: "FAILED",
-        message: `Server rejected security method deletion: ${postErr.message}`
-      });
-      accountStateManager.rollback(accountId);
-      throw classifyError(postErr, { operation: "REMOVE_SECURITY_METHOD", accountId });
+    let currentCanary = proofs.canary || null;
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await axios.post(endpoint, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+            ...(currentCanary ? { canary: currentCanary } : {})
+          },
+          validateStatus: (status) => status >= 200 && status < 500
+        });
+
+        const resStatus = response?.status;
+        const resData = response?.data;
+        const apiErrorCode = resData?.error?.code || resData?.errorCode;
+
+        opLogger.logEvent({
+          step: "EXECUTE_MUTATION",
+          status: "RESPONSE_RECEIVED",
+          message: `[Attempt ${attempt}] ${targetMethod.type} ${methodId} -> ${endpoint} HTTP ${resStatus}${apiErrorCode ? ` error=${apiErrorCode}` : ""}`
+        });
+
+        // Detect API-level failures returned as HTTP 200/400
+        if (apiErrorCode) {
+          const isCanaryError = apiErrorCode === "InvalidCanary" || apiErrorCode === "Unauthorized" || apiErrorCode === "SessionExpired";
+
+          if (isCanaryError && attempt < maxAttempts) {
+            opLogger.logEvent({
+              step: "EXECUTE_MUTATION",
+              status: "RETRY",
+              message: `Canary/auth error (${apiErrorCode}), refreshing canary for retry...`
+            });
+            try {
+              const freshProofs = await getSecurityProofsRaw(axios);
+              if (freshProofs?.canary) currentCanary = freshProofs.canary;
+            } catch (_) {}
+            continue;
+          }
+
+          // Non-retryable or exhausted retries
+          opLogger.logEvent({
+            step: "EXECUTE_MUTATION",
+            status: "FAILED",
+            message: `API rejected deletion of ${targetMethod.type} ${methodId}: ${apiErrorCode} (HTTP ${resStatus})`
+          });
+          accountStateManager.rollback(accountId);
+          return {
+            success: false,
+            removedMethodId: methodId,
+            state: OPERATION_STATES.FAILED,
+            error: apiErrorCode
+          };
+        }
+
+        // HTTP 4xx without a structured error code
+        if (resStatus >= 400) {
+          opLogger.logEvent({
+            step: "EXECUTE_MUTATION",
+            status: "FAILED",
+            message: `HTTP ${resStatus} without structured error for ${targetMethod.type} ${methodId}`
+          });
+
+          if (attempt < maxAttempts) {
+            try {
+              const freshProofs = await getSecurityProofsRaw(axios);
+              if (freshProofs?.canary) currentCanary = freshProofs.canary;
+            } catch (_) {}
+            continue;
+          }
+
+          accountStateManager.rollback(accountId);
+          return {
+            success: false,
+            removedMethodId: methodId,
+            state: OPERATION_STATES.FAILED,
+            error: `HTTP_${resStatus}`
+          };
+        }
+
+        // HTTP 2xx/3xx — break out to verification
+        break;
+      } catch (postErr) {
+        opLogger.logEvent({
+          step: "EXECUTE_MUTATION",
+          status: "FAILED",
+          message: `Network error deleting ${targetMethod.type} ${methodId}: ${postErr.message}`
+        });
+        if (attempt >= maxAttempts) {
+          accountStateManager.rollback(accountId);
+          throw classifyError(postErr, { operation: "REMOVE_SECURITY_METHOD", accountId });
+        }
+      }
     }
 
     opLogger.logEvent({

@@ -116,8 +116,10 @@ module.exports = async function aliasses(
         message: `Failed to add alias ${expectedNewEmail}. Retaining ${initialPrimary}`
       });
       acc.email = initialPrimary;
-      await updateStatus(uid, "email", acc.email);
-      await updateExtraInformation(uid, "primary", acc.email);
+      await Promise.allSettled([
+        updateStatus(uid, "email", acc.email),
+        updateExtraInformation(uid, "primary", acc.email)
+      ]);
       return acc;
     }
 
@@ -143,8 +145,10 @@ module.exports = async function aliasses(
 
     if (isPrimarySuccess) {
       acc.email = verifiedNewEmail;
-      await updateStatus(uid, "email", acc.email);
-      await updateExtraInformation(uid, "primary", acc.email);
+      await Promise.allSettled([
+        updateStatus(uid, "email", acc.email),
+        updateExtraInformation(uid, "primary", acc.email)
+      ]);
 
       // 3. Remove Old Secondary Aliases (Safe Verified Sweep)
       logAliasEvent("ALIAS_WORKFLOW", {
@@ -221,8 +225,10 @@ module.exports = async function aliasses(
         // Server did change primary — accept the authoritative truth instead of
         // rolling back and reporting a stale email.
         acc.email = verifiedNewEmail;
-        await updateStatus(uid, "email", acc.email);
-        await updateExtraInformation(uid, "primary", acc.email);
+        await Promise.allSettled([
+          updateStatus(uid, "email", acc.email),
+          updateExtraInformation(uid, "primary", acc.email)
+        ]);
 
         logAliasEvent("ALIAS_WORKFLOW", {
           requestId: rootReqId,
@@ -262,8 +268,10 @@ module.exports = async function aliasses(
         }
 
         acc.email = initialPrimary;
-        await updateStatus(uid, "email", acc.email);
-        await updateExtraInformation(uid, "primary", acc.email);
+        await Promise.allSettled([
+          updateStatus(uid, "email", acc.email),
+          updateExtraInformation(uid, "primary", acc.email)
+        ]);
       }
     }
   } else {
@@ -276,8 +284,10 @@ module.exports = async function aliasses(
     });
     const authoritative = await getAliases(axios);
     acc.email = normalizeEmail(authoritative?.primary || primary || acc.email);
-    await updateStatus(uid, "email", acc.email);
-    await updateExtraInformation(uid, "primary", acc.email);
+    await Promise.allSettled([
+      updateStatus(uid, "email", acc.email),
+      updateExtraInformation(uid, "primary", acc.email)
+    ]);
     const retainedAliases = (authoritative?.aliases && Array.isArray(authoritative.aliases) && authoritative.aliases.length > 0)
       ? authoritative.aliases.map(normalizeEmail).filter(Boolean)
       : (acc.email ? [acc.email] : []);

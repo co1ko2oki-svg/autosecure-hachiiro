@@ -79,13 +79,6 @@ module.exports = {
                     ]
                 },
                 {
-                    name: "domain",
-                    description: "Chọn domain cho link web (từ config web)",
-                    type: ApplicationCommandOptionType.String,
-                    required: false,
-                    choices: getWebDomainChoices()
-                },
-                {
                     name: "price",
                     description: "Sale price (default: 0)",
                     type: ApplicationCommandOptionType.String,
@@ -103,15 +96,6 @@ module.exports = {
             name: "web",
             description: "Xem hoặc cập nhật Web Domain cho liên kết Donut",
             type: ApplicationCommandOptionType.Subcommand,
-            options: [
-                {
-                    name: "domain",
-                    description: "Chọn domain cho web (từ config web)",
-                    type: ApplicationCommandOptionType.String,
-                    required: false,
-                    choices: getWebDomainChoices()
-                }
-            ]
         }
     ],
 
@@ -121,47 +105,23 @@ module.exports = {
 
             // --- Subcommand: /donut web ---
             if (subcommand === "web") {
-                const inputDomain = interaction.options.getString("domain");
-                if (inputDomain) {
-                    const cleanDomain = inputDomain.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-                    config.webDomain = cleanDomain;
-                    try {
-                        const configPath = path.join(__dirname, "../../../config.json");
-                        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
-                    } catch (e) {
-                        console.error("[DONUT COMMAND] Error saving config.json:", e);
-                    }
-                    const isLocal = cleanDomain.includes("localhost") || cleanDomain.includes("127.0.0.1") || /:\d+$/.test(cleanDomain);
-                    const protocol = isLocal ? "http" : "https";
-                    return interaction.reply({
-                        content: `✅ **Đã cập nhật Web Domain thành:** \`${cleanDomain}\`\n🔗 **Ví dụ link checkout:** \`${protocol}://${cleanDomain}/gift/452553763629/claim\`\n📧 *Domain nhận mail MCS vẫn là:* \`${(config.domains || []).join(", ")}\``,
-                        ephemeral: true
-                    });
-                } else {
-                    const currentDomain = getWebDomain();
-                    const isLocal = currentDomain.includes("localhost") || currentDomain.includes("127.0.0.1") || /:\d+$/.test(currentDomain);
-                    const protocol = isLocal ? "http" : "https";
-                    const botOwnerId = client.username || client.user.id;
-                    const webAccess = await checkWebAccess(botOwnerId);
-                    const statusText = webAccess.isOwner
-                        ? "Vĩnh viễn (Owner)"
-                        : (webAccess.hasAccess ? `Đang hoạt động (Còn ${webAccess.daysLeft} ngày - <t:${Math.floor(webAccess.expiry / 1000)}:R>)` : "Chưa kích hoạt / Hết hạn");
-
-                    const webDomainsList = (config.webDomains || ["donuttsmp.store", "donutmp.shop"]).map(d => `\`${d}\``).join(", ");
-                    return interaction.reply({
-                        content: `🌐 **Web Domain mặc định hiện tại:** \`${currentDomain}\` (\`${protocol}://${currentDomain}\`)\n` +
-                            `🌐 **Các Domain Web hỗ trợ:** ${webDomainsList}\n` +
-                            `🔑 **Bản quyền Web:** ${statusText}\n` +
-                            `📧 **Email MCS Domain:** \`${(config.domains || []).join(", ")}\`\n\n` +
-                            `💡 *Cách tạo link với domain khác:* Dùng \`/donut link domain: donutmp.shop\` hoặc \`/donut link domain: donuttsmp.store\`\n` +
-                            `💡 *Cách đổi domain web mặc định:* Dùng \`/donut web domain: <tên_domain>\``,
-                        ephemeral: true
-                    });
-                }
+                const currentDomain = getWebDomain();
+                const isLocal = currentDomain.includes("localhost") || currentDomain.includes("127.0.0.1") || /:\d+$/.test(currentDomain);
+                const protocol = isLocal ? "http" : "https";
+                const botOwnerId = client.username || client.user.id;
+                const webAccess = await checkWebAccess(botOwnerId);
+                const statusText = webAccess.isOwner
+                    ? "Vĩnh viễn (Owner)"
+                    : (webAccess.hasAccess ? `Đang hoạt động (Còn ${webAccess.daysLeft} ngày - <t:${Math.floor(webAccess.expiry / 1000)}:R>)` : "Chưa kích hoạt / Hết hạn");
+                
+                return interaction.reply({
+                    content: `🌐 **Web Domain hiện tại:** \`${currentDomain}\`\n🔗 **Ví dụ link checkout:** \`${protocol}://${currentDomain}/gift/452553763629/claim\`\n📧 *Domain nhận mail MCS:* \`${(config.domains || []).join(", ")}\`\n\n🛡️ **Bản quyền Web:** ${statusText}`,
+                    ephemeral: true
+                });
             }
 
             // --- Subcommand: /donut link ---
-            const EXPIRY_MS = 30 * 60 * 1000; // 30 phút
+            const EXPIRY_MS = 3 * 60 * 60 * 1000; // 3 tiếng
             const now = Date.now();
             const botUserId = client.username || client.user.id;
             const botNumber = client.botnumber || 1;
@@ -205,18 +165,17 @@ module.exports = {
                 console.error('[DONUT] Failed to ensure gift_links table:', tblErr.message);
             }
 
-            // 1. Tự động dọn dẹp các link đã quá 30 phút
+            // 1. Tự động dọn dẹp các link đã quá 3 tiếng
             try {
                 await client.queryParams(`DELETE FROM gift_links WHERE created_at < ?`, [now - EXPIRY_MS]);
             } catch (cleanErr) {}
 
-            // Domain selection: Priority: option -> config.webDomain -> "localhost:3000"
-            let customDomain = interaction.options.getString("domain");
-            let domain = getWebDomain(customDomain);
+            // Domain selection: Priority: config.webDomain -> "localhost:3000"
+            let domain = getWebDomain();
             const isLocal = domain.includes("localhost") || domain.includes("127.0.0.1") || /:\d+$/.test(domain);
             const protocol = isLocal ? "http" : "https";
 
-            // 2. Kiểm tra xem bot này hiện tại đã có link còn hiệu lực trong vòng 30 phút chưa
+            // 2. Kiểm tra xem bot này hiện tại đã có link còn hiệu lực trong vòng 3 tiếng chưa
             const activeLinks = await client.queryParams(
                 `SELECT * FROM gift_links WHERE bot_user_id = ? AND bot_number = ? AND created_at >= ?`,
                 [botUserId, botNumber, now - EXPIRY_MS]
@@ -234,15 +193,15 @@ module.exports = {
                     .setTitle("⚠️ Bạn đang có Link Gift còn hiệu lực!")
                     .setColor(0xFEE75C) // Yellow Warning
                     .setDescription(
-                        `Mỗi bot chỉ được kích hoạt **1 link gift** trong vòng **30 phút**.\n` +
-                        `Sau 30 phút, link sẽ **tự động xoá** để tạo link mới.\n\n` +
+                        `Mỗi bot chỉ được kích hoạt **1 link gift** trong vòng **3 tiếng**.\n` +
+                        `Sau 3 tiếng, link sẽ **tự động xoá** để tạo link mới.\n\n` +
                         `**Gói:** ${existing.order_name}\n` +
                         `**Code:** \`${existing.code}\`\n` +
                         `**Thời gian còn lại:** \`${remainingMinutes} phút\` (<t:${expireAtSec}:R>)\n\n` +
                         `**Link hiện tại:** ${existingUrl}`
                     )
                     .setFooter({
-                        text: `Gift ${existing.code} • Tự hủy sau 30 phút • Nhấn nút đỏ bên dưới nếu muốn hủy ngay`
+                        text: `Gift ${existing.code} • Tự hủy sau 3 tiếng • Nhấn nút đỏ bên dưới nếu muốn hủy ngay`
                     });
 
                 const warningRow = new ActionRowBuilder().addComponents(
@@ -309,11 +268,11 @@ module.exports = {
                     `**Original price:** ${prod.price}\n` +
                     `**Sale price:** ${salePrice}\n` +
                     `**Coupon:** ${couponText}\n` +
-                    `**Expires:** 30 phút (<t:${expireTimestampSec}:R>)\n\n` +
+                    `**Expires:** 3 tiếng (<t:${expireTimestampSec}:R>)\n\n` +
                     `**Link:** ${claimUrl}`
                 )
                 .setFooter({
-                    text: `Gift ${giftCode} • Hết hạn sau 30 phút • Hôm nay lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+                    text: `Gift ${giftCode} • Hết hạn sau 3 tiếng • Hôm nay lúc ${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
                 });
 
             const row = new ActionRowBuilder().addComponents(

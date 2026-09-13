@@ -750,12 +750,18 @@ async function checkofflinebots(userid) {
 
 async function updateStatus(uid, field, value) {
   try {
-    await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid]);
+    const res = await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid], 'run');
+    if (res && res.changes === 0) {
+      throw new Error(`Row not found for uid ${uid}`);
+    }
   } catch (error) {
     if (error && error.message && error.message.includes("no such column")) {
       try {
         await queryParams(`ALTER TABLE status ADD COLUMN ${field} TEXT;`);
-        await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid]);
+        const res2 = await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid], 'run');
+        if (res2 && res2.changes === 0) {
+          throw new Error(`Row not found for uid ${uid} after ALTER`);
+        }
         return;
       } catch (alterErr) {
         console.error(`[updateStatus] Failed to alter table status and update ${field} for ${uid}:`, alterErr?.message || alterErr);
@@ -770,12 +776,18 @@ async function updateStatus(uid, field, value) {
 
 async function updateExtraInformation(uid, field, value) {
   try {
-    await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid]);
+    const res = await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid], 'run');
+    if (res && res.changes === 0) {
+      throw new Error(`Row not found for uid ${uid}`);
+    }
   } catch (error) {
     if (error && error.message && error.message.includes("no such column")) {
       try {
         await queryParams(`ALTER TABLE extrainformation ADD COLUMN \`${field}\` TEXT;`);
-        await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid]);
+        const res2 = await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid], 'run');
+        if (res2 && res2.changes === 0) {
+          throw new Error(`Row not found for uid ${uid} after ALTER`);
+        }
         return;
       } catch (alterErr) {
         console.error(`[updateExtraInformation] Failed to alter table extrainformation and update ${field} for ${uid}:`, alterErr?.message || alterErr);

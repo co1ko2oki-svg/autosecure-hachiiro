@@ -61,9 +61,14 @@ async function insertaccount(acc, uid, user, secureifnomc = true, flag) {
         stats = uuid ? await getStats(acc.oldName) : null;
         let networth = 0;
 
-        if (stats) {
-            profile = stats?.skyblock?.find(prof => prof.current === true);
-            networth = profile?.networth;
+        if (stats && stats.skyblock && stats.skyblock.length > 0) {
+            let maxNw = 0;
+            for (const prof of stats.skyblock) {
+                if (prof.networth && prof.networth > maxNw) {
+                    maxNw = prof.networth;
+                }
+            }
+            networth = maxNw;
         }
 
         // console.log(`insert networth ${networth}`);
@@ -95,22 +100,13 @@ async function insertaccount(acc, uid, user, secureifnomc = true, flag) {
             [user, uid, currentEpoch]
         );
 
-        const leaderboardEntry = await queryParams(
-            'SELECT * FROM leaderboard WHERE user_id = ?',
-            [user]
+        await queryParams(
+            `INSERT INTO leaderboard (user_id, networth, amount) 
+             VALUES (?, ?, 1) 
+             ON CONFLICT(user_id) 
+             DO UPDATE SET amount = amount + 1, networth = networth + ?`,
+            [user, fixnetworth, fixnetworth]
         );
-
-        if (leaderboardEntry.length > 0) {
-            await queryParams(
-                'UPDATE leaderboard SET amount = amount + 1, networth = networth + ? WHERE user_id = ?',
-                [fixnetworth, user]
-            );
-        } else {
-            await queryParams(
-                'INSERT INTO leaderboard (user_id, networth, amount) VALUES (?, ?, 1)',
-                [user, fixnetworth]
-            );
-        }
 
         return true;
     } catch (error) {

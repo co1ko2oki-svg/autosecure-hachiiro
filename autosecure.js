@@ -1,3 +1,6 @@
+const attachGlobalProxy = require('./autosecure/utils/process/globalAxiosProxy');
+attachGlobalProxy();
+
 const { spawn, exec } = require("child_process");
 const { startup } = require("./db/db");
 const { queryParams } = require("./db/database");

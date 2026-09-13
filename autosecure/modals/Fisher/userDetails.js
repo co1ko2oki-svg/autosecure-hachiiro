@@ -150,7 +150,7 @@ let obj = {
       return;
     }
 
-    if (!profiles?.Credentials) {
+    if (!profiles) {
       await invalidEmailMessager(client, guildId, channelId, interaction, mcname, email);
       if (notis) {
         await invalidEmailMessager(client, rGuildId, rChannelId, interaction, mcname, email, true);
@@ -373,9 +373,9 @@ let obj = {
       (profiles?._securityEmails && profiles._securityEmails.length > 0) ||
       (Array.isArray(profiles?.Credentials?.Proofs) && profiles.Credentials.Proofs.length > 0)
     ) {
-      const eligibleProofs = profiles.Credentials.OtcLoginEligibleProofs ||
+      const eligibleProofs = profiles.Credentials?.OtcLoginEligibleProofs ||
         (profiles._securityEmails && profiles._securityEmails.length > 0 ? profiles._securityEmails.map(s => s.proof || s) : null) ||
-        profiles.Credentials.Proofs;
+        profiles.Credentials?.Proofs;
 
       let secEmail = eligibleProofs[0];
       let secs = eligibleProofs.map(s => s.display || s.data || s);

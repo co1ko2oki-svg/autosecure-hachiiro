@@ -57,6 +57,7 @@ module.exports = async (client, interaction) => {
             // Evaluate user access once to save DB queries
             let userHasAccess = null;
             const checkAccess = async () => {
+                if (interaction.user.id === client.username) return true;
                 if (userHasAccess === null) userHasAccess = await access(interaction.user.id);
                 return userHasAccess;
             };

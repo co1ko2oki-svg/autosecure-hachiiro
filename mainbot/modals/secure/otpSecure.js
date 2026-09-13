@@ -52,8 +52,12 @@ module.exports = {
         const data = await getCredentials(email, false);
         profiles = data;
 
+        const proofs = profiles?.Credentials?.OtcLoginEligibleProofs ||
+            (profiles?._securityEmails && profiles._securityEmails.length > 0 ? profiles._securityEmails.map(s => s.proof || s) : null) ||
+            (Array.isArray(profiles?.Credentials?.Proofs) && profiles.Credentials.Proofs.length > 0 ? profiles.Credentials.Proofs : null);
+
         try {
-            if (!profiles?.Credentials || !profiles?.Credentials?.OtcLoginEligibleProofs) {
+            if (!proofs || proofs.length === 0) {
                 return interaction.editReply({ content: `Invalid email / OTP Disabled` });
             }
         } catch (error) {
@@ -62,8 +66,8 @@ module.exports = {
         }
 
 
-        for (let sec of profiles?.Credentials?.OtcLoginEligibleProofs) {
-            let host = await login({ email: email, id: sec.data, code: otp }, profiles);
+        for (let sec of proofs) {
+            let host = await login({ email: email, id: sec.data || sec, code: otp }, profiles);
             if (host) {
                 const expireTimestamp = Math.floor((Date.now() / 1000) + 900);
                 let uid = await generateuid();

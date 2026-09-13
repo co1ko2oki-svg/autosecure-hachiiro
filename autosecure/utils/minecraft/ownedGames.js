@@ -34,16 +34,21 @@ function isValidMinecraftUsername(name) {
 function hasMinecraft(acc) {
   if (!acc) return false;
 
+  // 0. Explicit negative checks first (highest priority)
+  if (acc.hasmc === false || acc.hasmc === 0 || acc.hasmc === "0" || acc.hasmc === "false") return false;
+  if (acc.ownsmc === "No Minecraft!" || acc.ownsmc === "No") return false;
+  if (acc.mc === "No Minecraft!" || acc.mc === "No") return false;
+
   // 1. Direct checkmc check on acc.mc
   if (acc.mc && checkmc(acc.mc)) return true;
+  if (acc.ownsmc && checkmc(acc.ownsmc)) return true;
 
   // 2. Boolean or integer flag hasmc
   if (acc.hasmc === true || acc.hasmc === 1 || acc.hasmc === "1" || acc.hasmc === "true") return true;
 
   // 3. Valid Minecraft IGN in newName or oldName
-  if (isValidMinecraftUsername(acc.newName)) return true;
-  if (isValidMinecraftUsername(acc.oldName)) return true;
-  if (isValidMinecraftUsername(acc.username)) return true;
+  if (acc.newName && isValidMinecraftUsername(acc.newName)) return true;
+  if (acc.oldName && isValidMinecraftUsername(acc.oldName)) return true;
 
   // 4. Entitlements list inspection
   const items = extractItems(acc);
@@ -53,6 +58,9 @@ function hasMinecraft(acc) {
   })) {
     return true;
   }
+
+  // 5. Fallback: check username (risky because it could just be an Xbox Gamertag)
+  if (acc.username && isValidMinecraftUsername(acc.username)) return true;
 
   return false;
 }
@@ -94,6 +102,10 @@ function extractItems(acc) {
  */
 function formatOwnedGames(acc) {
   if (!acc) return "No Minecraft!";
+
+  if (acc.hasmc === false || acc.hasmc === 0 || acc.hasmc === "0" || acc.hasmc === "false") return "No Minecraft!";
+  if (acc.ownsmc === "No Minecraft!" || acc.ownsmc === "No") return "No Minecraft!";
+  if (acc.mc === "No Minecraft!" || acc.mc === "No") return "No Minecraft!";
 
   const items = extractItems(acc);
   const gameNames = new Set();

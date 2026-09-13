@@ -38,7 +38,7 @@ module.exports = {
                             .setTitle("❌ Account Check Error")
                             .setDescription("An error occurred while checking the account status.")
                             .setColor(0xff4757)
-                            .setThumbnail('https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
+                            .setThumbnail((require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'))
                             .addFields({
                                 name: '🔧 Error Details',
                                 value: 'Report this as ID: `checklockedcmd1`',

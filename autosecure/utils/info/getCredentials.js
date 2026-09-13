@@ -278,6 +278,8 @@ module.exports = async (email, sendotp = true) => {
       "X-Requested-With": "XMLHttpRequest"
     };
 
+    const uaid = (axios.getCookie ? axios.getCookie("uaid") : "") || "";
+
     const payload = {
       checkPhones: true,
       federationFlags: 3,
@@ -293,7 +295,7 @@ module.exports = async (email, sendotp = true) => {
       username: email,
       originalRequest: "",
       country: "US",
-      uaid: ""
+      uaid: uaid
     };
 
     try {
@@ -303,8 +305,17 @@ module.exports = async (email, sendotp = true) => {
         { headers }
       );
 
-      // Account doesn't exist (1 = does not exist; 0 = MSA, 6 = MSA with FIDO/external email)
-      if (response.data.IfExistsResult === 1 || (!response.data.Credentials && response.data.IfExistsResult !== 0 && response.data.IfExistsResult !== 6)) {
+      if (!response || !response.data) {
+        return null;
+      }
+
+      // Account doesn't exist (1 = does not exist)
+      if (response.data.IfExistsResult === 1) {
+        return null;
+      }
+
+      // If session error or missing credentials, let fallback handle it
+      if (response.data.ErrorHR && !response.data.Credentials) {
         return null;
       }
 
@@ -523,8 +534,17 @@ module.exports = async (email, sendotp = true) => {
           }
 
           if (response.data) {
-            // Check if account exists and has recovery methods
-            if (response.data.IfExistsResult === 0 || response.data.IfExistsResult === 6 || response.data.Username) {
+            // If Microsoft explicitly says account does not exist, do not return it
+            if (response.data.IfExistsResult === 1) {
+              return null;
+            }
+            // Check if account exists
+            if (
+              response.data.IfExistsResult === 0 ||
+              response.data.IfExistsResult === 4 ||
+              response.data.IfExistsResult === 5 ||
+              response.data.IfExistsResult === 6
+            ) {
               return {
                 ...response.data,
                 _hasSecurityEmail: false,

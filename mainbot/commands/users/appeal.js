@@ -29,7 +29,7 @@ module.exports = {
                         .setTitle("❌ Appeal Error")
                         .setDescription("An error occurred while processing your appeal request.")
                         .setColor(0xff4757)
-                        .setThumbnail('https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
+                        .setThumbnail((require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'))
                         .addFields({
                             name: '🔧 Error Details',
                             value: 'Report this as ID: `appeal1`',

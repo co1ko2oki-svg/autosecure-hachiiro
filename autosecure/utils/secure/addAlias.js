@@ -80,12 +80,11 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
           }
         }
 
-        // Extract fresh form canary
+        // Extract fresh form canary (DO NOT match apiCanary here, as it's invalid for forms)
         const pageCanaryMatch =
           pageHtml.match(/<input[^>]+(?:name="canary"|id="canary")[^>]+value="([^"]+)"/i) ||
           pageHtml.match(/<input[^>]+value="([^"]+)"[^>]+(?:name="canary"|id="canary")/i) ||
           pageHtml.match(/name="canary"\s+value="([^"]+)"/i) ||
-          pageHtml.match(/"apiCanary":\s*"([^"]+)"/i) ||
           pageHtml.match(/"sCanary":\s*"([^"]+)"/i) ||
           pageHtml.match(/"canary":\s*"([^"]+)"/i);
 
@@ -230,8 +229,16 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
     // STEP 4: Authoritative State Verification
     // ----------------------------------------------------
     try {
-      const checkState = await getAliases(axios);
-      const matchedAlias = (checkState?.aliases || []).find((a) => isSameEmail(a, expectedCreatedEmail));
+      let checkState = await getAliases(axios);
+      let matchedAlias = (checkState?.aliases || []).find((a) => isSameEmail(a, expectedCreatedEmail));
+
+      // Add idempotent retry for eventual consistency (sometimes MS takes a moment)
+      if (!matchedAlias && classification !== MUTATION_RESULTS.MUTATION_REJECTED) {
+        console.log(`[ADD_ALIAS][req=${reqId}] Alias not immediately found, retrying state verification in 1.5s...`);
+        await new Promise(r => setTimeout(r, 1500));
+        checkState = await getAliases(axios);
+        matchedAlias = (checkState?.aliases || []).find((a) => isSameEmail(a, expectedCreatedEmail));
+      }
 
       if (matchedAlias) {
         classification = MUTATION_RESULTS.MUTATION_CONFIRMED;

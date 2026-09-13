@@ -46,21 +46,21 @@ let proxies = [];
 
 try {
     if (config.useproxy === true || config.useproxy === "true") {
-        if (Array.isArray(config.proxy) && config.proxy.length > 0) {
-            proxies = config.proxy.map(proxyStr => {
+        if (Array.isArray(config.socksproxy) && config.socksproxy.length > 0) {
+            proxies = config.socksproxy.map(proxyStr => {
                 const [ip, port, username, password] = proxyStr.split(':');
                 return { ip, port, username, password };
             });
-        } else if (typeof config.proxy === 'string' && config.proxy) {
-            const [ip, port, username, password] = config.proxy.split(':');
+        } else if (typeof config.socksproxy === 'string' && config.socksproxy) {
+            const [ip, port, username, password] = config.socksproxy.split(':');
             proxies = [{ ip, port, username, password }];
         }
     }
 
     if (proxies.length === 0) {
-        console.log('[BANCHECK] No proxy configured, direct connection will be attempted if allowed');
+        console.log('[BANCHECK] No SOCKS proxy configured, direct connection will be attempted if allowed');
     } else {
-        console.log(`[BANCHECK] Loaded ${proxies.length} proxies from config.json`);
+        console.log(`[BANCHECK] Loaded ${proxies.length} SOCKS proxies from config.json`);
     }
 } catch (err) {
     console.error('[BANCHECK] Error loading proxies:', err.message);

@@ -1,6 +1,7 @@
 const { queryParams } = require("../../../db/database");
 const showproxiespanel = require('../../utils/utils/showproxiespanel');
 const { SocksProxyAgent } = require('socks-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const axios = require('axios');
 
 async function insertProxies(userId, proxies) {
@@ -79,8 +80,9 @@ module.exports = {
             if (uniqueProxies.length === 1) {
                 const proxy = uniqueProxies[0];
                 const [host, port, username, password] = proxy.split(':');
-                const proxyUrl = `socks5://${username}:${password}@${host}:${port}`;
-                const agent = new SocksProxyAgent(proxyUrl);
+                const proxyUrlStr = `${username}:${password}@${host}:${port}`;
+                const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${proxyUrlStr}`;
+                const agent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
 
                 const start = Date.now();
                 try {

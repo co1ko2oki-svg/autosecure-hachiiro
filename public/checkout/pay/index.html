@@ -479,13 +479,9 @@ body {
         
         const isGift = (localStorage.getItem('donut_gift_active') === 'true') || (urlParams.get('gift') === 'true');
         if (isGift) {
-            isCouponApplied = true;
-            for (const key in PACKAGES) {
-                PACKAGES[key].price = 0.00;
-                PACKAGES[key].term = 'FREE GIFT REDEEM';
-            }
             const couponInput = document.getElementById('coupon-input');
             if (couponInput && urlParams.get('code')) couponInput.value = urlParams.get('code');
+            // We do NOT set price to 0.00 here. The price remains original until the email step (payment.html).
         }
 
         document.getElementById('pay-order-title').textContent = `${username}'s order`;

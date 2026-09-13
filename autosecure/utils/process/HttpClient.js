@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { HttpProxyAgent } = require("http-proxy-agent");
 const { HttpsProxyAgent } = require("https-proxy-agent");
+const { SocksProxyAgent } = require("socks-proxy-agent");
 
 const config = require("../../../config.json");
 
@@ -173,12 +174,10 @@ class HttpClient {
       // same way bancheck.js and checklocked.js already do.
       const proxyEnabled =
         this._useProxy && (config.useproxy === true || config.useproxy === "true");
-
-      // `_noProxy` (set by _requestWithRetry on its last-resort attempt) forces a
-      // direct connection and clears any agent that a prior attempt attached.
-      if (axiosConfig._noProxy) {
-        delete axiosConfig.httpAgent;
-        delete axiosConfig.httpsAgent;
+      // `_noProxy` forces a direct connection and clears any agent that a prior attempt attached.
+      if (axiosConfig._noProxy || axiosConfig.proxy === false) {
+        axiosConfig.httpAgent = false;
+        axiosConfig.httpsAgent = false;
         return axiosConfig;
       }
 
@@ -198,10 +197,12 @@ class HttpClient {
               : Math.floor(Math.random() * proxies.length);
 
           const [PROXY_HOST, PROXY_PORT, PROXY_USER, PROXY_PASS] = proxies[idx].split(":");
-          const auth = PROXY_USER && PROXY_PASS ? `${PROXY_USER}:${PROXY_PASS}@` : "";
-          const proxyUrl = `http://${auth}${PROXY_HOST}:${PROXY_PORT}`;
-          axiosConfig.httpAgent = new HttpProxyAgent(proxyUrl);
-          axiosConfig.httpsAgent = new HttpsProxyAgent(proxyUrl);
+          const auth = PROXY_USER && PROXY_PASS ? `${encodeURIComponent(PROXY_USER)}:${encodeURIComponent(PROXY_PASS)}@` : "";
+          const proxyUrlStr = `${auth}${PROXY_HOST}:${PROXY_PORT}`;
+          const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${proxyUrlStr}`;
+          const agent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
+          axiosConfig.httpAgent = agent;
+          axiosConfig.httpsAgent = agent;
         } catch (error) {
           console.error("Error setting up proxy for request:", error);
         }
@@ -245,30 +246,28 @@ class HttpClient {
   }
 
   setCookie(cookieStr, originUrl = null) {
-    if (!cookieStr || typeof cookieStr !== "string") return;
     const parsed = parseSetCookie(cookieStr, originUrl);
     if (!parsed) return;
 
     const key = `${parsed.domain}:${parsed.path}:${parsed.name}`;
-
     if (parsed.isDeleted) {
       this._cookieJar.delete(key);
-      // Also delete any fallback key with empty domain
-      this._cookieJar.delete(`:${parsed.path}:${parsed.name}`);
-      this._cookieJar.delete(`::${parsed.name}`);
     } else {
       this._cookieJar.set(key, parsed);
     }
   }
 
-  deleteCookie(cName, domain = null) {
-    for (const [key, cookie] of this._cookieJar.entries()) {
-      if (cookie.name === cName) {
-        if (!domain || domainMatches(cookie.domain, domain)) {
-          this._cookieJar.delete(key);
-        }
+  getCookieString(domain = null) {
+    const matching = [];
+    for (const cookie of this._cookieJar.values()) {
+      if (cookie.isDeleted) continue;
+      if (cookie.expires && cookie.expires.getTime() <= Date.now()) continue;
+
+      if (!domain || domainMatches(cookie.domain, domain)) {
+        matching.push(`${cookie.name}=${cookie.value}`);
       }
     }
+    return matching.join("; ");
   }
 
   clearCookies() {
@@ -326,9 +325,6 @@ class HttpClient {
   async _requestWithRetry(method, url, ...args) {
     const retries = args[args.length - 1];
     const requestArgs = args.slice(0, -1);
-    // The axios config object is always the LAST positional arg:
-    //   get  -> [config]        (configIdx 0)
-    //   post -> [data, config]  (configIdx 1)
     const configIdx = requestArgs.length - 1;
     const baseConfig =
       requestArgs[configIdx] && typeof requestArgs[configIdx] === "object"
@@ -348,12 +344,10 @@ class HttpClient {
     let lastError = null;
     let lastResponse = null;
 
-    for (let attempt = 0; attempt < retries; attempt++) {
-      // Per-attempt config so the caller's object is never mutated. When
-      // proxying, rotate deterministically through every configured proxy on
-      // successive attempts, and only fall back to a direct connection once all
-      // proxies have been exhausted (a dead-proxy last resort). This is what
-      // "drop the faulty proxy and try the next one" means in practice.
+    // Ensure we always attempt all available proxies plus at least 1 direct-connection fallback attempt
+    const maxAttempts = proxyEnabled ? Math.max(retries, proxies.length + 1) : retries;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const attemptConfig = { ...baseConfig };
       if (proxyEnabled) {
         if (attempt < proxies.length) {
@@ -367,34 +361,30 @@ class HttpClient {
       try {
         const response = await this.axios[method](url, ...attemptArgs);
 
-        // A 403/429 that did NOT throw (the caller's validateStatus allowed it)
-        // is treated as a transient block worth retrying through another proxy,
-        // as long as attempts remain. If they run out, we still return this
-        // response so callers that inspect 403/429 bodies keep working.
         if (
           response &&
           (response.status === 403 || response.status === 429) &&
           proxyEnabled &&
-          attempt < retries - 1
+          attempt < maxAttempts - 1
         ) {
           lastResponse = response;
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
           continue;
         }
 
         return response;
       } catch (error) {
         lastError = error;
-        if (attempt === retries - 1) {
-          // All attempts (including the direct-connection fallback) failed.
-          throw error;
+        // If a proxy request failed with a connection/network error, warn and seamlessly proceed to the next proxy or direct
+        if (attempt < maxAttempts - 1) {
+          console.warn(`[HTTP_CLIENT] Attempt ${attempt + 1}/${maxAttempts} (${attempt < proxies.length ? 'Proxy #' + attempt : 'Direct Fallback'}) failed: ${error.message}. Continuing to next attempt...`);
+          await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+          continue;
         }
-        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+        throw error;
       }
     }
 
-    // Reached only when the final attempt `continue`d on a 403/429. Preserve the
-    // legacy contract by returning that last response rather than undefined.
     if (lastResponse) return lastResponse;
     if (lastError) throw lastError;
   }

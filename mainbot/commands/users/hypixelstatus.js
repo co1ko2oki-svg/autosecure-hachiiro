@@ -55,7 +55,7 @@ module.exports = {
             title: '❌ Invalid Username',
             description: `Couldn't fetch UUID for \`${input}\`.`,
             thumbnail: {
-              url: 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'
+              url: (require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
             },
             fields: [{
               name: '💡 What to do?',
@@ -85,7 +85,7 @@ module.exports = {
           title: '⚠️ Status Check Failed',
           description: `Couldn't fetch status for \`${name}\`.`,
           thumbnail: {
-            url: 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'
+            url: (require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
           },
           fields: [{
             name: '💡 What to do?',
@@ -134,7 +134,7 @@ module.exports = {
             title: '❌ Status Check Error',
             description: 'An error occurred while checking the player status.',
             thumbnail: {
-              url: 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif'
+              url: (require('../../../config.json').defaultpfp || 'https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
             },
             fields: [{
               name: '🔧 Error Details',
