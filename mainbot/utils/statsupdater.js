@@ -25,14 +25,17 @@ async function fetchStatsData(client) {
     let accountsSecured = 0;
     let totalUsers = 0;
     try {
-        const result = await queryParams(`SELECT SUM(amount) as total FROM leaderboard`);
-        if (result && result[0] && result[0].total) accountsSecured = result[0].total;
+        const sumQuery = await queryParams(`SELECT SUM(amount) as total FROM leaderboard`);
+        if (sumQuery && sumQuery[0] && sumQuery[0].total) {
+            accountsSecured = parseInt(sumQuery[0].total);
+        }
     } catch(e) {}
 
     try {
         const allAccs = await queryParams(`SELECT DISTINCT user_id FROM leaderboard`);
         if (allAccs) totalUsers = allAccs.length;
-    } catch(e) {}
+    } catch(e) {
+    }
 
     const currentDate = new Date().toLocaleString("en-US", {
         month: "short", day: "2-digit", year: "numeric",

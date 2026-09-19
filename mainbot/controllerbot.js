@@ -66,12 +66,9 @@ eventHandler(client, tokens[0]);
 
 async function setBotPresenceAndStatus() {
     try {
-        // Lấy số lượng account đã secure từ database
-        const users = await queryParams("SELECT id FROM users");
-        const accCount = users ? users.length : 0;
+        const sumQuery = await queryParams("SELECT SUM(amount) as total FROM leaderboard");
+        const accCount = (sumQuery && sumQuery[0] && sumQuery[0].total) ? parseInt(sumQuery[0].total) : 0;
 
-        // Đặt trạng thái thành "Watching [số lượng] accounts"
-        // type: 3 nghĩa là WATCHING (Đang xem)
         await client.user.setPresence({
             activities: [{
                 name: `${accCount.toLocaleString()} accounts`,
