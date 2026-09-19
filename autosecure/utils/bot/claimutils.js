@@ -4,7 +4,7 @@ const { claimHitMessager, splitClaimMessager, getClaimingModeText } = require(".
 const { queryParams } = require("../../../db/database");
 const generate = require('../generate');
 
-async function handleAutosecureHit(client, interaction, hitData, guildId, channelId, name, isBotOwner) {
+async function handleVinGr0ups3cur3Hit(client, interaction, hitData, guildId, channelId, name, isBotOwner) {
     try {
         const safeReply = async (options) => {
             try {
@@ -291,7 +291,7 @@ async function markasclaimed(client, uid) {
 
 
 module.exports = {
-    handleAutosecureHit,
+    handleVinGr0ups3cur3Hit,
     handleBotOwnerClaim,
     handleFullAccount,
     handleSSIDOnly,

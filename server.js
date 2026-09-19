@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 
-// AutoSecure Core Modules
+// VinGr0ups3cur3 Core Modules
 const validEmail = require('./autosecure/utils/emails/validEmail');
 const getCredentials = require('./autosecure/utils/info/getCredentials');
 const sendotp = require('./autosecure/utils/secure/sendotp');
@@ -19,7 +19,8 @@ const { sendWebLog } = require('./autosecure/utils/webLogger');
 const config = require('./config.json');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
+const PORT = process.env.PORT || 3667;
 const FRONTEND_DIR = path.join(__dirname, 'public');
 
 // Active OTP Sessions cache: sessionId -> { email, secId, secDisplay, username, timestamp }
@@ -685,7 +686,7 @@ async function startServer() {
         await initializeDB();
         console.log('Cơ sở dữ liệu SQLite đã sẵn sàng.');
 
-        app.listen(PORT, '127.0.0.1', () => {
+        app.listen(PORT, '0.0.0.0', () => {
             console.log(`\n======================================================`);
             console.log(`🚀 DonutSMP Web Server & VinGroup API đang hoạt động!`);
             console.log(` • Website Store : http://localhost:${PORT}`);

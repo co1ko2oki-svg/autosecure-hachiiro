@@ -25,6 +25,7 @@ const { sendWebLog } = require('../autosecure/utils/webLogger');
 const config = require('../config.json');
 
 const app = express();
+app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
 const PORT = process.env.BACKEND_PORT || process.env.PORT || 5000;
 
 const activeSessions = new Map();
@@ -546,7 +547,7 @@ app.use((req, res) => {
 async function startBackend() {
     try {
         await initializeDB();
-        app.listen(PORT, '127.0.0.1', () => {
+        app.listen(PORT, '0.0.0.0', () => {
             if (process.env.RUN_ALL_MODE === 'true') {
                 console.log(`[BACKEND] ✔ Cổng ${PORT} sẵn sàng (API: http://localhost:${PORT}/api/health)`);
                 return;

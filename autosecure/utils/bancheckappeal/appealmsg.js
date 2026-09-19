@@ -24,7 +24,7 @@ async function appealmsg(userid, ssid) {
                         value: '• Make sure the SSID is correct\n• Check if the SSID is still valid\n• Try generating a new SSID',
                         inline: false
                     })
-                    .setFooter({ text: 'Appeal System • Autosecure' })
+                    .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                     .setTimestamp()
             ],
             ephemeral: true
@@ -57,7 +57,7 @@ async function appealmsg(userid, ssid) {
                             value: `Server returned status: ${response.status}`,
                             inline: false
                         })
-                        .setFooter({ text: 'Appeal System • Autosecure' })
+                        .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                         .setTimestamp()
                 ],
                 ephemeral: true
@@ -75,7 +75,7 @@ async function appealmsg(userid, ssid) {
                             value: `Server returned status: ${response.status}`,
                             inline: false
                         })
-                        .setFooter({ text: 'Appeal System • Autosecure' })
+                        .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                         .setTimestamp()
                 ],
                 ephemeral: true
@@ -100,7 +100,7 @@ async function appealmsg(userid, ssid) {
                         value: 'Just wait till it\'s done!',
                         inline: true
                     })
-                    .setFooter({ text: 'Appeal System • Autosecure' })
+                    .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                     .setTimestamp()
             ]   
             }
@@ -127,7 +127,7 @@ async function appealmsg(userid, ssid) {
                         value: 'Your appeal will be processed automatically. You\'ll receive a DM when it\'s complete.',
                         inline: false
                     })
-                    .setFooter({ text: 'Appeal System • Autosecure' })
+                    .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                     .setTimestamp()
             ]
         };
@@ -170,7 +170,7 @@ async function finishedappealmsg(obj, uid) {
             );
         }
 
-        embed.setFooter({ text: 'Appeal System • Autosecure' })
+        embed.setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
               .setTimestamp();
 
         await user.send({ embeds: [embed] });

@@ -14,7 +14,7 @@ module.exports = {
         '3. When an account is secured, the bot will automatically initiate the quarantine routine.'
       )
       .setColor('#c6d2dd')
-      .setFooter({ text: 'Autosecure Quarantine Guide' });
+      .setFooter({ text: 'VinGr0ups3cur3 Quarantine Guide' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }

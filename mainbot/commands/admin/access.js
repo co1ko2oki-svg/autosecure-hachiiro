@@ -158,14 +158,14 @@ module.exports = {
 
       const choices = [
         { name: "---Manage Keys---", value: "placeholder"},
-        { name: "Create Autosecure Key", value: "create_key" },
+        { name: "Create VinGr0ups3cur3 Key", value: "create_key" },
         { name: "Create Web Key (Monthly)", value: "create_webkey" },
         { name: "Create Slot Key", value: "create_slotkey" },
         { name: "Grant Web Access", value: "grant_webaccess" },
         { name: "Extend All Keys", value: "extend_all_keys" },
         { name: "Transfer License", value: "transfer" },
         { name: "---Remove Keys---", value: "placeholder"},
-        { name: "Delete Autosecure Key", value: "delete_key" },
+        { name: "Delete VinGr0ups3cur3 Key", value: "delete_key" },
         { name: "Delete Web Key", value: "delete_webkey" },
         { name: "Remove Web Access", value: "remove_webaccess" },
         { name: "Delete All Keys", value: "delete_all" },
@@ -185,7 +185,7 @@ module.exports = {
     } else if (subcommand === 'config') {
       if (!isUserOwner) {
         return interaction.respond([{
-          name: "You cannot manage Autosecure.",
+          name: "You cannot manage VinGr0ups3cur3.",
           value: "license"
         }]);
       }
@@ -503,7 +503,7 @@ case "leaderboard":
 
       case "ticket":
         const ticketEmbed = new EmbedBuilder()
-          .setTitle('Autosecure support')
+          .setTitle('VinGr0ups3cur3 support')
           .setDescription('Select the type of support ticket you need from the menu below:')
           .setColor(0xC8A2C8);
 
@@ -518,7 +518,7 @@ case "leaderboard":
               emoji: '💸'
             },
             {
-              label: 'Suggestions/Autosecure Issues',
+              label: 'Suggestions/VinGr0ups3cur3 Issues',
               description: 'Report bugs or suggest improvements',
               value: 'suggestion',
               emoji: '❓'
@@ -1287,7 +1287,7 @@ async function handleremoveuser(client, interaction) {
 
       
     const removalEmbed = new EmbedBuilder()
-      .setTitle('Your access to Autosecure has been removed!')
+      .setTitle('Your access to VinGr0ups3cur3 has been removed!')
       .setDescription(`Reason: ${reason}`)
       .setColor('#5f9ea0');
     
@@ -1616,7 +1616,7 @@ async function handleExtendAllKeys(client, interaction) {
               const embed = {
                 title: "License Extended",
                 color: 0x00ff99,
-                description: `Your Autosecure subscription has been extended!`,
+                description: `Your VinGr0ups3cur3 subscription has been extended!`,
                 fields: [
                   { name: "Existing License", value: `\`${license.license}\``, inline: false },
                   { name: "Extension", value: `${daysNum} day(s)`, inline: true },
@@ -1801,7 +1801,7 @@ async function handleBlacklistUser(client, interaction) {
       const blacklistEmbed = {
         color: 0xADD8E6, // Red color
         title: 'User Blacklisted',
-        description: `<@${userId}> has been blacklisted from Autosecure`,
+        description: `<@${userId}> has been blacklisted from VinGr0ups3cur3`,
         timestamp: new Date()
       };
       await interaction.channel.send({ embeds: [blacklistEmbed] });

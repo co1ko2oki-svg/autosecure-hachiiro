@@ -14,7 +14,7 @@ module.exports = {
         '3. Once authenticated via browser, the bot receives access to verify and secure the account.'
       )
       .setColor('#c6d2dd')
-      .setFooter({ text: 'Autosecure OAuth Guide' });
+      .setFooter({ text: 'VinGr0ups3cur3 OAuth Guide' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }

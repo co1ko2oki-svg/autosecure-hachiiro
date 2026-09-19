@@ -49,7 +49,7 @@ module.exports = {
                                 value: '• Try again in a few moments\n• Contact support if the issue persists\n• Make sure the email is valid',
                                 inline: false
                             })
-                            .setFooter({ text: 'Account Checker • Autosecure' })
+                            .setFooter({ text: 'Account Checker • VinGr0ups3cur3' })
                             .setTimestamp()
                     ]
                 });

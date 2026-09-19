@@ -1,5 +1,5 @@
 /**
- * Enterprise CMD / Terminal Logger for Autosecure & Mainbot.
+ * Enterprise CMD / Terminal Logger for VinGr0ups3cur3 & Mainbot.
  * Features:
  * - Vibrant ANSI colors & formatted badges for instant visual tracking.
  * - Automatic timestamps [HH:mm:ss].

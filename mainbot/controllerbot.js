@@ -15,7 +15,7 @@ const checkroles = require("./utils/checkroles.js");
 const { setMainBotClient } = require('./handlers/botHandler.js');
 const { initializeAutoPanels } = require('./utils/autoPanels.js');
 /*
-Starts Autosecure API
+Starts VinGr0ups3cur3 API
 */
 require("./handlers/handleapi.js")
 

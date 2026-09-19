@@ -119,7 +119,7 @@ async function checkBlacklist(interaction) {
   if (blacklisted.blacklisted) {
     const embed = new EmbedBuilder()
       .setColor('#d22b2b')
-      .setDescription(`### You're blacklisted from using Autosecure\n\nReason: ${blacklisted.reason}`);
+      .setDescription(`### You're blacklisted from using VinGr0ups3cur3\n\nReason: ${blacklisted.reason}`);
     await interaction.reply({ embeds: [embed], ephemeral: true });
     return true;
   }
@@ -244,7 +244,7 @@ async function handletickets(client, interaction, params) {
     if (purchase) {
       const purchaseEmbed = new EmbedBuilder()
         .setTitle(`Purchase Ticket #${newTicketNumber}`)
-        .setDescription(`This ticket is only meant for purchasing with an alternative payment method.\n\nYou can always purchase Autosecure using Litecoin`)
+        .setDescription(`This ticket is only meant for purchasing with an alternative payment method.\n\nYou can always purchase VinGr0ups3cur3 using Litecoin`)
         .setColor(13158600)
         .setFooter({ 
           text: `Created by ${interaction.user.tag}`, 
@@ -268,7 +268,7 @@ async function handletickets(client, interaction, params) {
     } else if (license) {
       const licenseEmbed = new EmbedBuilder()
         .setTitle(`License Recovery Ticket #${newTicketNumber}`)
-        .setDescription(`To recover your Autosecure access, please use the \`/recover\` command in this ticket along with the **latest license key** you purchased.\n\nIf you get a dm from the bot, your access was succesfully recovered. Please close the ticket in that case.\n\nIf you face other issues, feel free to ask here.`)
+        .setDescription(`To recover your VinGr0ups3cur3 access, please use the \`/recover\` command in this ticket along with the **latest license key** you purchased.\n\nIf you get a dm from the bot, your access was succesfully recovered. Please close the ticket in that case.\n\nIf you face other issues, feel free to ask here.`)
         .setColor(13158600)
         .setFooter({ 
           text: `Created by ${interaction.user.tag}`, 

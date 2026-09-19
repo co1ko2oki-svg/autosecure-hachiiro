@@ -16,7 +16,7 @@ module.exports = async function checklockedmsg(email) {
           value: '• Make sure the email format is correct\n• Check for typos in the email address\n• Use a valid email format (e.g., user@example.com)',
           inline: false
         })
-        .setFooter({ text: 'Account Checker • Autosecure' })
+        .setFooter({ text: 'Account Checker • VinGr0ups3cur3' })
         .setTimestamp()],
       ephemeral: true,
     };
@@ -42,7 +42,7 @@ module.exports = async function checklockedmsg(email) {
           inline: false
         }
       ])
-      .setFooter({ text: 'Account Checker • Autosecure' })
+      .setFooter({ text: 'Account Checker • VinGr0ups3cur3' })
       .setTimestamp();
     return { embeds: [errorEmbed], ephemeral: true };
   }
@@ -76,7 +76,7 @@ module.exports = async function checklockedmsg(email) {
       { name: "📝 Reason", value: `\`${reason || "None"}\``, inline: true }
     )
     .setFooter({
-      text: "Don't spam this command for the same email. It may show unlocked falsely in this case. • Autosecure"
+      text: "Don't spam this command for the same email. It may show unlocked falsely in this case. • VinGr0ups3cur3"
     })
     .setTimestamp()
 

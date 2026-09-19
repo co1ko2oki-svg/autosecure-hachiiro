@@ -57,7 +57,7 @@ module.exports = {
             await channel.send({
                 content: `<@&${roleid}>`, // Role ping
                 embeds: [{
-                    title: `Autosecure has been updated!\nv${newVersion}`,
+                    title: `VinGr0ups3cur3 has been updated!\nv${newVersion}`,
                     color: 13158600,
                     fields: [
                         {

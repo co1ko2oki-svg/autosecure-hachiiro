@@ -1,9 +1,53 @@
 const axios = require("axios");
+const http = require("http");
+const https = require("https");
 const { HttpProxyAgent } = require("http-proxy-agent");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { SocksProxyAgent } = require("socks-proxy-agent");
 
 const config = require("../../../config.json");
+
+// Direct connection Keep-Alive agent pool
+const defaultHttpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000
+});
+
+const defaultHttpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 30000
+});
+
+// Proxy Keep-Alive agent pool cache
+const proxyAgentPool = new Map();
+
+function getCachedProxyAgent(proxyUrl) {
+  if (proxyAgentPool.has(proxyUrl)) {
+    return proxyAgentPool.get(proxyUrl);
+  }
+
+  const isSocks = proxyUrl.startsWith("socks");
+  const agentOptions = {
+    keepAlive: true,
+    keepAliveMsecs: 30000,
+    maxSockets: 50,
+    maxFreeSockets: 10,
+    timeout: 30000
+  };
+
+  const agent = isSocks
+    ? new SocksProxyAgent(proxyUrl, agentOptions)
+    : new HttpsProxyAgent(proxyUrl, agentOptions);
+
+  proxyAgentPool.set(proxyUrl, agent);
+  return agent;
+}
 
 function isValidUrl(urlString) {
   try {
@@ -110,6 +154,8 @@ class HttpClient {
       timeout: 10000,
       maxRedirects: 0,
       withCredentials: true,
+      httpAgent: defaultHttpAgent,
+      httpsAgent: defaultHttpsAgent,
       validateStatus: (status) => status >= 200 && status < 600,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
@@ -164,7 +210,7 @@ class HttpClient {
       return response;
     });
 
-    // Proxy interceptor
+    // Proxy interceptor with Keep-Alive connection pooling
     this.axios.interceptors.request.use(async (axiosConfig) => {
       // config.useproxy may be a real boolean OR the string "true" (it is stored
       // as a string in config.json). The strict `=== true` check silently
@@ -174,10 +220,10 @@ class HttpClient {
       // same way bancheck.js and checklocked.js already do.
       const proxyEnabled =
         this._useProxy && (config.useproxy === true || config.useproxy === "true");
-      // `_noProxy` forces a direct connection and clears any agent that a prior attempt attached.
+      // `_noProxy` forces a direct connection and restores default keep-alive agent pool.
       if (axiosConfig._noProxy || axiosConfig.proxy === false) {
-        axiosConfig.httpAgent = false;
-        axiosConfig.httpsAgent = false;
+        axiosConfig.httpAgent = defaultHttpAgent;
+        axiosConfig.httpsAgent = defaultHttpsAgent;
         return axiosConfig;
       }
 
@@ -200,12 +246,17 @@ class HttpClient {
           const auth = PROXY_USER && PROXY_PASS ? `${encodeURIComponent(PROXY_USER)}:${encodeURIComponent(PROXY_PASS)}@` : "";
           const proxyUrlStr = `${auth}${PROXY_HOST}:${PROXY_PORT}`;
           const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${proxyUrlStr}`;
-          const agent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
+          const agent = getCachedProxyAgent(proxyUrl);
           axiosConfig.httpAgent = agent;
           axiosConfig.httpsAgent = agent;
         } catch (error) {
           console.error("Error setting up proxy for request:", error);
+          axiosConfig.httpAgent = defaultHttpAgent;
+          axiosConfig.httpsAgent = defaultHttpsAgent;
         }
+      } else {
+        axiosConfig.httpAgent = defaultHttpAgent;
+        axiosConfig.httpsAgent = defaultHttpsAgent;
       }
       return axiosConfig;
     });

@@ -63,7 +63,7 @@ module.exports = {
               inline: false
             }],
             footer: {
-              text: 'Hypixel Status • Autosecure'
+              text: 'Hypixel Status • VinGr0ups3cur3'
             },
             timestamp: new Date().toISOString()
           }]
@@ -93,7 +93,7 @@ module.exports = {
             inline: false
           }],
           footer: {
-            text: 'Hypixel Status • Autosecure'
+            text: 'Hypixel Status • VinGr0ups3cur3'
           },
           timestamp: new Date().toISOString()
         }]
@@ -119,7 +119,7 @@ module.exports = {
           inline: true
         }],
         footer: {
-          text: 'Hypixel Status • Autosecure'
+          text: 'Hypixel Status • VinGr0ups3cur3'
         },
         timestamp: new Date().toISOString()
       }]
@@ -146,7 +146,7 @@ module.exports = {
               inline: false
             }],
             footer: {
-              text: 'Hypixel Status • Autosecure'
+              text: 'Hypixel Status • VinGr0ups3cur3'
             },
             timestamp: new Date().toISOString()
           }]

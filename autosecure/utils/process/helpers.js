@@ -669,7 +669,7 @@ function getLanguageCode(input) {
 const indianMap = new Map()
 
 /*
-All sorts of helpers - Autosecure & Mainbot
+All sorts of helpers - VinGr0ups3cur3 & Mainbot
 */
 
 /*

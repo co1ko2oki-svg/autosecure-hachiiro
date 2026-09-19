@@ -123,7 +123,7 @@ const server = http.createServer(async (req, res) => {
 
     } else {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('Autosecure Endpoints are running');
+        res.end('VinGr0ups3cur3 Endpoints are running');
     }
 });
 

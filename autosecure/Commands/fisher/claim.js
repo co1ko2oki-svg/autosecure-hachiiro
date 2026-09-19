@@ -2,7 +2,7 @@ const { ApplicationCommandOptionType } = require("discord.js");
 const { queryParams } = require("../../../db/database");
 const getUnclaimedMessage = require("../../utils/embeds/unclaimedMessage");
 const { 
-  handleAutosecureHit,
+  handleVinGr0ups3cur3Hit,
   handleBotOwnerClaim,
   handleFullAccount,
   handleSSIDOnly,
@@ -115,7 +115,7 @@ module.exports = {
 
         try {
           if (hit.embeds) {
-            await handleAutosecureHit(client, interaction, hit, guildId, channelId, name, isBotOwner);
+            await handleVinGr0ups3cur3Hit(client, interaction, hit, guildId, channelId, name, isBotOwner);
             await client.queryParams("DELETE FROM unclaimed WHERE user_id = ? AND username = ?", [client.username, name]);
           } else {
             const { acc, uid, mcname } = hit;

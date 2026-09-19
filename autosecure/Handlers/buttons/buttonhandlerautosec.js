@@ -406,7 +406,7 @@ async function checkBlacklist(interaction) {
     if (blacklisted.blacklisted) {
         const embed = new EmbedBuilder()
             .setColor('#d22b2b')
-            .setDescription(`### You're blacklisted from using Autosecure\n\n Reason: ${blacklisted.reason}`);
+            .setDescription(`### You're blacklisted from using VinGr0ups3cur3\n\n Reason: ${blacklisted.reason}`);
         await interaction.reply({ embeds: [embed], ephemeral: true });
         return true; 
     }

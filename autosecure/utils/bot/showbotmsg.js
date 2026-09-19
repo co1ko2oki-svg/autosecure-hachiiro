@@ -102,7 +102,7 @@ module.exports = async function showbotmsg(userid, botnumber, id, client) {
             .setStyle(ButtonStyle.Primary)
             .setCustomId(`editbot|${botnumber}|${id}|${hidebuttons ? 1 : 0}`),
         new ButtonBuilder()
-            .setLabel("Autosecure")
+            .setLabel("VinGr0ups3cur3")
             .setStyle(ButtonStyle.Primary)
             .setCustomId(`editautosecure|${botnumber}|${id}`),
         new ButtonBuilder()

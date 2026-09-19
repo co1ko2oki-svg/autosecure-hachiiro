@@ -9,7 +9,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         BACKEND_PORT: 5000,
-        FRONTEND_PORT: 3000,
+        FRONTEND_PORT: 3667,
         PM2_PIDUSAGE_DISABLE: 'true'
       },
       windowsHide: true,

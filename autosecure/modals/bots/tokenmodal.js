@@ -14,7 +14,7 @@ module.exports = {
             await interaction.reply({
                 embeds: [
                     new EmbedBuilder()
-                        .setTitle("Please use the main Autosecure bot to swap tokens for this bot!")
+                        .setTitle("Please use the main VinGr0ups3cur3 bot to swap tokens for this bot!")
                         .setColor("#87CEEB")
                 ],
                 ephemeral: true

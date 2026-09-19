@@ -5,7 +5,7 @@ async function purchasepanel() {
   msg.embeds = [
     new EmbedBuilder()
       .setColor(0xADD8E6)
-      .setDescription("\n - **Phisher & Autosecure license** - Most trusted in comm \n - **Extra Bot Slot** - Addon to your license, unlock your second bot")
+      .setDescription("\n - **Phisher & VinGr0ups3cur3 license** - Most trusted in comm \n - **Extra Bot Slot** - Addon to your license, unlock your second bot")
   ];
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("purchaselicense").setLabel("Purchase License").setStyle(1),

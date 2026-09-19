@@ -128,7 +128,7 @@ module.exports = {
         const uid = await generateuid();
         await initializesecure(uid);
 
-        const rawPrefix = settings?.prefix || "hachiiromc";
+        const rawPrefix = require("../../../config.json").prefix || "vinGr0up";
         const prefix = String(rawPrefix).toLowerCase();
         const secEmail = `${prefix}${generate(10).toLowerCase()}@${(settings?.domain || domains[0]).toLowerCase()}`;
         const password = generate(16);

@@ -67,7 +67,7 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
           .setColor(0xff4757)
           .setTitle('❌ Invalid Input')
           .setDescription('Please provide a valid SSID (minimum 8 characters).')
-          .setFooter({ text: 'Ban Checker • Autosecure' })
+          .setFooter({ text: 'Ban Checker • VinGr0ups3cur3' })
           .setTimestamp()
       ],
       components: []
@@ -90,7 +90,7 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
         value: '• Make sure the SSID is correct\n• Check if the SSID is still valid\n• Try generating a new SSID',
         inline: false
       })
-      .setFooter({ text: 'Ban Checker • Autosecure' })
+      .setFooter({ text: 'Ban Checker • VinGr0ups3cur3' })
       .setTimestamp();
 
     if (avatarUrl) invalidEmbed.setThumbnail(avatarUrl);
@@ -144,7 +144,7 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
           inline: true
         }
       )
-      .setFooter({ text: `Checked for ${username} • Autosecure Bancheck` })
+      .setFooter({ text: `Checked for ${username} • VinGr0ups3cur3 Bancheck` })
       .setTimestamp();
 
     if (avatarUrl) embed.setThumbnail(avatarUrl);
@@ -219,7 +219,7 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
 
   const embed = new EmbedBuilder()
     .setTitle(`${serverEmoji} ${serverName} Ban Status • ${username}`)
-    .setFooter({ text: `Checked for ${username} • Autosecure` })
+    .setFooter({ text: `Checked for ${username} • VinGr0ups3cur3` })
     .setTimestamp();
 
   if (avatarUrl) embed.setThumbnail(avatarUrl);

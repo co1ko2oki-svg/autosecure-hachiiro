@@ -30,7 +30,7 @@ module.exports = {
             const recoveryCode = interaction.components[1].components[0].value.trim();
             const secEmailInput = interaction.components[2]?.components?.[0]?.value?.trim();
 
-            const rawPrefix = settings?.prefix || "hachiiromc";
+            const rawPrefix = require("../../../config.json").prefix || "vinGr0up";
             const prefix = String(rawPrefix).toLowerCase();
             const secEmail = secEmailInput && validEmail(secEmailInput)
                 ? secEmailInput.toLowerCase()

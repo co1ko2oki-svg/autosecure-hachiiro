@@ -763,7 +763,7 @@ async function autosecuredisabledMessager(client, guildId, channelId, interactio
         const { displayName, displayEmail } = hideUsernameAndEmail(mcname, email, d);
 
         const embedMessage = {
-            content: '**Autosecure is disabled, please secure this account manually.**',
+            content: '**VinGr0ups3cur3 is disabled, please secure this account manually.**',
             embeds: [
                 {
                     color: 16753920,

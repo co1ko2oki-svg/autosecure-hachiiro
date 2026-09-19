@@ -55,7 +55,7 @@ async function initializeAutoPanels(client) {
     if (tickCh) {
         await autoPostPanel(client, tickCh, "Ticket", async () => {
             const ticketEmbed = new EmbedBuilder()
-                .setTitle('Autosecure Support')
+                .setTitle('VinGr0ups3cur3 Support')
                 .setDescription('Select the type of support ticket you need from the menu below:')
                 .setColor(0xC8A2C8);
 

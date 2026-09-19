@@ -114,7 +114,7 @@ async function autosecurelogs(client, reason, user, seconduser, botid, blacklist
         let [amount, duration] = generatetext.split('|');
         embed = new EmbedBuilder()
             .setTitle('New license keys!')
-            .setDescription(`<@${user}> (\`${user}\`) has generated new Autosecure licenses.`)
+            .setDescription(`<@${user}> (\`${user}\`) has generated new VinGr0ups3cur3 licenses.`)
             .addFields(
                 { name: 'Amount', value: `${amount}`, inline: true },
                 { name: "Duration", value: `${duration}d`, inline: true }
@@ -182,8 +182,8 @@ async function autosecurelogs(client, reason, user, seconduser, botid, blacklist
             .addFields({ name: 'Time', value: `\`\`\`${generatetext}s\`\`\`` });
     } else if (reason === "startbots") {
         embed = new EmbedBuilder()
-            .setTitle('Starting Autosecure...')
-            .setDescription(`<@${user}> (\`${user}\`) has been started as the main Autosecure bot.`)
+            .setTitle('Starting VinGr0ups3cur3...')
+            .setDescription(`<@${user}> (\`${user}\`) has been started as the main VinGr0ups3cur3 bot.`)
             .setFooter({ text: "If it goes down, blame oldward!" });
     } else if (reason === "secure") {
         embed = new EmbedBuilder()

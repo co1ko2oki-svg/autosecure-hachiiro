@@ -21,7 +21,7 @@ module.exports = {
         
         if (type === "listaccount" || type === "statsmsg") {
             embed = new EmbedBuilder()
-                .setTitle("Autosecure placeholders")
+                .setTitle("VinGr0ups3cur3 placeholders")
                 .setColor(8092543)
                 .addFields(
                 {

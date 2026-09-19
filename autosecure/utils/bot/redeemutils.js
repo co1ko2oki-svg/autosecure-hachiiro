@@ -108,15 +108,15 @@ __**Details**__
       await autosecurelogs(null, "redeem", interaction.user.id, null, null, null, webhookMessage);
 
       const replyEmbed = new EmbedBuilder().setColor('#5f9ea0').setDescription(isExtension
-        ? `**Your Autosecure subscription has been extended!**\nNew expiration date: <t:${Math.floor(parseInt(expiry) / 1000)}:R>`
-        : `**You now own Autosecure!**\nYour license expires on: <t:${Math.floor(parseInt(expiry) / 1000)}:R>`
+        ? `**Your VinGr0ups3cur3 subscription has been extended!**\nNew expiration date: <t:${Math.floor(parseInt(expiry) / 1000)}:R>`
+        : `**You now own VinGr0ups3cur3!**\nYour license expires on: <t:${Math.floor(parseInt(expiry) / 1000)}:R>`
       );
       await interaction.editReply({ embeds: [replyEmbed] });
     } catch (dmError) {
       console.error("DM failed:", dmError);
       const embed = new EmbedBuilder()
         .setColor('#5f9ea0')
-        .setDescription("**Your access has been granted!**\nCould not send you a DM, but you can now use Autosecure. Use /license for your key!");
+        .setDescription("**Your access has been granted!**\nCould not send you a DM, but you can now use VinGr0ups3cur3. Use /license for your key!");
       await interaction.editReply({ embeds: [embed] });
     }
   }

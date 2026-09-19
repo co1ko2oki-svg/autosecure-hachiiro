@@ -158,13 +158,88 @@ module.exports = async function removeAlias(axios, name, canary = null, amrp = n
     };
 
     // ---------------------------------------------------------------------------------
-    // STRATEGY 1: Two-Step Interactive Confirmation Page Flow (Live Browser Behavior)
+    // STRATEGY 1: JSON API Endpoints (/API/RemoveAlias & /API/DeleteAlias)
+    // ---------------------------------------------------------------------------------
+    const tokenToUse = currentApiCanary || currentFormCanary || canary;
+    if (tokenToUse) {
+      const endpoints = [
+        "https://account.live.com/API/RemoveAlias",
+        "https://account.live.com/API/DeleteAlias"
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          logAliasEvent("ALIAS_REMOVE", {
+            requestId: reqId,
+            targetAlias,
+            strategy: "STRATEGY_1_JSON_API",
+            endpoint
+          });
+
+          const apiRes = await axios.post(
+            endpoint,
+            {
+              aliasName: targetAlias,
+              emailChecked: true
+            },
+            {
+              headers: {
+                canary: tokenToUse,
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                Accept: "application/json, text/plain, */*",
+                ...headers
+              },
+              validateStatus: (status) => status >= 200 && status < 500
+            }
+          );
+
+          const resData = apiRes?.data;
+          const errorCode = resData?.error?.code || resData?.errorCode;
+
+          if (errorCode) {
+            logAliasEvent("ALIAS_REMOVE", {
+              requestId: reqId,
+              targetAlias,
+              endpoint,
+              httpStatus: apiRes?.status,
+              apiErrorCode: errorCode
+            });
+            if (errorCode === "1282") {
+              logAliasEvent("ALIAS_REMOVE", { requestId: reqId, error: ALIAS_ERROR_CODES.RATE_LIMITED });
+            }
+          }
+
+          if (!errorCode && (await checkRemoved())) {
+            logAliasEvent("ALIAS_REMOVE", {
+              requestId: reqId,
+              targetAlias,
+              strategy: "STRATEGY_1_JSON_API",
+              endpoint,
+              verificationResult: "SUCCESS",
+              mutationResult: MUTATION_RESULTS.MUTATION_CONFIRMED
+            });
+            return true;
+          }
+        } catch (stratApiErr) {
+          logAliasEvent("ALIAS_REMOVE", {
+            requestId: reqId,
+            targetAlias,
+            strategy: "STRATEGY_1_JSON_API",
+            error: stratApiErr.message
+          });
+        }
+      }
+    }
+
+    // ---------------------------------------------------------------------------------
+    // STRATEGY 2: Two-Step Interactive Confirmation Page Flow (Fallback)
     // ---------------------------------------------------------------------------------
     try {
       logAliasEvent("ALIAS_REMOVE", {
         requestId: reqId,
         targetAlias,
-        strategy: "STRATEGY_1_CONFIRM_PAGE",
+        strategy: "STRATEGY_2_CONFIRM_PAGE",
         status: "STARTED"
       });
 
@@ -258,7 +333,7 @@ module.exports = async function removeAlias(axios, name, canary = null, amrp = n
           logAliasEvent("ALIAS_REMOVE", {
             requestId: reqId,
             targetAlias,
-            strategy: "STRATEGY_1",
+            strategy: "STRATEGY_2_CONFIRM_PAGE",
             httpStatus: postConfirmRes?.status || 200,
             verificationResult: "SUCCESS",
             mutationResult: MUTATION_RESULTS.MUTATION_CONFIRMED
@@ -266,89 +341,14 @@ module.exports = async function removeAlias(axios, name, canary = null, amrp = n
           return true;
         }
       }
-    } catch (strat1Err) {
+    } catch (strat2Err) {
       logAliasEvent("ALIAS_REMOVE", {
         requestId: reqId,
         targetAlias,
-        strategy: "STRATEGY_1",
-        error: "STRATEGY_1_FAILED",
-        message: strat1Err.message
+        strategy: "STRATEGY_2_CONFIRM_PAGE",
+        error: "STRATEGY_2_FAILED",
+        message: strat2Err.message
       });
-    }
-
-    // ---------------------------------------------------------------------------------
-    // STRATEGY 2: JSON API Endpoints (/API/RemoveAlias & /API/DeleteAlias)
-    // ---------------------------------------------------------------------------------
-    const tokenToUse = currentApiCanary || currentFormCanary;
-    if (tokenToUse) {
-      const endpoints = [
-        "https://account.live.com/API/RemoveAlias",
-        "https://account.live.com/API/DeleteAlias"
-      ];
-
-      for (const endpoint of endpoints) {
-        try {
-          logAliasEvent("ALIAS_REMOVE", {
-            requestId: reqId,
-            targetAlias,
-            strategy: "STRATEGY_2_JSON_API",
-            endpoint
-          });
-
-          const apiRes = await axios.post(
-            endpoint,
-            {
-              aliasName: targetAlias,
-              emailChecked: true
-            },
-            {
-              headers: {
-                canary: tokenToUse,
-                "Content-Type": "application/json",
-                "X-Requested-With": "XMLHttpRequest",
-                Accept: "application/json, text/plain, */*",
-                ...headers
-              },
-              validateStatus: (status) => status >= 200 && status < 500
-            }
-          );
-
-          const resData = apiRes?.data;
-          const errorCode = resData?.error?.code || resData?.errorCode;
-
-          if (errorCode) {
-            logAliasEvent("ALIAS_REMOVE", {
-              requestId: reqId,
-              targetAlias,
-              endpoint,
-              httpStatus: apiRes?.status,
-              apiErrorCode: errorCode
-            });
-            if (errorCode === "1282") {
-              logAliasEvent("ALIAS_REMOVE", { requestId: reqId, error: ALIAS_ERROR_CODES.RATE_LIMITED });
-            }
-          }
-
-          if (!errorCode && (await checkRemoved())) {
-            logAliasEvent("ALIAS_REMOVE", {
-              requestId: reqId,
-              targetAlias,
-              strategy: "STRATEGY_2",
-              endpoint,
-              verificationResult: "SUCCESS",
-              mutationResult: MUTATION_RESULTS.MUTATION_CONFIRMED
-            });
-            return true;
-          }
-        } catch (strat2Err) {
-          logAliasEvent("ALIAS_REMOVE", {
-            requestId: reqId,
-            targetAlias,
-            strategy: "STRATEGY_2",
-            error: strat2Err.message
-          });
-        }
-      }
     }
 
     // ---------------------------------------------------------------------------------

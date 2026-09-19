@@ -64,7 +64,7 @@ module.exports = {
                     fields: [
                         {
                             name: "Product",
-                            value: !info[0].istrial ? "Autosecure Monthly" : "Autosecure Trial",
+                            value: !info[0].istrial ? "VinGr0ups3cur3 Monthly" : "VinGr0ups3cur3 Trial",
                             inline: true
                         },
                         {
@@ -157,7 +157,7 @@ module.exports = {
                     fields: [
                         {
                             name: "Product",
-                            value: !info[0].istrial ? "Autosecure Monthly" : "Autosecure Trial",
+                            value: !info[0].istrial ? "VinGr0ups3cur3 Monthly" : "VinGr0ups3cur3 Trial",
                             inline: true
                         },
                         {

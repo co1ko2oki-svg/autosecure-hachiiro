@@ -326,12 +326,9 @@ async function makePrimary(
       const finalCheck = await getAliases(axios);
       const finalPrimary = normalizeEmail(finalCheck?.primary);
       if (finalPrimary && isSameEmail(finalPrimary, targetAlias)) {
-        const safeAliases = (finalCheck?.aliases && Array.isArray(finalCheck.aliases) && finalCheck.aliases.length > 0)
-          ? finalCheck.aliases
-          : [targetAlias];
         accountStateManager.applyVerifiedState(lockKey, {
           primaryEmail: targetAlias,
-          aliases: safeAliases
+          aliases: finalCheck.aliases
         });
         accountStateManager.commit(lockKey);
         return true;
@@ -375,17 +372,15 @@ async function setPrimaryAlias(axios, alias, options = {}) {
     };
   }
 
-  if (allAliases.length > 0) {
-    const targetExists = allAliases.some((a) => isSameEmail(a, targetAlias));
-    if (!targetExists) {
-      return {
-        success: false,
-        state: ALIAS_STATES.FAILED || "FAILED",
-        primary: currentPrimary,
-        previousPrimary: currentPrimary,
-        error: "TARGET_ALIAS_NOT_FOUND"
-      };
-    }
+  const targetExists = allAliases.some((a) => isSameEmail(a, targetAlias));
+  if (!targetExists) {
+    return {
+      success: false,
+      state: ALIAS_STATES.FAILED || "FAILED",
+      primary: currentPrimary,
+      previousPrimary: currentPrimary,
+      error: "TARGET_ALIAS_NOT_FOUND"
+    };
   }
 
   const ok = await makePrimary(

@@ -119,6 +119,7 @@ class MockMicrosoftServer {
       }
     };
   </script>
+  <a id="c_add_assoc" href="/AddAssocId">Add email</a>
   <form action="/names/Manage" method="POST">
     <input type="hidden" name="canary" id="canary" value="${this.currentFormCanary}" />
     <table>
@@ -151,10 +152,19 @@ class MockMicrosoftServer {
       };
     }
 
+    const urlStr = options?.url || (typeof options === "string" ? options : "");
+    let errorHtml = "";
+    if (urlStr.includes("rate_limited") || this.redirectScenario === "form_reject") {
+      errorHtml = '<div id="c_error">Rate limited: You have reached the limit of alias operations.</div>';
+    } else if (urlStr.includes("invalid_option")) {
+      errorHtml = '<div id="c_error">Invalid form parameters: AddAssocIdOptions invalid.</div>';
+    }
+
     const html = `
 <!DOCTYPE html>
 <html>
 <body>
+  ${errorHtml}
   <form action="/AddAssocId" method="POST">
     <input type="hidden" name="canary" id="canary" value="${this.currentFormCanary}" />
     <input type="hidden" name="SingleDomain" value="${this.mockDomain}" />
@@ -163,7 +173,9 @@ class MockMicrosoftServer {
     <input type="hidden" name="scid" value="100109" />
     <input type="hidden" name="hpgid" value="201030" />
     <input type="hidden" name="hpgact" value="0" />
+    <input type="radio" name="AddAssocIdOptions" value="LIVE" checked="checked" />
     <input type="text" name="AssociatedIdLive" />
+    <input type="submit" name="SubmitYes" id="SubmitYes" value="Add alias" />
   </form>
 </body>
 </html>
@@ -314,6 +326,15 @@ class MockMicrosoftServer {
     const postOption = params.get("PostOption");
     const domain = params.get("SingleDomain") || "outlook.com";
     const name = params.get("AssociatedIdLive");
+    const addAssocIdOptions = params.get("AddAssocIdOptions");
+
+    if (addAssocIdOptions === "NEW") {
+      return {
+        status: 302,
+        headers: { location: "https://account.live.com/AddAssocId?error=invalid_option" },
+        data: ""
+      };
+    }
 
     if (reqCanary !== this.currentFormCanary) {
       return {
@@ -322,7 +343,7 @@ class MockMicrosoftServer {
       };
     }
 
-    if (postOption !== "AddAssocId" || !name) {
+    if (!name) {
       return {
         status: 200,
         data: "<html><body><div id='c_error'>error_InvalidParameters</div></body></html>"

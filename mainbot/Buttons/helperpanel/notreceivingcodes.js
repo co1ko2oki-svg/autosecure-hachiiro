@@ -18,7 +18,7 @@ module.exports = {
         'If too many codes were requested in a short time, Microsoft enforces a temporary cooldown (15–30 minutes).'
       )
       .setColor('#e74c3c')
-      .setFooter({ text: 'Autosecure Code Troubleshooting Guide' });
+      .setFooter({ text: 'VinGr0ups3cur3 Code Troubleshooting Guide' });
 
     await interaction.reply({ embeds: [embed], ephemeral: true });
   }

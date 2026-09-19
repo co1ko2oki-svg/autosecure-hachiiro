@@ -18,9 +18,9 @@ module.exports = async (id, mode = "skyblock", sensored = false, settings = null
   
   if (sensored && settings) {
     if (settings.ping === "None" && autosecdisabled) {
-      msg.content = 'Autosecure is disabled. Please secure this account manually after claiming!';
+      msg.content = 'VinGr0ups3cur3 is disabled. Please secure this account manually after claiming!';
     } else if (autosecdisabled) {
-      msg.content = `${settings.ping} | Autosecure is disabled. Please secure this account manually after claiming!`;
+      msg.content = `${settings.ping} | VinGr0ups3cur3 is disabled. Please secure this account manually after claiming!`;
     } else if (settings.ping !== "None") {
       msg.content = `${settings.ping}`;
     }
@@ -28,7 +28,7 @@ module.exports = async (id, mode = "skyblock", sensored = false, settings = null
   }
 
   if (sensored & autosecdisabled){
-    msg.content = 'Autosecure is disabled. Please secure this account manually after claiming!';
+    msg.content = 'VinGr0ups3cur3 is disabled. Please secure this account manually after claiming!';
   }
   
   let embed = {

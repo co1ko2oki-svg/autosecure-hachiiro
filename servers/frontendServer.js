@@ -12,7 +12,8 @@ process.on('uncaughtException', (err, origin) => {
 });
 
 const app = express();
-const PORT = process.env.FRONTEND_PORT || process.env.PORT || 3000;
+app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
+const PORT = process.env.FRONTEND_PORT || process.env.PORT || 3667;
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'public');
 

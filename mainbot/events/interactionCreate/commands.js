@@ -33,7 +33,7 @@ module.exports = async (client, interaction) => {
             const blacklisted = await isblacklisted(interaction.user.id);
             if (blacklisted.blacklisted) {
                 return interaction.respond([{ 
-                    name: "You're blacklisted from Autosecure!", 
+                    name: "You're blacklisted from VinGr0ups3cur3!", 
                     value: "blacklisted" 
                 }]);
             }
@@ -199,7 +199,7 @@ async function checkBlacklist(interaction) {
     if (blacklisted.blacklisted) {
         const embed = new EmbedBuilder()
             .setColor('#d22b2b')
-            .setDescription(`### You're blacklisted from using Autosecure\n\nReason: ${blacklisted.reason}`);
+            .setDescription(`### You're blacklisted from using VinGr0ups3cur3\n\nReason: ${blacklisted.reason}`);
         
         try {
             await interaction.reply({ 

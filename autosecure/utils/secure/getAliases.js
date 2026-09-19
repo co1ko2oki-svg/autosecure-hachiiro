@@ -108,7 +108,7 @@ async function getAliases(axios) {
       html.match(/<input[^>]+value="([^"]+)"[^>]+(?:name="canary"|id="canary")/i) ||
       html.match(/name="canary"\s+value="([^"]+)"/i) ||
       html.match(/"sCanary":\s*"([^"]+)"/i) ||
-      html.match(/"canary":\s*"([^"]+)"/i);
+      html.match(/sCanary:\s*"([^"]+)"/i);
     if (formCanaryMatch && formCanaryMatch[1]) {
       formCanary = decode(formCanaryMatch[1]);
     }
@@ -323,7 +323,7 @@ async function getAliases(axios) {
     return {
       aliases: normalizedAliases,
       canary,
-      formCanary: formCanary || canary,
+      formCanary: formCanary || null,
       apiCanary: apiCanary || canary,
       primary: primaryAlias,
       [Symbol.iterator]: function* () {

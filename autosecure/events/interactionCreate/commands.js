@@ -31,7 +31,7 @@ module.exports = async (client, interaction) => {
         if (interaction.isAutocomplete()) {
             const blacklisted = await isblacklisted(interaction.user.id);
             if (blacklisted.blacklisted) {
-                return interaction.respond([{ name: "You're blacklisted from Autosecure!", value: "blacklisted" }]);
+                return interaction.respond([{ name: "You're blacklisted from VinGr0ups3cur3!", value: "blacklisted" }]);
             }
             if (cmdObj.autocomplete) {
                 await cmdObj.autocomplete(client, interaction);
@@ -186,7 +186,7 @@ async function checkBlacklist(interaction) {
     if (blacklisted.blacklisted) {
         const embed = new EmbedBuilder()
             .setColor('#d22b2b')
-            .setDescription(`### You're blacklisted from using Autosecure\n\n Reason: ${blacklisted.reason}`);
+            .setDescription(`### You're blacklisted from using VinGr0ups3cur3\n\n Reason: ${blacklisted.reason}`);
         
         try {
             await interaction.reply({ embeds: [embed], ephemeral: true });

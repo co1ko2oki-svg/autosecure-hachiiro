@@ -21,7 +21,7 @@ module.exports = {
                     value: 'error',
                 },
                 {
-                    label: 'Autosecure Embeds',
+                    label: 'VinGr0ups3cur3 Embeds',
                     description: 'Edit autosecure embeds',
                     value: 'autosecure',
                 }

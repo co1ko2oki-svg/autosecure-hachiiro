@@ -23,7 +23,7 @@ module.exports = {
       if (blacklistCheck.length > 0) {
         const embed = new EmbedBuilder()
           .setColor('#5f9ea0')
-          .setDescription(`**You are blacklisted from using Autosecure!**\nReason: ${blacklistCheck[0].reason || "No reason provided"}`);
+          .setDescription(`**You are blacklisted from using VinGr0ups3cur3!**\nReason: ${blacklistCheck[0].reason || "No reason provided"}`);
         return interaction.editReply({ embeds: [embed] });
       }
 

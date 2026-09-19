@@ -31,7 +31,7 @@ module.exports = async function ssidcheckermsg(ssid) {
           inline: false
         }],
         footer: {
-          text: 'SSID Checker • Autosecure'
+          text: 'SSID Checker • VinGr0ups3cur3'
         },
         timestamp: new Date().toISOString()
       }],
@@ -117,7 +117,7 @@ module.exports = async function ssidcheckermsg(ssid) {
             url: `https://visage.surgeplay.com/bust/${profile.data.name}.png?y=-40&quality=lossless`
           },
           footer: {
-            text: 'SSID Checker • Autosecure'
+            text: 'SSID Checker • VinGr0ups3cur3'
           },
           timestamp: new Date().toISOString(),
           type: 'rich'
@@ -146,7 +146,7 @@ module.exports = async function ssidcheckermsg(ssid) {
             inline: false
           }],
           footer: {
-            text: 'SSID Checker • Autosecure'
+            text: 'SSID Checker • VinGr0ups3cur3'
           },
           timestamp: new Date().toISOString()
         }],
@@ -173,7 +173,7 @@ module.exports = async function ssidcheckermsg(ssid) {
           inline: false
         }],
         footer: {
-          text: 'SSID Checker • Autosecure'
+          text: 'SSID Checker • VinGr0ups3cur3'
         },
         timestamp: new Date().toISOString()
       }],

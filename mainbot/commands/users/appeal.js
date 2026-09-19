@@ -40,7 +40,7 @@ module.exports = {
                             value: '• Try again in a few moments\n• Contact support if the issue persists\n• Make sure your SSID is valid',
                             inline: false
                         })
-                        .setFooter({ text: 'Appeal System • Autosecure' })
+                        .setFooter({ text: 'Appeal System • VinGr0ups3cur3' })
                         .setTimestamp()
                 ],
                 ephemeral: true

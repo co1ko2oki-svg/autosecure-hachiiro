@@ -32,11 +32,7 @@ module.exports = async function editclaimmsg(botnumber, ownerid, obj = {}) {
          new ButtonBuilder()
         .setCustomId(`changeping|${botnumber}|${ownerid}`)
         .setLabel(`Change Ping`)
-        .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-        .setCustomId(`manageusers|${botnumber}|${ownerid}`)
-        .setLabel("Claim Users")
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Success)
     );
 
     return { embeds: [embed], components: [buttons], ephemeral: true };

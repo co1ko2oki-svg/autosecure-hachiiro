@@ -40,7 +40,7 @@ callback: async (client, interaction) => {
           inline: false
         }],
         footer: {
-          text: 'SSID Checker • Autosecure'
+          text: 'SSID Checker • VinGr0ups3cur3'
         },
         timestamp: new Date().toISOString()
       }],

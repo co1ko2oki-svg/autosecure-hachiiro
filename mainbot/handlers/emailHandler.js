@@ -7,7 +7,7 @@ const EventEmitter = require('events');
 const config = require('../../config.json');
 
 // --- Config ---
-const SMTP_PORT = 25;
+const SMTP_PORT = Number(process.env.SMTP_PORT || config.smtpPort || 2525);
 const SMTP_HOST = config.smtpHost || '0.0.0.0'; // Listen on all interfaces
 const emailWatchers = new Map();
 let client = null; // Discord client (set via initialize)
@@ -21,8 +21,11 @@ const smtpServer = new SMTPServer({
         const configuredDomains = (config.domains || []).map(d => String(d).toLowerCase().trim());
         const recipientDomain = recipient.split('@')[1];
 
-        // Only accept emails targeted to configured domains or active email watchers
-        if (emailWatchers.has(recipient) || configuredDomains.some(d => recipientDomain === d || recipientDomain?.endsWith(`.${d}`))) {
+        // Always accept if forwarded from localhost (e.g. mail proxy / mail-hotwar-asia on 127.0.0.1)
+        const isLocalhost = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(session.remoteAddress);
+
+        // Only accept emails targeted to configured domains, active email watchers, or forwarded from localhost
+        if (isLocalhost || emailWatchers.has(recipient) || configuredDomains.some(d => recipientDomain === d || recipientDomain?.endsWith(`.${d}`))) {
             return callback(); // Accept
         }
 
@@ -51,48 +54,73 @@ function initialize(discordClient) {
 }
 
 let isListening = false;
+let isStarting = false;
+let retryTimeout = null;
+let eaddrinuseLogged = false;
+
+// Attach error handler once
+if (!smtpServer.listenerCount('error')) {
+    smtpServer.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            if (!eaddrinuseLogged) {
+                console.error(`[SMTP] Server error: Cổng ${SMTP_PORT} đang bị chiếm dụng bởi phần mềm khác. Bot sẽ thử lại ngầm...`);
+                eaddrinuseLogged = true;
+            }
+        } else {
+            console.error('[SMTP] Server error:', err.message);
+        }
+        
+        if (err.code === 'ERR_SERVER_ALREADY_LISTEN') {
+            isListening = true;
+            isStarting = false;
+            return;
+        }
+
+        // Client socket errors (e.g. read ETIMEDOUT, ECONNRESET, TLS) do NOT mean the server stopped listening
+        const isClientError = ['ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'ECONNABORTED'].includes(err.code)
+            || err.message?.includes('read ETIMEDOUT')
+            || err.message?.includes('ECONNRESET')
+            || err.message?.includes('SSL routines');
+
+        if (isClientError) {
+            return;
+        }
+
+        // Server-level fatal error
+        isListening = false;
+        isStarting = false;
+
+        if (retryTimeout) clearTimeout(retryTimeout);
+        retryTimeout = setTimeout(() => {
+            if (!isListening && (!smtpServer.server || !smtpServer.server.listening)) {
+                startSMTPServer();
+            }
+        }, 10000);
+    });
+}
 
 function startSMTPServer() {
-    if (isListening || (smtpServer.server && smtpServer.server.listening)) {
+    if (isListening || isStarting || (smtpServer.server && smtpServer.server.listening)) {
         isListening = true;
         return;
     }
+
+    isStarting = true;
     
     try {
-        smtpServer.listen(SMTP_PORT, SMTP_HOST, () => {
-            console.log(`[SMTP] Server running on ${SMTP_HOST}:${SMTP_PORT}`);
-            isListening = true;
-        });
-
-        // Only attach error handler once
-        if (!smtpServer.listenerCount('error')) {
-            smtpServer.on('error', (err) => {
-                console.error('[SMTP] Server error:', err.message);
-                if (err.code === 'ERR_SERVER_ALREADY_LISTEN') {
-                    isListening = true;
-                    return;
-                }
-
-                // Client socket errors (e.g. read ETIMEDOUT, ECONNRESET, TLS) do NOT mean the server stopped listening
-                const isClientError = ['ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'ECONNABORTED'].includes(err.code)
-                    || err.message?.includes('read ETIMEDOUT')
-                    || err.message?.includes('ECONNRESET')
-                    || err.message?.includes('SSL routines');
-
-                if (isClientError) {
-                    return;
-                }
-
-                // Server-level fatal error
-                isListening = false;
-                setTimeout(() => {
-                    if (!isListening && (!smtpServer.server || !smtpServer.server.listening)) {
-                        startSMTPServer();
-                    }
-                }, 5000);
+        if (smtpServer.server) {
+            smtpServer.server.setMaxListeners(50);
+            smtpServer.server.removeAllListeners('listening');
+            smtpServer.server.once('listening', () => {
+                console.log(`[SMTP] Server running on ${SMTP_HOST}:${SMTP_PORT}`);
+                isListening = true;
+                isStarting = false;
             });
         }
+
+        smtpServer.listen(SMTP_PORT, SMTP_HOST);
     } catch (err) {
+        isStarting = false;
         console.error('Failed to start SMTP Server:', err.message);
     }
 }

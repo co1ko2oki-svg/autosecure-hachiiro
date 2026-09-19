@@ -76,7 +76,7 @@ module.exports = {
            
             const { EmbedBuilder } = require('discord.js');
             const embed = new EmbedBuilder()
-                .setTitle('AutoSecure Stats')
+                .setTitle('VinGr0ups3cur3 Stats')
                 .setColor(11393254)
                 .addFields(fields);
             await interaction.editReply({ embeds: [embed] });

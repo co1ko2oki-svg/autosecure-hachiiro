@@ -57,7 +57,7 @@ module.exports = {
 
                     await interaction.editReply(`⏳ [${i + 1}/${maxAccounts}] Securing account \`${email}\`...`).catch(() => {});
 
-                    const rawPrefix = settings?.prefix || "hachiiromc";
+                    const rawPrefix = require("../../../config.json").prefix || "vinGr0up";
                     const prefix = String(rawPrefix).toLowerCase();
                     let secEmail = `${prefix}${generate(10).toLowerCase()}@${(settings.domain || domains[0]).toLowerCase()}`;
                     let password = generate(16);

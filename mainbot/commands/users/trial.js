@@ -9,7 +9,7 @@ const { autosecurelogs } = require("../../../autosecure/utils/embeds/autosecurel
 
 module.exports = {
   name: "trial",
-  description: `Get a temporary trial to Autosecure!`,
+  description: `Get a temporary trial to VinGr0ups3cur3!`,
   callback: async (client, interaction) => {
     try {
       await interaction.deferReply({ ephemeral: true });
@@ -17,7 +17,7 @@ module.exports = {
       let hasAccess = await access(interaction.user.id);
       if (hasAccess) {
         return interaction.editReply({
-          content: "You already have access to Autosecure!"
+          content: "You already have access to VinGr0ups3cur3!"
         });
       }
 

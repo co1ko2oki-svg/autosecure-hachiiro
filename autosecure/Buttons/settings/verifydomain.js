@@ -1,5 +1,9 @@
 const { queryParams } = require("../../../db/database");
-const dns = require("dns").promises;
+const { Resolver } = require("dns").promises;
+const dns = new Resolver();
+try {
+    dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch (_) {}
 const config = require('../../../config.json');
 
 module.exports = {
@@ -12,7 +16,7 @@ module.exports = {
         const dnsCheck = await verifyDnsSetup(domain, vpsip);
         if (!dnsCheck.success) {
             return interaction.update({
-                content: `DNS setup is incorrect:\n${dnsCheck.message} (This util is broken i think)`,
+                content: `DNS setup is incorrect:\n${dnsCheck.message}`,
                 ephemeral: true
             });
         }
@@ -44,8 +48,22 @@ const verifyDnsSetup = async (domain, vpsip) => {
 
     try {
         const mxRecords = await dns.resolveMx(domain);
-        const expectedMx = domain; 
-        if (!mxRecords.some(record => record.exchange === expectedMx)) {
+        let mxValid = false;
+        for (const record of mxRecords) {
+            const ex = (record.exchange || "").toLowerCase();
+            if (ex === domain.toLowerCase() || ex === `mail.${domain.toLowerCase()}` || ex.endsWith(`.${domain.toLowerCase()}`)) {
+                mxValid = true;
+                break;
+            }
+            try {
+                const mxIps = await dns.resolve(record.exchange, "A");
+                if (mxIps.includes(vpsip)) {
+                    mxValid = true;
+                    break;
+                }
+            } catch (_) {}
+        }
+        if (!mxValid) {
             errors.push(`MX Record: The MX record for ${domain} is not correctly set.`);
         }
     } catch (err) {

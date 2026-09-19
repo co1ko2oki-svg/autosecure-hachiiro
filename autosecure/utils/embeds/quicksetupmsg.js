@@ -3,7 +3,7 @@ const config = require("../../../config.json");
 
 async function quicksetupmsg(d = false, p = true) {
   const embed = new EmbedBuilder()
-    .setTitle('Autosecure First Setup Guide')
+    .setTitle('VinGr0ups3cur3 First Setup Guide')
     .setColor(15329769)
     .setThumbnail('https://cdn.pfps.gg/pfps/59339-erwan-meunier.gif')
     .addFields(

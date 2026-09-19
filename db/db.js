@@ -586,6 +586,7 @@ async function initializeDB() {
       { name: "changeskin", type: "INTEGER DEFAULT 0" },
       { name: "skinurl", type: "TEXT" },
       { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
+      { name: "changeprimary", type: "INTEGER DEFAULT 1" },
       { name: "removecards", type: "INTEGER DEFAULT 1" },
       { name: "leavefamily", type: "INTEGER DEFAULT 1" },
       { name: "removelinkednumbers", type: "INTEGER DEFAULT 1" }
@@ -608,6 +609,7 @@ async function initializeDB() {
       { name: "changeskin", type: "INTEGER DEFAULT 0" },
       { name: "skinurl", type: "TEXT" },
       { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
+      { name: "changeprimary", type: "INTEGER DEFAULT 1" },
       { name: "removecards", type: "INTEGER DEFAULT 0" },
       { name: "removesubs", type: "INTEGER DEFAULT 0" },
       { name: "leavefamily", type: "INTEGER DEFAULT 1" },
