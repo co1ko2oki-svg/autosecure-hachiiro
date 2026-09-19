@@ -35,8 +35,8 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 async function generateLeaderboardImage(data, client) {
-    const width = 1100;
-    const height = 600;
+    const width = 1400;
+    const height = 800;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 

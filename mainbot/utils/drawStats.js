@@ -35,8 +35,8 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 async function generateStatsImage(data) {
-    const width = 1200;
-    const height = 700;
+    const width = 1600;
+    const height = 900;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 

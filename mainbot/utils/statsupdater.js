@@ -79,8 +79,13 @@ async function generateStatsPayload(client) {
         
         const attachment = new AttachmentBuilder(imgBuffer, { name: 'stats.png' });
         
+        const { EmbedBuilder } = require('discord.js');
+        const embed = new EmbedBuilder()
+            .setColor('#2B2D31')
+            .setImage('attachment://stats.png');
+        
         return {
-            content: '',
+            embeds: [embed],
             files: [attachment]
         };
     } catch (error) {
