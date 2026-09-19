@@ -79,17 +79,7 @@ async function generateStatsPayload(client) {
         
         const attachment = new AttachmentBuilder(imgBuffer, { name: 'stats.png' });
         
-        const { EmbedBuilder } = require('discord.js');
-        const nowOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-        const dateStr = new Date().toLocaleDateString('en-US', nowOptions);
-
-        const embed = new EmbedBuilder()
-            .setColor('#2B2D31')
-            .setDescription(`Last Updated: \`${dateStr}\`\n\n**[Autosecure Command Center](https://discord.com)**`)
-            .setImage('attachment://stats.png');
-        
         return {
-            embeds: [embed],
             files: [attachment]
         };
     } catch (error) {
