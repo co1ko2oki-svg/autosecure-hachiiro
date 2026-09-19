@@ -35,8 +35,8 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 async function generateStatsImage(data) {
-    const width = 900;
-    const height = 550;
+    const width = 1200;
+    const height = 700;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
@@ -70,13 +70,13 @@ async function generateStatsImage(data) {
     }
 
     // --- MAIN PANEL ---
-    const boxX = 40;
-    const boxY = 40;
-    const boxW = width - 80;
-    const boxH = height - 80;
+    const boxX = 50;
+    const boxY = 50;
+    const boxW = width - 100;
+    const boxH = height - 100;
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
-    drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 12);
+    drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 16);
     ctx.fill();
     
     ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
@@ -86,138 +86,119 @@ async function generateStatsImage(data) {
     ctx.textBaseline = "middle";
 
     // --- HEADER SECTION ---
-    // Badge LIVE STATUS
     ctx.fillStyle = "rgba(46, 204, 113, 0.2)";
-    drawRoundedRect(ctx, boxX + 30, boxY + 25, 120, 24, 12);
+    drawRoundedRect(ctx, boxX + 40, boxY + 30, 160, 30, 15);
     ctx.fill();
-    ctx.fillStyle = "#2ecc71"; // Xanh ngọc
+    ctx.fillStyle = "#2ecc71";
     ctx.beginPath();
-    ctx.arc(boxX + 42, boxY + 37, 4, 0, Math.PI * 2);
+    ctx.arc(boxX + 56, boxY + 45, 5, 0, Math.PI * 2);
     ctx.fill();
     
-    ctx.font = "12px Minecraftia, sans-serif";
+    ctx.font = "16px Minecraftia";
     ctx.fillStyle = "#2ecc71";
     ctx.textAlign = "left";
-    ctx.fillText("LIVE STATUS", boxX + 54, boxY + 37);
+    ctx.fillText("LIVE STATUS", boxX + 70, boxY + 45);
 
     // Top Right Date
-    ctx.font = "12px Minecraftia, sans-serif";
+    ctx.font = "16px Minecraftia";
     ctx.fillStyle = "#A3A3A3";
     ctx.textAlign = "right";
-    ctx.fillText(data.currentDate || new Date().toLocaleString(), boxX + boxW - 30, boxY + 37);
+    ctx.fillText(data.currentDate || new Date().toLocaleString(), boxX + boxW - 40, boxY + 45);
 
     // Title
-    ctx.font = "28px Minecraftia, sans-serif";
+    ctx.font = "36px Minecraftia";
     ctx.fillStyle = "#FFFFFF";
     ctx.textAlign = "left";
-    ctx.fillText("Autosecure Command Center", boxX + 30, boxY + 80);
+    ctx.fillText("Autosecure Command Center", boxX + 40, boxY + 100);
 
     // Subtitle
-    ctx.font = "14px Minecraftia, sans-serif";
+    ctx.font = "18px Minecraftia";
     ctx.fillStyle = "#A3A3A3";
-    ctx.fillText("Realtime controller snapshot - refreshed every 60 seconds", boxX + 30, boxY + 110);
+    ctx.fillText("Realtime controller snapshot - refreshed every 60 seconds", boxX + 40, boxY + 140);
 
     // --- 4 STAT BOXES ---
-    const boxStartY = boxY + 140;
-    const statBoxW = (boxW - 90) / 2;
-    const statBoxH = 80;
+    const boxStartY = boxY + 175;
+    const statBoxW = (boxW - 120) / 2;
+    const statBoxH = 100;
 
     const drawStatBox = (x, y, label, value, color) => {
-        // Box background
         ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-        drawRoundedRect(ctx, x, y, statBoxW, statBoxH, 8);
+        drawRoundedRect(ctx, x, y, statBoxW, statBoxH, 10);
         ctx.fill();
         ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
         ctx.stroke();
 
-        // Left accent bar
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(x + 4, y + 16);
-        ctx.lineTo(x + 4, y + statBoxH - 16);
-        ctx.lineWidth = 3;
+        ctx.moveTo(x + 5, y + 20);
+        ctx.lineTo(x + 5, y + statBoxH - 20);
+        ctx.lineWidth = 4;
         ctx.strokeStyle = color;
         ctx.stroke();
         ctx.closePath();
 
-        // Label
-        ctx.font = "12px Minecraftia";
+        ctx.font = "16px Minecraftia";
         ctx.fillStyle = "#A3A3A3";
         ctx.textAlign = "left";
-        ctx.fillText(label.toUpperCase(), x + 20, y + 25);
+        ctx.fillText(label.toUpperCase(), x + 25, y + 32);
 
-        // Value
-        let fontSize = 26;
+        let fontSize = 34;
         ctx.font = `${fontSize}px Minecraftia`;
-        while (ctx.measureText(value).width > statBoxW - 40 && fontSize > 10) {
+        while (ctx.measureText(value).width > statBoxW - 50 && fontSize > 12) {
             fontSize -= 1;
             ctx.font = `${fontSize}px Minecraftia`;
         }
 
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillText(value, x + 20, y + 55);
+        ctx.fillText(value, x + 25, y + 70);
     };
 
-    // Box 1: Accounts Secured (Blue)
-    drawStatBox(boxX + 30, boxStartY, "Accounts Secured", data.accountsSecured || "0", "#3b82f6");
-    
-    // Box 2: Total Users (Green)
-    drawStatBox(boxX + 60 + statBoxW, boxStartY, "Total Users", data.totalUsers || "0", "#10b981");
-
-    // Box 3: Launch Date (Yellow)
-    drawStatBox(boxX + 30, boxStartY + statBoxH + 20, "Launch Date", data.launchDate || "Jul 01, 2026", "#f59e0b");
-
-    // Box 4: Current Date (Pink)
-    drawStatBox(boxX + 60 + statBoxW, boxStartY + statBoxH + 20, "Current Date", data.currentDate || "Unknown", "#ec4899");
-
+    drawStatBox(boxX + 40, boxStartY, "Accounts Secured", data.accountsSecured || "0", "#3b82f6");
+    drawStatBox(boxX + 80 + statBoxW, boxStartY, "Total Users", data.totalUsers || "0", "#10b981");
+    drawStatBox(boxX + 40, boxStartY + statBoxH + 25, "Launch Date", data.launchDate || "Jul 01, 2026", "#f59e0b");
+    drawStatBox(boxX + 80 + statBoxW, boxStartY + statBoxH + 25, "Current Date", data.currentDate || "Unknown", "#ec4899");
 
     // --- RUNTIME DETAILS SECTION ---
-    const bottomY = boxStartY + (statBoxH * 2) + 60;
+    const bottomY = boxStartY + (statBoxH * 2) + 75;
     
-    // Divider
     ctx.beginPath();
-    ctx.moveTo(boxX + 30, bottomY);
-    ctx.lineTo(boxX + boxW - 30, bottomY);
+    ctx.moveTo(boxX + 40, bottomY);
+    ctx.lineTo(boxX + boxW - 40, bottomY);
     ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Headers
-    ctx.font = "14px Minecraftia, sans-serif";
+    ctx.font = "18px Minecraftia";
     ctx.fillStyle = "#FFFFFF";
     ctx.textAlign = "left";
-    ctx.fillText("Runtime Details", boxX + 30, bottomY + 25);
+    ctx.fillText("Runtime Details", boxX + 40, bottomY + 30);
 
-    ctx.font = "12px Minecraftia, sans-serif";
+    ctx.font = "14px Minecraftia";
     ctx.fillStyle = "#A3A3A3";
     ctx.textAlign = "right";
-    ctx.fillText("live process, memory and latency", boxX + boxW - 30, bottomY + 25);
+    ctx.fillText("live process, memory and latency", boxX + boxW - 40, bottomY + 30);
 
-    // Grid details
-    const textYStart = bottomY + 55;
-    const lineSpacing = 25;
+    const textYStart = bottomY + 65;
+    const lineSpacing = 30;
     
     ctx.textAlign = "left";
     const drawDetail = (label, value, x, y) => {
-        ctx.font = "12px Minecraftia, sans-serif";
+        ctx.font = "14px Minecraftia";
         ctx.fillStyle = "#A3A3A3";
         ctx.fillText(label, x, y);
         
-        ctx.font = "12px Minecraftia, sans-serif";
+        ctx.font = "14px Minecraftia";
         ctx.fillStyle = "#FFFFFF";
-        // Fixed offset for alignment
-        ctx.fillText(value, x + 150, y);
+        ctx.fillText(value, x + 190, y);
     };
 
-    // Col 1
-    drawDetail("Running Processes :", data.processes || "0", boxX + 30, textYStart);
-    drawDetail("CPU Usage         :", data.cpu || "0.0%", boxX + 30, textYStart + lineSpacing);
-    drawDetail("RAM Usage         :", data.ram || "0 MB", boxX + 30, textYStart + (lineSpacing * 2));
+    drawDetail("Running Processes :", data.processes || "0", boxX + 40, textYStart);
+    drawDetail("CPU Usage         :", data.cpu || "0.0%", boxX + 40, textYStart + lineSpacing);
+    drawDetail("RAM Usage         :", data.ram || "0 MB", boxX + 40, textYStart + (lineSpacing * 2));
 
-    // Col 2
-    drawDetail("Heap Usage        :", data.heap || "0 MB / 0 MB", boxX + 60 + statBoxW, textYStart);
-    drawDetail("Ping              :", data.ping || "0 ms", boxX + 60 + statBoxW, textYStart + lineSpacing);
-    drawDetail("Bot Uptime        :", data.uptime || "0s", boxX + 60 + statBoxW, textYStart + (lineSpacing * 2));
+    drawDetail("Heap Usage        :", data.heap || "0 MB / 0 MB", boxX + 80 + statBoxW, textYStart);
+    drawDetail("Ping              :", data.ping || "0 ms", boxX + 80 + statBoxW, textYStart + lineSpacing);
+    drawDetail("Bot Uptime        :", data.uptime || "0s", boxX + 80 + statBoxW, textYStart + (lineSpacing * 2));
 
     return canvas.toBuffer("image/png");
 }

@@ -35,8 +35,8 @@ function drawRoundedRect(ctx, x, y, width, height, radius) {
 }
 
 async function generateLeaderboardImage(data, client) {
-    const width = 800;
-    const height = 460;
+    const width = 1100;
+    const height = 600;
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
@@ -70,10 +70,10 @@ async function generateLeaderboardImage(data, client) {
     // --- MAIN PANEL ---
     ctx.textBaseline = "middle";
 
-    const boxX = 40;
-    const boxY = 40;
-    const boxW = width - 80;
-    const boxH = height - 80;
+    const boxX = 50;
+    const boxY = 50;
+    const boxW = width - 100;
+    const boxH = height - 100;
 
     ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
     drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 15);
@@ -83,19 +83,19 @@ async function generateLeaderboardImage(data, client) {
     ctx.stroke();
 
     ctx.fillStyle = "#FFFFFF";
-    ctx.font = "22px Minecraftia";
+    ctx.font = "28px Minecraftia";
     ctx.textAlign = "center";
-    ctx.fillText(`___ Accounts Leaderboard ___`, boxX + (boxW / 2), boxY + 35);
+    ctx.fillText(`___ Accounts Leaderboard ___`, boxX + (boxW / 2), boxY + 45);
 
-    ctx.font = "16px Minecraftia";
+    ctx.font = "20px Minecraftia";
     ctx.fillStyle = "#DDDDDD";
 
-    const rankX = boxX + 40;
-    const userX = boxX + 120;
-    const accX = boxX + boxW - 220;
-    const netX = boxX + boxW - 80;
+    const rankX = boxX + 50;
+    const userX = boxX + 150;
+    const accX = boxX + boxW - 280;
+    const netX = boxX + boxW - 100;
 
-    const headerY = boxY + 85;
+    const headerY = boxY + 105;
     
     ctx.textAlign = "left";
     ctx.fillText("Rank", rankX, headerY);
@@ -105,9 +105,9 @@ async function generateLeaderboardImage(data, client) {
     ctx.fillText("Accounts", accX, headerY);
     ctx.fillText("Networth", netX, headerY);
 
-    const startY = headerY + 40;
-    const spacingY = 26;
-    ctx.font = "14px Minecraftia";
+    const startY = headerY + 50;
+    const spacingY = 34;
+    ctx.font = "18px Minecraftia";
 
     for (let i = 0; i < 10; i++) {
         if (!data[i]) break;
@@ -135,7 +135,7 @@ async function generateLeaderboardImage(data, client) {
             } catch(e) {}
         }
 
-        const avatarSize = 18;
+        const avatarSize = 22;
         if (avatarImg) {
             ctx.save();
             ctx.beginPath();
@@ -146,7 +146,7 @@ async function generateLeaderboardImage(data, client) {
             ctx.restore();
         }
 
-        let textX = avatarImg ? (userX + avatarSize + 10) : userX;
+        let textX = avatarImg ? (userX + avatarSize + 12) : userX;
         ctx.fillText(username, textX, currentY);
 
         ctx.textAlign = "center";
