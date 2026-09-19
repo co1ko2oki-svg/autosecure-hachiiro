@@ -104,12 +104,16 @@ async function updateLeaderboardMessage(client) {
             try {
                 const channel = await client.channels.fetch(chId);
                 const message = await channel.messages.fetch(messageId);
-                // When editing with new files, we must clear old attachments
                 payload.attachments = [];
-                await message.edit(payload);
+                await message.edit({ ...payload, flags: 0 });
                 return;
             } catch (err) {
-                console.log("[LEADERBOARD] Could not edit old message, will try posting new one...");
+                console.log("[LEADERBOARD] Could not edit old message, attempting to delete it and post a new one...");
+                try {
+                    const channel = await client.channels.fetch(chId);
+                    const message = await channel.messages.fetch(messageId);
+                    await message.delete().catch(() => null);
+                } catch(e) {}
             }
         }
 
@@ -121,9 +125,17 @@ async function updateLeaderboardMessage(client) {
                     const botMessage = messages.find(m => m.author.id === client.user.id);
                     if (botMessage) {
                         payload.attachments = [];
-                        await botMessage.edit(payload);
-                        await updatemessageid(botMessage.id, channelId);
-                        console.log(`[LEADERBOARD] Updated existing message (${botMessage.id}) with Embeds`);
+                        try {
+                            await botMessage.edit({ ...payload, flags: 0 });
+                            await updatemessageid(botMessage.id, channelId);
+                            console.log(`[LEADERBOARD] Updated existing message (${botMessage.id}) with Embeds`);
+                        } catch (editErr) {
+                            console.log(`[LEADERBOARD] Edit failed (${editErr.message}), replacing message...`);
+                            await botMessage.delete().catch(() => null);
+                            const sent = await channel.send(payload);
+                            await updatemessageid(sent.id, channelId);
+                            console.log(`[LEADERBOARD] Replaced leaderboard (${sent.id}) in channel ${channelId}`);
+                        }
                     } else {
                         const sent = await channel.send(payload);
                         await updatemessageid(sent.id, channelId);
