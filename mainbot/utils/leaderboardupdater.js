@@ -60,17 +60,9 @@ async function generateLeaderboardPayload(client) {
         // Vẽ duy nhất bảng Accounts Leaderboard
         const singleImageBuffer = await generateLeaderboardImage(dataAccounts, client);
         
-        const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
         const attachment = new AttachmentBuilder(singleImageBuffer, { name: 'leaderboard.png' });
         
-        const nowOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-        const dateStr = new Date().toLocaleDateString('en-US', nowOptions);
-        
-        const embed = new EmbedBuilder()
-            .setColor('#2B2D31')
-            .setDescription(`Last Updated: \`${dateStr}\``)
-            .setImage('attachment://leaderboard.png');
-            
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('hideleaderboard')
@@ -79,7 +71,7 @@ async function generateLeaderboardPayload(client) {
         );
         
         return {
-            embeds: [embed],
+            content: '',
             components: [row],
             files: [attachment]
         };

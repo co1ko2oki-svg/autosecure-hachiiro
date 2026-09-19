@@ -79,12 +79,8 @@ async function generateStatsPayload(client) {
         
         const attachment = new AttachmentBuilder(imgBuffer, { name: 'stats.png' });
         
-        const embed = new EmbedBuilder()
-            .setColor('#2B2D31')
-            .setImage('attachment://stats.png');
-        
         return {
-            embeds: [embed],
+            content: '',
             files: [attachment]
         };
     } catch (error) {
