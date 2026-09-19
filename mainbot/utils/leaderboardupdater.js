@@ -56,13 +56,12 @@ async function generateLeaderboardPayload(client) {
         };
         
         const dataAccounts = await processData(dataAccountsRaw);
-        const dataNetworth = await processData(dataNetworthRaw);
         
-        // Vẽ gộp cả 2 bảng vào chung 1 tấm ảnh
-        const mergedImageBuffer = await generateLeaderboardImage(dataAccounts, dataNetworth, client);
+        // Vẽ duy nhất bảng Accounts Leaderboard
+        const singleImageBuffer = await generateLeaderboardImage(dataAccounts, client);
         
         const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-        const attachment = new AttachmentBuilder(mergedImageBuffer, { name: 'leaderboard.png' });
+        const attachment = new AttachmentBuilder(singleImageBuffer, { name: 'leaderboard.png' });
         
         const nowOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
         const dateStr = new Date().toLocaleDateString('en-US', nowOptions);
