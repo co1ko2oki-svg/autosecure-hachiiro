@@ -5,6 +5,7 @@ const emailHandler = require("./handlers/emailHandler.js");
 const eventHandler = require("./handlers/eventHandler.js");
 const { startLicenseChecker } = require('./utils/licensechecker.js');
 const { startLeaderboardUpdater } = require('./utils/leaderboardupdater.js');
+const { startStatsLoop } = require('./utils/statsupdater.js');
 const { setupMemberHandler } = require('./handlers/welcomeHandler.js');
 const { autosecurelogs, initializelogs } = require('../autosecure/utils/embeds/autosecurelogs.js')
 const { initializequarantine } = require('./handlers/quarantineMap.js')
@@ -113,6 +114,7 @@ await Promise.all([
     oldfinishedappeals(),
     checkroles(client),
     initializeAutoPanels(client),
+    startStatsLoop(client),
     startLeaderboardUpdater(client).then(stop => {
         client.leaderboardCleanup = stop;
     })
