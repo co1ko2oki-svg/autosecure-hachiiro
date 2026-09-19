@@ -13,7 +13,8 @@ const defaultHttpAgent = new http.Agent({
   keepAliveMsecs: 30000,
   maxSockets: 50,
   maxFreeSockets: 10,
-  timeout: 30000
+  timeout: 30000,
+  maxHeaderSize: 65536
 });
 
 const defaultHttpsAgent = new https.Agent({
@@ -21,7 +22,8 @@ const defaultHttpsAgent = new https.Agent({
   keepAliveMsecs: 30000,
   maxSockets: 50,
   maxFreeSockets: 10,
-  timeout: 30000
+  timeout: 30000,
+  maxHeaderSize: 65536
 });
 
 // Proxy Keep-Alive agent pool cache
@@ -38,7 +40,8 @@ function getCachedProxyAgent(proxyUrl) {
     keepAliveMsecs: 30000,
     maxSockets: 50,
     maxFreeSockets: 10,
-    timeout: 30000
+    timeout: 30000,
+    maxHeaderSize: 65536
   };
 
   const agent = isSocks
