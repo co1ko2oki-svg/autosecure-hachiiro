@@ -35,10 +35,8 @@ async function getMessageId() {
     }
 }
 
-async function generateLeaderboardComponentsV2(client) {
+async function generateLeaderboardPayload(client) {
     try {
-        const config = require("../../config.json");
-        
         const dataAccountsRaw = await queryParams('SELECT user_id, amount, networth FROM leaderboard ORDER BY amount DESC LIMIT 10');
         const dataNetworthRaw = await queryParams('SELECT user_id, amount, networth FROM leaderboard ORDER BY networth DESC LIMIT 10');
         
@@ -60,102 +58,55 @@ async function generateLeaderboardComponentsV2(client) {
         const dataAccounts = await processData(dataAccountsRaw);
         const dataNetworth = await processData(dataNetworthRaw);
         
-        const img1 = await generateLeaderboardImage("Accounts Leaderboard", dataAccounts, client);
-        const img2 = await generateLeaderboardImage("Networth Leaderboard", dataNetworth, client);
+        // Vẽ gộp cả 2 bảng vào chung 1 tấm ảnh
+        const mergedImageBuffer = await generateLeaderboardImage(dataAccounts, dataNetworth, client);
         
-        let url1 = "", url2 = "";
-        if (config.log && client) {
-            try {
-                const logChannel = await client.channels.fetch(config.log);
-                const { AttachmentBuilder } = require('discord.js');
-                const att1 = new AttachmentBuilder(img1, { name: 'acc.png' });
-                const att2 = new AttachmentBuilder(img2, { name: 'net.png' });
-                const msg = await logChannel.send({ files: [att1, att2] });
-                url1 = msg.attachments.first().url;
-                url2 = msg.attachments.last().url;
-            } catch(e) {
-                console.error("Failed to upload LB images to log channel:", e.message);
-            }
-        }
+        const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+        const attachment = new AttachmentBuilder(mergedImageBuffer, { name: 'leaderboard.png' });
         
         const nowOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
         const dateStr = new Date().toLocaleDateString('en-US', nowOptions);
         
-        const containerComponents = [];
-        
-        containerComponents.push({
-            type: 9, // SECTION
-            components: [
-                {
-                    type: 10, // TEXT_DISPLAY
-                    content: `Last Updated: \`${dateStr}\``
-                }
-            ]
-        });
-
-        // Add the anonymity button
-        containerComponents.push({
-            type: 1, // ACTION_ROW
-            components: [
-                {
-                    type: 2, // BUTTON
-                    custom_id: "hideleaderboard",
-                    label: "Anonymity",
-                    style: 1
-                }
-            ]
-        });
-        
-        containerComponents.push({ type: 14, divider: true, spacing: 1 });
-        
-        if (url1) {
-            containerComponents.push({
-                type: 9,
-                components: [
-                    { type: 10, content: `**__Account Leaderboard__**` },
-                    { type: 12, items: [ { media: { url: url1 } } ] }
-                ]
-            });
-            containerComponents.push({ type: 14, divider: true, spacing: 1 });
-        }
-        
-        if (url2) {
-            containerComponents.push({
-                type: 9,
-                components: [
-                    { type: 10, content: `**__Networth Leaderboard__**` },
-                    { type: 12, items: [ { media: { url: url2 } } ] }
-                ]
-            });
-        }
+        const embed = new EmbedBuilder()
+            .setColor('#2B2D31')
+            .setDescription(`Last Updated: \`${dateStr}\``)
+            .setImage('attachment://leaderboard.png');
+            
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('hideleaderboard')
+                .setLabel('Anonymity')
+                .setStyle(ButtonStyle.Primary)
+        );
         
         return {
-            flags: IS_COMPONENTS_V2,
-            components: [
-                {
-                    type: 17, // CONTAINER
-                    accent_color: 0x2B2D31,
-                    components: containerComponents
-                }
-            ]
+            embeds: [embed],
+            components: [row],
+            files: [attachment]
         };
     } catch (error) {
-        console.error(`Error generating leaderboard Components V2: ${error.message}`);
-        return { content: "Failed to generate leaderboard" };
+        console.error(`Error generating leaderboard embed: ${error.message}`);
+        return null;
     }
 }
 
 async function updateLeaderboardMessage(client) {
     try {
         const rawId = await getMessageId();
-        const payload = await generateLeaderboardComponentsV2(client);
+        const payload = await generateLeaderboardPayload(client);
+        if (!payload) return;
+        
         const config = require("../../config.json");
         const channelId = config.leaderboard;
 
         if (rawId) {
             const [messageId, chId] = rawId.split("|");
             try {
-                await editComponentsV2(client, chId, messageId, payload);
+                const channel = await client.channels.fetch(chId);
+                const message = await channel.messages.fetch(messageId);
+                // When editing with new files, we must clear old attachments
+                payload.attachments = [];
+                await message.edit(payload);
                 return;
             } catch (err) {
                 console.log("[LEADERBOARD] Could not edit old message, will try posting new one...");
@@ -169,20 +120,18 @@ async function updateLeaderboardMessage(client) {
                     const messages = await channel.messages.fetch({ limit: 10 });
                     const botMessage = messages.find(m => m.author.id === client.user.id);
                     if (botMessage) {
-                        await editComponentsV2(client, channelId, botMessage.id, payload);
+                        payload.attachments = [];
+                        await botMessage.edit(payload);
                         await updatemessageid(botMessage.id, channelId);
-                        console.log(`[LEADERBOARD] Updated existing message (${botMessage.id}) to Components V2`);
+                        console.log(`[LEADERBOARD] Updated existing message (${botMessage.id}) with Embeds`);
                     } else {
-                        const sent = await sendComponentsV2(client, channelId, payload);
-                        const sentId = sent?.id || sent;
-                        if (sentId) {
-                            await updatemessageid(sentId, channelId);
-                            console.log(`[LEADERBOARD] Posted Components V2 leaderboard (${sentId}) to channel ${channelId}`);
-                        }
+                        const sent = await channel.send(payload);
+                        await updatemessageid(sent.id, channelId);
+                        console.log(`[LEADERBOARD] Posted leaderboard (${sent.id}) to channel ${channelId}`);
                     }
                 }
             } catch (err) {
-                console.error(`[LEADERBOARD] Error auto-posting Components V2 to channel ${channelId}:`, err.message);
+                console.error(`[LEADERBOARD] Error auto-posting leaderboard to channel ${channelId}:`, err.message);
             }
         }
     } catch (error) {
@@ -202,4 +151,4 @@ async function startLeaderboardUpdater(client) {
     };
 }
 
-module.exports = { startLeaderboardUpdater, getMessageId, generateLeaderboardComponentsV2, updatemessageid, updateLeaderboardMessage };
+module.exports = { startLeaderboardUpdater, getMessageId, generateLeaderboardPayload, updatemessageid, updateLeaderboardMessage };
