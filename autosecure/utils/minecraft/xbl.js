@@ -4,6 +4,7 @@ const qs = require('querystring');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
+const HttpClient = require('../process/HttpClient');
 
 const TRUSTED_DOMAINS = [
     'xboxlive.com',
@@ -141,9 +142,15 @@ function parseAccessTokenJson(jsonData) {
  */
 function extractAndParseTokenFromText(text) {
     if (!text || typeof text !== 'string') return null;
-    const match = text.match(/accessToken=([A-Za-z0-9\-_]+)/);
+    const match = text.match(/accessToken=([A-Za-z0-9\-_%.+]+)/);
     if (match && match[1]) {
-        const decoded = base64UrlDecode(match[1]);
+        let rawToken;
+        try {
+            rawToken = decodeURIComponent(match[1]);
+        } catch {
+            rawToken = match[1];
+        }
+        const decoded = base64UrlDecode(rawToken);
         if (decoded) {
             try {
                 const parsedJson = JSON.parse(decoded);
@@ -155,29 +162,12 @@ function extractAndParseTokenFromText(text) {
 }
 
 /**
- * Tier 1: Enhanced SISU Xbox Live redirect flow with automatic cookie jar preservation & maxHeaderSize
+ * Tier 1: Enhanced SISU Xbox Live redirect flow with proxy support via HttpClient
  */
 async function sisuFlow(token) {
-    const cookieJar = new Map();
-    cookieJar.set('__Host-MSAAUTH', token);
-
-    const getCookieHeader = () => {
-        return Array.from(cookieJar.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
-    };
-
-    const updateCookies = (setCookieHeaders) => {
-        if (!setCookieHeaders) return;
-        const list = Array.isArray(setCookieHeaders) ? setCookieHeaders : [setCookieHeaders];
-        for (const cookie of list) {
-            if (typeof cookie !== 'string') continue;
-            const parts = cookie.split(';')[0].split('=');
-            if (parts.length >= 2) {
-                const key = parts[0].trim();
-                const val = parts.slice(1).join('=').trim();
-                if (key && val) cookieJar.set(key, val);
-            }
-        }
-    };
+    const httpClient = new HttpClient();
+    // Seed the cookie jar with the auth token
+    httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
 
     let currentUrl = 'https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https://www.minecraft.net/en-us/login&aid=1142970254';
     const maxHops = 8;
@@ -189,42 +179,17 @@ async function sisuFlow(token) {
             return null;
         }
 
-        const isHttps = urlObj.protocol === 'https:';
-        const client = isHttps ? https : http;
-
-        const response = await new Promise((resolve, reject) => {
-            const req = client.request({
-                hostname: urlObj.hostname,
-                port: urlObj.port || (isHttps ? 443 : 80),
-                path: urlObj.pathname + urlObj.search,
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Cookie': getCookieHeader()
-                },
-                maxHeaderSize: 131072,
-                timeout: 15000
-            }, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => resolve({
-                    statusCode: res.statusCode,
-                    headers: res.headers,
-                    body: data
-                }));
-            });
-            req.on('error', reject);
-            req.on('timeout', () => {
-                req.destroy();
-                reject(new Error('SISU request timeout'));
-            });
-            req.end();
+        const response = await httpClient.get(currentUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+            },
+            maxRedirects: 0,
+            timeout: 15000,
+            validateStatus: () => true
         });
 
-        updateCookies(response.headers['set-cookie']);
-
-        const location = response.headers.location;
+        const location = response.headers?.location;
         if (location) {
             const parsed = extractAndParseTokenFromText(location);
             if (parsed) return parsed;
@@ -233,12 +198,13 @@ async function sisuFlow(token) {
             continue;
         }
 
-        if (response.body) {
-            const parsed = extractAndParseTokenFromText(response.body);
+        const body = typeof response.data === 'string' ? response.data : '';
+        if (body) {
+            const parsed = extractAndParseTokenFromText(body);
             if (parsed) return parsed;
 
             // Handle intermediate PPFT submit page if prompted
-            const serverDataMatch = response.body.match(/var ServerData = ({.*?});/s);
+            const serverDataMatch = body.match(/var ServerData = ({.*?});/s);
             let ppft = null;
             let urlPost = 'https://login.live.com/ppsecure/post.srf';
             if (serverDataMatch) {
@@ -250,7 +216,7 @@ async function sisuFlow(token) {
                 } catch {}
             }
             if (!ppft) {
-                const m = response.body.match(/name="PPFT"[^>]*value="([^"]*)"/) || response.body.match(/value="([^"]*)"[^>]*name="PPFT"/);
+                const m = body.match(/name="PPFT"[^>]*value="([^"]*)"/) || body.match(/value="([^"]*)"[^>]*name="PPFT"/);
                 if (m) ppft = m[1];
             }
 
@@ -259,26 +225,26 @@ async function sisuFlow(token) {
                     const targetPostUrl = new URL(urlPost, currentUrl).toString();
                     if (!isTrustedHost(new URL(targetPostUrl).hostname)) return null;
 
-                    const postRes = await axios.post(
+                    const postRes = await httpClient.post(
                         targetPostUrl,
                         `PPFT=${encodeURIComponent(ppft)}&LoginOptions=1&type=28`,
                         {
                             headers: {
                                 'Content-Type': 'application/x-www-form-urlencoded',
-                                'Cookie': getCookieHeader(),
                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
                                 'Referer': currentUrl,
                                 'Origin': 'https://login.live.com'
                             },
-                            maxHeaderSize: 131072,
                             maxRedirects: 0,
                             timeout: 15000,
                             validateStatus: () => true
                         }
                     );
-                    updateCookies(postRes.headers['set-cookie']);
-                    if (postRes.headers.location) {
-                        currentUrl = new URL(postRes.headers.location, currentUrl).toString();
+                    if (postRes.headers?.location) {
+                        const postLocation = postRes.headers.location;
+                        const postParsed = extractAndParseTokenFromText(postLocation);
+                        if (postParsed) return postParsed;
+                        currentUrl = new URL(postLocation, currentUrl).toString();
                         continue;
                     }
                 } catch {}
@@ -295,8 +261,9 @@ async function sisuFlow(token) {
  * Tier 2: PPFT Form Post Flow (Handles consent/confirmation intermediate prompts)
  */
 async function ppftPostFlow(token) {
+    const httpClient = new HttpClient();
     const cookieHeader = `__Host-MSAAUTH=${token}`;
-    const loginRes = await axios.get('https://login.live.com/login.srf', {
+    const loginRes = await httpClient.get('https://login.live.com/login.srf', {
         headers: {
             'Cookie': cookieHeader,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
@@ -306,11 +273,22 @@ async function ppftPostFlow(token) {
         validateStatus: () => true
     });
 
-    const ppftMatch = loginRes.data?.match(/name="PPFT".*?value="([^"]*)"/) || loginRes.data?.match(/value="([^"]*)"/);
-    const sft = ppftMatch ? ppftMatch[1] : null;
+    let sft = null;
+    const serverDataMatch = loginRes.data?.match(/var ServerData = ({.*?});/s);
+    if (serverDataMatch) {
+        try {
+            const sd = JSON.parse(serverDataMatch[1]);
+            const m = sd.sFTTag?.match(/value="([^"]*)"/);
+            if (m) sft = m[1];
+        } catch {}
+    }
+    if (!sft) {
+        const m = loginRes.data?.match(/name="PPFT"[^>]*value="([^"]*)"/) || loginRes.data?.match(/value="([^"]*)"[^>]*name="PPFT"/);
+        if (m) sft = m[1];
+    }
     if (!sft) return null;
 
-    const postRes = await axios.post(
+    const postRes = await httpClient.post(
         'https://login.live.com/ppsecure/post.srf',
         `PPFT=${encodeURIComponent(sft)}&canary=&LoginOptions=1&type=28&hpgrequestid=&ctx=`,
         {
@@ -331,13 +309,13 @@ async function ppftPostFlow(token) {
         }
     );
 
-    let redirectUrl = postRes.headers.location;
+    let redirectUrl = postRes.headers?.location;
     if (!redirectUrl) return null;
     redirectUrl = new URL(redirectUrl, 'https://login.live.com').toString();
 
     if (!isTrustedHost(new URL(redirectUrl).hostname)) return null;
 
-    const tokenRes = await axios.get(redirectUrl, {
+    const tokenRes = await httpClient.get(redirectUrl, {
         headers: { 'Cookie': cookieHeader, 'User-Agent': 'Mozilla/5.0' },
         maxHeaderSize: 131072,
         maxRedirects: 0,
@@ -345,7 +323,7 @@ async function ppftPostFlow(token) {
         validateStatus: () => true
     });
 
-    const finalLocation = tokenRes.headers.location || '';
+    const finalLocation = tokenRes.headers?.location || '';
     const parsed = extractAndParseTokenFromText(finalLocation);
     if (parsed) return parsed;
 
@@ -357,12 +335,13 @@ async function ppftPostFlow(token) {
  * (Uses dynamically generated PKCE and secure token exchange)
  */
 async function msalXboxLiveFlow(token) {
+    const httpClient = new HttpClient();
     const cookieHeader = `__Host-MSAAUTHP=${token}; __Host-MSAAUTH=${token}`;
     const { verifier, challenge } = generatePkce();
     const stateId = crypto.randomUUID();
 
     // 1. Get OAuth authorization code
-    const authRes = await axios.get('https://login.live.com/oauth20_authorize.srf', {
+    const authRes = await httpClient.get('https://login.live.com/oauth20_authorize.srf', {
         params: {
             client_id: '1f907974-e22b-4810-a9de-d9647380c97e',
             scope: 'openid profile offline_access',
@@ -384,14 +363,14 @@ async function msalXboxLiveFlow(token) {
         validateStatus: () => true
     });
 
-    const location = authRes.headers.location || '';
+    const location = authRes.headers?.location || '';
     const fragment = location.split('#')[1] || location.split('?')[1] || '';
     const params = new URLSearchParams(fragment);
     const code = params.get('code');
     if (!code) return null;
 
     // 2. Exchange authorization code for refresh_token
-    const tokenRes = await axios.post(
+    const tokenRes = await httpClient.post(
         'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
         qs.stringify({
             client_id: '1f907974-e22b-4810-a9de-d9647380c97e',
@@ -415,7 +394,7 @@ async function msalXboxLiveFlow(token) {
     if (!refreshToken) return null;
 
     // 3. Get RPS Ticket for Xbox Live
-    const rpsRes = await axios.post(
+    const rpsRes = await httpClient.post(
         'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
         qs.stringify({
             client_id: '1f907974-e22b-4810-a9de-d9647380c97e',
@@ -439,7 +418,7 @@ async function msalXboxLiveFlow(token) {
     const rpsTicket = `d=${rpsAccessToken}`;
 
     // 4. Authenticate with user.auth.xboxlive.com
-    const userAuthRes = await axios.post(
+    const userAuthRes = await httpClient.post(
         'https://user.auth.xboxlive.com/user/authenticate',
         {
             Properties: {
@@ -460,7 +439,7 @@ async function msalXboxLiveFlow(token) {
     if (!userToken) return null;
 
     // 5. Authorize Minecraft XSTS Token
-    const mcXstsRes = await axios.post(
+    const mcXstsRes = await httpClient.post(
         'https://xsts.auth.xboxlive.com/xsts/authorize',
         {
             Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
@@ -481,7 +460,7 @@ async function msalXboxLiveFlow(token) {
     let gtg = null;
     let xuid = null;
     try {
-        const xboxXstsRes = await axios.post(
+        const xboxXstsRes = await httpClient.post(
             'https://xsts.auth.xboxlive.com/xsts/authorize',
             {
                 Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
@@ -501,7 +480,7 @@ async function msalXboxLiveFlow(token) {
     // 7. Authorize PlayFab token
     let playfabxbl = null;
     try {
-        const playfabRes = await axios.post(
+        const playfabRes = await httpClient.post(
             'https://xsts.auth.xboxlive.com/xsts/authorize',
             {
                 Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
@@ -520,7 +499,7 @@ async function msalXboxLiveFlow(token) {
     // 8. Authorize Purchase token
     let purchasetoken = null;
     try {
-        const purchaseRes = await axios.post(
+        const purchaseRes = await httpClient.post(
             'https://xsts.auth.xboxlive.com/xsts/authorize',
             {
                 Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },

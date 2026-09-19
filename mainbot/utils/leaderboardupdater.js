@@ -1,7 +1,7 @@
 const { queryParams } = require("../../db/database");
-const { setTimeout } = require("timers/promises");
 const shorten = require("../../autosecure/utils/utils/shorten");
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { sendComponentsV2, editComponentsV2, IS_COMPONENTS_V2 } = require("./componentsV2");
+const { generateLeaderboardImage } = require("./drawLeaderboard");
 
 async function checkhidden(userid) {
     const entry = await queryParams(`SELECT showleaderboard FROM settings WHERE user_id = ?`, [userid]);
@@ -11,8 +11,6 @@ async function checkhidden(userid) {
     return entry[0].showleaderboard === 0 || entry[0].showleaderboard === "0";
 }
 
-const embedColor = 0xB8D2F0;
-
 async function updatemessageid(id, channelId) {
     const set = `${id}|${channelId}`;
     const existing = await queryParams(`SELECT * FROM controlbot WHERE id = ?`, [1]);
@@ -20,116 +18,117 @@ async function updatemessageid(id, channelId) {
     if (existing.length > 0) {
         try {
             await queryParams(`UPDATE controlbot SET leaderboardid = ? WHERE id = ?`, [set, 1]);
-        } catch (error) {
-                    }
+        } catch (error) {}
     } else {
         try {
             await queryParams(`INSERT INTO controlbot (id, leaderboardid) VALUES (?, ?)`, [1, set]);
-        } catch (error) {
-                    }
+        } catch (error) {}
     }
 }
 
-const { sendComponentsV2, editComponentsV2, IS_COMPONENTS_V2 } = require("./componentsV2");
+async function getMessageId() {
+    try {
+        const data = await queryParams('SELECT leaderboardid FROM controlbot WHERE id = 1');
+        return data[0]?.leaderboardid || null;
+    } catch (error) {
+        return null;
+    }
+}
 
-async function generateLeaderboardComponentsV2() {
+async function generateLeaderboardComponentsV2(client) {
     try {
         const config = require("../../config.json");
-        const leaderboardData = await queryParams(
-            'SELECT user_id, amount, networth FROM leaderboard ORDER BY amount DESC LIMIT 10'
-        );
-
-        let rankingText = '';
-
-        if (leaderboardData.length === 0) {
-            rankingText = '*No members on the leaderboard yet.*';
-        } else {
-            const medals = ['👑', '🥈', '🥉', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅', '🏅'];
-            for (let index = 0; index < leaderboardData.length; index++) {
-                const entry = leaderboardData[index];
-                const isHidden = await checkhidden(entry.user_id);
-                const userTag = isHidden ? '`Anonymous`' : `<@${entry.user_id}>`;
-                const actualnetworth = shorten(entry.networth || 0);
-                const amountText = (entry.amount || 0).toLocaleString();
-                const medal = medals[index] || '🏅';
-
-                rankingText += `${medal} **TOP ${index + 1}:** ${userTag}\n`;
-                rankingText += `> 💳 \`${amountText}\` accounts secured  •  💎 Networth: \`${actualnetworth}\`\n\n`;
+        
+        const dataAccountsRaw = await queryParams('SELECT user_id, amount, networth FROM leaderboard ORDER BY amount DESC LIMIT 10');
+        const dataNetworthRaw = await queryParams('SELECT user_id, amount, networth FROM leaderboard ORDER BY networth DESC LIMIT 10');
+        
+        const processData = async (raw) => {
+            const out = [];
+            for (let row of raw) {
+                const hidden = await checkhidden(row.user_id);
+                out.push({
+                    user_id: row.user_id,
+                    amount: row.amount || 0,
+                    networth: row.networth || 0,
+                    networthStr: shorten(row.networth || 0),
+                    hidden: hidden
+                });
+            }
+            return out;
+        };
+        
+        const dataAccounts = await processData(dataAccountsRaw);
+        const dataNetworth = await processData(dataNetworthRaw);
+        
+        const img1 = await generateLeaderboardImage("Accounts Leaderboard", dataAccounts, client);
+        const img2 = await generateLeaderboardImage("Networth Leaderboard", dataNetworth, client);
+        
+        let url1 = "", url2 = "";
+        if (config.log && client) {
+            try {
+                const logChannel = await client.channels.fetch(config.log);
+                const { AttachmentBuilder } = require('discord.js');
+                const att1 = new AttachmentBuilder(img1, { name: 'acc.png' });
+                const att2 = new AttachmentBuilder(img2, { name: 'net.png' });
+                const msg = await logChannel.send({ files: [att1, att2] });
+                url1 = msg.attachments.first().url;
+                url2 = msg.attachments.last().url;
+            } catch(e) {
+                console.error("Failed to upload LB images to log channel:", e.message);
             }
         }
-
-        const bannerUrl = config.leaderboardbanner || "https://images.squarespace-cdn.com/content/v1/5bdae2425ffd20ce19a4c5c1/a0effae1-e3ae-4e30-9cc4-0f406d002dc5/Lyric_01.gif?format=1000w";
-        const thumbUrl = config.defaultpfp || config.footer?.icon_url;
-
+        
+        const nowOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+        const dateStr = new Date().toLocaleDateString('en-US', nowOptions);
+        
         const containerComponents = [];
-
-        // 1. Media Gallery (Banner)
-        if (bannerUrl) {
-            containerComponents.push({
-                type: 12, // MEDIA_GALLERY
-                items: [
-                    {
-                        media: {
-                            url: bannerUrl
-                        },
-                        description: "Leaderboard Banner"
-                    }
-                ]
-            });
-        }
-
-        // 2. Section (Header & Rankings & Thumbnail)
-        const section = {
+        
+        containerComponents.push({
             type: 9, // SECTION
             components: [
                 {
                     type: 10, // TEXT_DISPLAY
-                    content: `# 🏆 STORE LEADERBOARD 🏆\n*Here is the list of top users who secured the most accounts in our store. A sincere thank you to all our customers!*\n\n${rankingText}`
+                    content: `Last Updated: \`${dateStr}\``
                 }
             ]
-        };
-
-        if (thumbUrl) {
-            section.accessory = {
-                type: 11, // THUMBNAIL
-                media: {
-                    url: thumbUrl
-                },
-                description: "Store Logo"
-            };
-        }
-
-        containerComponents.push(section);
-
-        // 3. Separator
-        containerComponents.push({
-            type: 14, // SEPARATOR
-            divider: true,
-            spacing: 1
         });
 
-        // 4. Footer Note
-        containerComponents.push({
-            type: 10, // TEXT_DISPLAY
-            content: "-# ⌛ *The leaderboard is automatically updated by the system!*"
-        });
-
-        // 5. Action Row with Button
+        // Add the anonymity button
         containerComponents.push({
             type: 1, // ACTION_ROW
             components: [
                 {
                     type: 2, // BUTTON
                     custom_id: "hideleaderboard",
-                    label: "Hide / Show me on Leaderboard",
-                    style: 1,
-                    emoji: {
-                        name: "👁️"
-                    }
+                    label: "Anonymity",
+                    style: 1
                 }
             ]
         });
-
+        
+        containerComponents.push({ type: 14, divider: true, spacing: 1 });
+        
+        if (url1) {
+            containerComponents.push({
+                type: 9,
+                components: [
+                    { type: 10, content: `**__Account Leaderboard__**` },
+                    { type: 12, items: [ { media: { url: url1 } } ] }
+                ]
+            });
+            containerComponents.push({ type: 14, divider: true, spacing: 1 });
+        }
+        
+        if (url2) {
+            containerComponents.push({
+                type: 9,
+                components: [
+                    { type: 10, content: `**__Networth Leaderboard__**` },
+                    { type: 12, items: [ { media: { url: url2 } } ] }
+                ]
+            });
+        }
+        
         return {
             flags: IS_COMPONENTS_V2,
             components: [
@@ -142,25 +141,14 @@ async function generateLeaderboardComponentsV2() {
         };
     } catch (error) {
         console.error(`Error generating leaderboard Components V2: ${error.message}`);
-        return { content: "❌ Failed to generate leaderboard" };
-    }
-}
-
-async function getMessageId() {
-    try {
-        const data = await queryParams('SELECT leaderboardid FROM controlbot WHERE id = 1');
-        const raw = data[0]?.leaderboardid || null;
-        return raw;
-    } catch (error) {
-        console.error(`Error getting message ID from DB: ${error.message}`);
-        return null;
+        return { content: "Failed to generate leaderboard" };
     }
 }
 
 async function updateLeaderboardMessage(client) {
     try {
         const rawId = await getMessageId();
-        const payload = await generateLeaderboardComponentsV2();
+        const payload = await generateLeaderboardComponentsV2(client);
         const config = require("../../config.json");
         const channelId = config.leaderboard;
 
@@ -199,22 +187,19 @@ async function updateLeaderboardMessage(client) {
         }
     } catch (error) {
         console.error(`Leaderboard update failed: ${error.message}`);
-        // Fixed: removed recursive call that caused infinite recursion on persistent errors.
-        // The setInterval in startLeaderboardUpdater will retry automatically.
     }
 }
 
 async function startLeaderboardUpdater(client) {
-        let updateInterval = null;
+    let updateInterval = null;
     await updateLeaderboardMessage(client);
-
-        updateInterval = setInterval(() => updateLeaderboardMessage(client), 60000);
+    updateInterval = setInterval(() => updateLeaderboardMessage(client), 60000);
 
     return async () => {
-                if (updateInterval) {
+        if (updateInterval) {
             clearInterval(updateInterval);
-                    }
-            };
+        }
+    };
 }
 
 module.exports = { startLeaderboardUpdater, getMessageId, generateLeaderboardComponentsV2, updatemessageid, updateLeaderboardMessage };

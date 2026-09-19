@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const axios = require('axios');
 const qs = require('querystring');
+const HttpClient = require('../process/HttpClient');
 
 /**
  * Generates a dynamic PKCE code_verifier and S256 code_challenge.
@@ -16,7 +17,7 @@ function generatePkce() {
  * @param {string} hostCookie - The __Host-MSAAUTH / __Host-MSAAUTHP token value
  * @returns {Promise<{ code: string, verifier: string }|null>}
  */
-async function getOAuthCode(hostCookie) {
+async function getOAuthCode(hostCookie, axiosInstance = axios) {
     try {
         if (!hostCookie) return null;
         let cleanToken = hostCookie;
@@ -29,7 +30,7 @@ async function getOAuthCode(hostCookie) {
         const nonce = crypto.randomUUID();
         const uaid = crypto.randomBytes(16).toString('hex');
 
-        const response = await axios.get('https://login.live.com/oauth20_authorize.srf', {
+        const response = await axiosInstance.get('https://login.live.com/oauth20_authorize.srf', {
             params: {
                 client_id: '1f907974-e22b-4810-a9de-d9647380c97e',
                 scope: 'openid profile offline_access',
@@ -90,7 +91,7 @@ async function getOAuthCode(hostCookie) {
  * @param {string} [customVerifier] - Optional PKCE code_verifier if passed separately
  * @returns {Promise<string|null>}
  */
-async function getRefreshToken(codeOrObj, customVerifier) {
+async function getRefreshToken(codeOrObj, customVerifier, axiosInstance = axios) {
     if (!codeOrObj) return null;
     const code = typeof codeOrObj === 'object' ? codeOrObj.code : codeOrObj;
     const verifier = typeof codeOrObj === 'object' ? codeOrObj.verifier : customVerifier;
@@ -116,7 +117,7 @@ async function getRefreshToken(codeOrObj, customVerifier) {
     };
 
     try {
-        const response = await axios.post(url, qs.stringify(data), {
+        const response = await axiosInstance.post(url, qs.stringify(data), {
             headers,
             maxHeaderSize: 131072,
             timeout: 10000
@@ -132,7 +133,7 @@ async function getRefreshToken(codeOrObj, customVerifier) {
  * @param {string} refreshToken
  * @returns {Promise<string|null>}
  */
-async function getRpsTicket(refreshToken) {
+async function getRpsTicket(refreshToken, axiosInstance = axios) {
     if (!refreshToken) return null;
 
     const url = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token';
@@ -157,7 +158,7 @@ async function getRpsTicket(refreshToken) {
     };
 
     try {
-        const response = await axios.post(url, qs.stringify(data), {
+        const response = await axiosInstance.post(url, qs.stringify(data), {
             headers,
             maxHeaderSize: 131072,
             timeout: 10000
@@ -176,11 +177,11 @@ async function getRpsTicket(refreshToken) {
  * @param {string} rpsTicket
  * @returns {Promise<string|null>} userToken
  */
-async function getUserToken(rpsTicket) {
+async function getUserToken(rpsTicket, axiosInstance = axios) {
     if (!rpsTicket) return null;
 
     try {
-        const response = await axios.post('https://user.auth.xboxlive.com/user/authenticate', {
+        const response = await axiosInstance.post('https://user.auth.xboxlive.com/user/authenticate', {
             Properties: {
                 AuthMethod: 'RPS',
                 RpsTicket: rpsTicket,
@@ -214,11 +215,11 @@ async function getUserToken(rpsTicket) {
  * @param {string} [relyingParty='http://mp.microsoft.com/']
  * @returns {Promise<string|null>} Formatted 'XBL3.0 x=<uhs>;<token>' string
  */
-async function getXBL3(userToken, relyingParty = 'http://mp.microsoft.com/') {
+async function getXBL3(userToken, relyingParty = 'rp://api.minecraftservices.com/', axiosInstance = axios) {
     if (!userToken) return null;
 
     try {
-        const response = await axios.post('https://xsts.auth.xboxlive.com/xsts/authorize', {
+        const response = await axiosInstance.post('https://xsts.auth.xboxlive.com/xsts/authorize', {
             Properties: { "SandboxId": "RETAIL", "UserTokens": [userToken] },
             RelyingParty: relyingParty,
             TokenType: 'JWT'
@@ -320,6 +321,9 @@ async function disableMulti(xbl3, disable = true) {
  * @returns {Promise<{ xbl: string, refresh: string }|null>}
  */
 async function getmxbl(hostCookie, refreshTokenOrUserToken) {
+    const http = new HttpClient();
+    const axiosInstance = http.axios || http;
+
     let refreshToken = null;
     let userToken = null;
 
@@ -328,7 +332,7 @@ async function getmxbl(hostCookie, refreshTokenOrUserToken) {
 
         if (isJwt) {
             userToken = refreshTokenOrUserToken;
-            const xbl3 = await getXBL3(userToken, 'http://mp.microsoft.com/');
+            const xbl3 = await getXBL3(userToken, 'rp://api.minecraftservices.com/', axiosInstance);
             if (xbl3) {
                 return {
                     xbl: xbl3,
@@ -338,27 +342,27 @@ async function getmxbl(hostCookie, refreshTokenOrUserToken) {
             return null;
         } else {
             refreshToken = refreshTokenOrUserToken;
-            const rpsTicket = await getRpsTicket(refreshToken);
+            const rpsTicket = await getRpsTicket(refreshToken, axiosInstance);
             if (!rpsTicket) return null;
 
-            userToken = await getUserToken(rpsTicket);
+            userToken = await getUserToken(rpsTicket, axiosInstance);
             if (!userToken) return null;
         }
     } else {
-        const oauthResult = await getOAuthCode(hostCookie);
+        const oauthResult = await getOAuthCode(hostCookie, axiosInstance);
         if (!oauthResult) return null;
 
-        refreshToken = await getRefreshToken(oauthResult);
+        refreshToken = await getRefreshToken(oauthResult, undefined, axiosInstance);
         if (!refreshToken) return null;
 
-        const rpsTicket = await getRpsTicket(refreshToken);
+        const rpsTicket = await getRpsTicket(refreshToken, axiosInstance);
         if (!rpsTicket) return null;
 
-        userToken = await getUserToken(rpsTicket);
+        userToken = await getUserToken(rpsTicket, axiosInstance);
         if (!userToken) return null;
     }
 
-    const xbl3 = await getXBL3(userToken, 'http://mp.microsoft.com/');
+    const xbl3 = await getXBL3(userToken, 'rp://api.minecraftservices.com/', axiosInstance);
     if (!xbl3) return null;
 
     return {

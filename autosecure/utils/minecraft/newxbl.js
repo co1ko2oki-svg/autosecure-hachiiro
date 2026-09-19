@@ -118,16 +118,27 @@ async function getsftloop(axios, retry = 0) {
 
   try {
     const defaultRes = await axios.get("https://login.live.com/login.srf");
-    const ppftRegex1 = /PPFT.*?value="(.*?)"/;
-    let match = defaultRes.data.match(ppftRegex1);
+    const html = defaultRes.data;
 
+    let match = html.match(/var ServerData = ({.*?});/);
+    if (match && match[1]) {
+      try {
+        const sd = JSON.parse(match[1]);
+        const sFTTagMatch = sd.sFTTag.match(/value="([^"]*)"/);
+        if (sFTTagMatch && sFTTagMatch[1]) {
+          return sFTTagMatch[1];
+        }
+      } catch (e) {
+        // Fallthrough
+      }
+    }
+
+    match = html.match(/name="PPFT"[^>]*value="([^"]*)"/);
     if (match && match[1]) {
       return match[1];
     }
 
-    const ppftRegex2 = /value="([^"]*)"/;
-    match = defaultRes.data.match(ppftRegex2);
-
+    match = html.match(/value="([^"]*)"[^>]*name="PPFT"/);
     if (match && match[1]) {
       return match[1];
     }

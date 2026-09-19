@@ -65,39 +65,19 @@ eventHandler(client, tokens[0]);
 
 async function setBotPresenceAndStatus() {
     try {
-        const rows = await queryParams(
-            "SELECT activity_type, activity_name, status FROM controlbot WHERE id = ?",
-            [1]
-        );
+        // Lấy số lượng account đã secure từ database
+        const users = await queryParams("SELECT id FROM users");
+        const accCount = users ? users.length : 0;
 
-        if (!rows || rows.length === 0 || !rows[0].activity_type || !rows[0].activity_name) {
-            await client.user.setPresence({
-                activities: [{ name: "Purchase a subscription ;)", type: 0 }],
-                status: 'online'
-            });
-            return;
-        }
-
-        const row = rows[0];
-        const normalizedActivityType = row.activity_type.toUpperCase();
-        const activityType = activityTypes[normalizedActivityType] || 0;
-
-        const statusMapping = {
-            'online': 'online',
-            'idle': 'idle',
-            'dnd': 'dnd',
-            'invisible': 'invisible'
-        };
-        const status = statusMapping[row.status?.toLowerCase()] || 'online';
-
+        // Đặt trạng thái thành "Watching [số lượng] accounts"
+        // type: 3 nghĩa là WATCHING (Đang xem)
         await client.user.setPresence({
             activities: [{
-                name: "Purchase a subscription ;)",
-                type: activityType
+                name: `${accCount.toLocaleString()} accounts`,
+                type: 3 
             }],
-            status: status
+            status: 'online'
         });
-
     } catch (error) {
         console.error(`Failed to set presence and status: ${error.message}`);
     }
@@ -117,7 +97,12 @@ setMainBotClient(client); // Set the main bot client globally
 autosecurelogs(client, 'startbots', clientId, null, null, null, null);
 initializequarantine();
 emailHandler.initialize(client)
-setBotPresenceAndStatus(); // Fixed BUG #6: was defined but never called
+
+// Cập nhật trạng thái ngay khi khởi động
+setBotPresenceAndStatus(); 
+// Tự động cập nhật lại số lượng acc mỗi 5 phút (300000ms)
+setInterval(setBotPresenceAndStatus, 300000); 
+
 initializeNotificationSystem(client); // Fixed BUG #7: was imported but never invoked
 
 await Promise.all([
