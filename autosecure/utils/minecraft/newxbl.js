@@ -117,8 +117,10 @@ async function getsftloop(axios, retry = 0) {
   }
 
   try {
-    const defaultRes = await axios.get("https://login.live.com/login.srf");
-    const html = defaultRes.data;
+      // Use require('axios') directly to avoid sending cookies that cause a redirect
+      const cleanAxios = require('axios');
+      const defaultRes = await cleanAxios.get("https://login.live.com/login.srf");
+      const html = defaultRes.data;
 
     let match = html.match(/var ServerData = ({.*?});/);
     if (match && match[1]) {

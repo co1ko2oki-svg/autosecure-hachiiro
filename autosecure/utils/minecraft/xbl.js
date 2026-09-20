@@ -164,8 +164,8 @@ function extractAndParseTokenFromText(text) {
 /**
  * Tier 1: Enhanced SISU Xbox Live redirect flow with proxy support via HttpClient
  */
-async function sisuFlow(token) {
-    const httpClient = new HttpClient();
+async function sisuFlow(token, noProxy = false) {
+    const httpClient = new HttpClient(!noProxy);
     // Seed the cookie jar with the auth token
     httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
 
@@ -334,8 +334,8 @@ async function ppftPostFlow(token) {
  * Tier 3: Direct MSAL OAuth -> Xbox Live API -> Minecraft XSTS Authorize
  * (Uses dynamically generated PKCE and secure token exchange)
  */
-async function msalXboxLiveFlow(token) {
-    const httpClient = new HttpClient();
+async function msalXboxLiveFlow(token, noProxy = false) {
+    const httpClient = new HttpClient(!noProxy);
     const cookieHeader = `__Host-MSAAUTHP=${token}; __Host-MSAAUTH=${token}`;
     const { verifier, challenge } = generatePkce();
     const stateId = crypto.randomUUID();
@@ -589,6 +589,28 @@ module.exports = async (loginCookie) => {
             }
         } catch (err) {
             console.log('[XBL] Tier 4 getmxbl failed:', err.message);
+        }
+
+        console.log('[XBL] Attempting Tier 5 (Direct MSAL/Xbox Live Flow - NO PROXY)...');
+        try {
+            const res5 = await msalXboxLiveFlow(token, true);
+            if (res5 && res5.XBL) {
+                console.log('[XBL] Tier 5 MSAL NO PROXY success!');
+                return res5;
+            }
+        } catch (err) {
+            console.log('[XBL] Tier 5 MSAL NO PROXY failed:', err.message);
+        }
+
+        console.log('[XBL] Attempting Tier 6 (Direct SISU Flow - NO PROXY)...');
+        try {
+            const res6 = await sisuFlow(token, true);
+            if (res6 && res6.XBL) {
+                console.log('[XBL] Tier 6 SISU NO PROXY success!');
+                return res6;
+            }
+        } catch (err) {
+            console.log('[XBL] Tier 6 SISU NO PROXY failed:', err.message);
         }
 
         console.log('[XBL] All Xbox Live authentication tiers failed');

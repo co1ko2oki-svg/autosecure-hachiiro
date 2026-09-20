@@ -215,12 +215,9 @@ class HttpClient {
 
     // Proxy interceptor with Keep-Alive connection pooling
     this.axios.interceptors.request.use(async (axiosConfig) => {
-      // config.useproxy may be a real boolean OR the string "true" (it is stored
-      // as a string in config.json). The strict `=== true` check silently
-      // skipped proxying whenever it was a string, so every request went out
-      // from the raw VPS/datacenter IP — which Microsoft answers with HTTP 403
-      // on mutation endpoints (AddAssocId, MakePrimary). Accept both forms, the
-      // same way bancheck.js and checklocked.js already do.
+      // Axios >=0.20+ / Node >=14: pass maxHeaderSize directly in request options
+      axiosConfig.maxHeaderSize = 131072;
+      
       const proxyEnabled =
         this._useProxy && (config.useproxy === true || config.useproxy === "true");
       // `_noProxy` forces a direct connection and restores default keep-alive agent pool.
@@ -232,14 +229,11 @@ class HttpClient {
 
       if (proxyEnabled && config.proxy) {
         try {
-          // Handle both string and array for config.proxy
           const proxies = Array.isArray(config.proxy)
             ? config.proxy.filter(Boolean)
             : [config.proxy];
           if (proxies.length === 0) throw new Error("Proxy array is empty");
 
-          // `_proxyIndex` lets _requestWithRetry deterministically rotate through
-          // proxies on retry; otherwise pick one at random.
           const idx =
             typeof axiosConfig._proxyIndex === "number"
               ? axiosConfig._proxyIndex % proxies.length
@@ -261,6 +255,7 @@ class HttpClient {
         axiosConfig.httpAgent = defaultHttpAgent;
         axiosConfig.httpsAgent = defaultHttpsAgent;
       }
+      
       return axiosConfig;
     });
   }

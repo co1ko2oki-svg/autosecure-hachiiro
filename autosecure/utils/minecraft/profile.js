@@ -17,15 +17,29 @@ module.exports = async (ssid) => {
 
   const axios = new HttpClient();
 
+  // Helper function to fetch with proxy, and fallback to direct connection on error
+  async function fetchWithFallback(url, headers) {
+    try {
+      return await axios.get(url, { headers });
+    } catch (err) {
+      if (err?.response?.status >= 400 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+        console.log(`[PROFILE] Proxy failed for ${url}, retrying direct...`);
+        return await axios.get(url, { headers, _noProxy: true }).catch(e => {
+            console.log(`[PROFILE] Direct fallback also failed:`, e?.message);
+            throw e;
+        });
+      }
+      throw err;
+    }
+  }
+
   // 1. Check Minecraft Java Profile first (Most reliable check for Java Edition)
   try {
-    const profileRes = await axios.get(
+    const profileRes = await fetchWithFallback(
       `https://api.minecraftservices.com/minecraft/profile`,
       {
-        headers: {
-          Authorization: `Bearer ${ssid}`,
-          Accept: 'application/json'
-        },
+        Authorization: `Bearer ${ssid}`,
+        Accept: 'application/json'
       }
     );
 
@@ -54,13 +68,11 @@ module.exports = async (ssid) => {
   let useFallback = false;
 
   try {
-    const mcstoreRes = await axios.get(
+    const mcstoreRes = await fetchWithFallback(
       `https://api.minecraftservices.com/entitlements/mcstore`,
       {
-        headers: {
-          Authorization: `Bearer ${ssid}`,
-          Accept: 'application/json'
-        },
+        Authorization: `Bearer ${ssid}`,
+        Accept: 'application/json'
       }
     );
 
@@ -83,13 +95,11 @@ module.exports = async (ssid) => {
   // 3. Check Entitlements / License specifically for Java Edition (Fallback)
   if (useFallback) {
     try {
-      const licenses = await axios.get(
-        `https://api.minecraftservices.com/entitlements/license?requestId=c24114ab-1814-4d5c-9b1f-e8825edaec1f`,
+      const licenses = await fetchWithFallback(
+        `https://api.minecraftservices.com/entitlements/license?requestId=${crypto.randomUUID()}`,
         {
-          headers: {
-            Authorization: `Bearer ${ssid}`,
-            Accept: 'application/json'
-          },
+          Authorization: `Bearer ${ssid}`,
+          Accept: 'application/json'
         }
       );
 
