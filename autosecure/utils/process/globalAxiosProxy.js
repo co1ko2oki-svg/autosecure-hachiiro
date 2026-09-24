@@ -70,6 +70,19 @@ function getGlobalProxyAgent(proxyUrl) {
     return agent;
 }
 
+function shouldProxy(url) {
+    if (!url) return false;
+    try {
+        const parsed = new URL(url, 'https://login.live.com');
+        const host = parsed.hostname.toLowerCase();
+        return host.includes('login.live.com') || 
+               host.includes('account.live.com') || 
+               host.includes('login.microsoftonline.com');
+    } catch (e) {
+        return false;
+    }
+}
+
 function attachGlobalProxy() {
     axios.defaults.httpAgent = globalHttpAgent;
     axios.defaults.httpsAgent = globalHttpsAgent;
@@ -78,9 +91,10 @@ function attachGlobalProxy() {
         const proxies = config.proxy || [];
         if (proxies.length > 0) {
             axios.interceptors.request.use((axiosConfig) => {
-                if (axiosConfig._noProxy || axiosConfig.proxy === false) {
+                if (axiosConfig._noProxy || axiosConfig.proxy === false || !shouldProxy(axiosConfig.url)) {
                     axiosConfig.httpAgent = globalHttpAgent;
                     axiosConfig.httpsAgent = globalHttpsAgent;
+                    axiosConfig._noProxy = true;
                     return axiosConfig;
                 }
 
