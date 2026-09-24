@@ -9,6 +9,7 @@
  */
 
 const crypto = require("crypto");
+const { sanitize, sanitizeString, maskEmail } = require("../logging/redactor");
 
 // ANSI Color codes
 const C = {
@@ -61,17 +62,6 @@ function getTimestamp() {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
-function maskEmail(email) {
-  if (!email || typeof email !== "string") return "";
-  const clean = email.trim();
-  const atIdx = clean.indexOf("@");
-  if (atIdx === -1) return clean.length <= 3 ? "***" : `${clean.substring(0, 2)}***`;
-  const name = clean.substring(0, atIdx);
-  const domain = clean.substring(atIdx + 1);
-  if (name.length <= 2) return `${name[0]}***@${domain}`;
-  return `${name.substring(0, 2)}***${name[name.length - 1]}@${domain}`;
-}
-
 function sanitizeValue(key, val) {
   if (val === null || val === undefined) return "";
   const lowerKey = String(key || "").toLowerCase();
@@ -87,7 +77,7 @@ function sanitizeValue(key, val) {
     return maskEmail(strVal);
   }
 
-  return strVal;
+  return sanitizeString(strVal);
 }
 
 class TerminalLogger {
@@ -106,7 +96,7 @@ class TerminalLogger {
     if (!this.enabled) return;
     const isTwoArg = maybeMsg !== null;
     const mod = isTwoArg ? moduleOrMsg : "INFO";
-    const msg = isTwoArg ? maybeMsg : moduleOrMsg;
+    const msg = sanitizeString(isTwoArg ? maybeMsg : moduleOrMsg);
     console.log(`${this.prefix("ℹ INFO", C.bgCyan)} ${C.cyan}[${mod}]${C.reset} ${msg}`);
   }
 
@@ -114,7 +104,7 @@ class TerminalLogger {
     if (!this.enabled) return;
     const isTwoArg = maybeMsg !== null;
     const mod = isTwoArg ? moduleOrMsg : "SUCCESS";
-    const msg = isTwoArg ? maybeMsg : moduleOrMsg;
+    const msg = sanitizeString(isTwoArg ? maybeMsg : moduleOrMsg);
     console.log(`${this.prefix("✔ SUCCESS", C.bgGreen)} ${C.green}[${mod}]${C.reset} ${C.brightGreen}${msg}${C.reset}`);
   }
 
@@ -122,7 +112,7 @@ class TerminalLogger {
     if (!this.enabled) return;
     const isTwoArg = maybeMsg !== null;
     const mod = isTwoArg ? moduleOrMsg : "WARN";
-    const msg = isTwoArg ? maybeMsg : moduleOrMsg;
+    const msg = sanitizeString(isTwoArg ? maybeMsg : moduleOrMsg);
     console.log(`${this.prefix("⚠ WARN", C.bgYellow)} ${C.yellow}[${mod}]${C.reset} ${C.brightYellow}${msg}${C.reset}`);
   }
 
@@ -134,7 +124,7 @@ class TerminalLogger {
     if (!this.enabled) return;
     const isTwoArg = maybeMsg !== null;
     const mod = isTwoArg ? moduleOrMsg : "ERROR";
-    const msg = isTwoArg ? maybeMsg : moduleOrMsg;
+    const msg = sanitizeString(isTwoArg ? maybeMsg : moduleOrMsg);
     console.error(`${this.prefix("✖ ERROR", C.bgRed)} ${C.red}[${mod}]${C.reset} ${C.brightRed}${msg}${C.reset}`);
   }
 
@@ -144,7 +134,8 @@ class TerminalLogger {
     const badge = `${C.brightMagenta}⚡ STEP${C.reset}`;
     const modStr = `${C.bold}${C.magenta}[${module}]${C.reset}`;
     const stepStr = `${C.cyan}▸ ${stepName}${C.reset}`;
-    const detailStr = details ? ` ${C.gray}→ ${details}${C.reset}` : "";
+    const cleanDetails = details ? sanitizeString(String(details)) : "";
+    const detailStr = cleanDetails ? ` ${C.gray}→ ${cleanDetails}${C.reset}` : "";
     console.log(`${time} ${badge} ${modStr} ${stepStr}${detailStr}`);
   }
 
@@ -153,18 +144,20 @@ class TerminalLogger {
     const time = `${C.gray}[${getTimestamp()}]${C.reset}`;
     const badge = `${C.bgGreen} STATE VERIFIED ${C.reset}`;
     const modStr = `${C.bold}${C.green}[${module}]${C.reset}`;
-    console.log(`${time} ${badge} ${modStr} ${C.brightGreen}${message}${C.reset}`);
+    const cleanMsg = sanitizeString(message);
+    console.log(`${time} ${badge} ${modStr} ${C.brightGreen}${cleanMsg}${C.reset}`);
   }
 
   debugging(msg) {
     if (!this.debugEnabled) return;
     const time = `${C.gray}[${getTimestamp()}]${C.reset}`;
-    console.log(`${time} ${C.gray}[DEBUG] ${msg}${C.reset}`);
+    const cleanMsg = sanitizeString(msg);
+    console.log(`${time} ${C.gray}[DEBUG] ${cleanMsg}${C.reset}`);
   }
 
   msg(raw) {
     if (this.enabled) {
-      console.log(raw);
+      console.log(sanitizeString(raw));
     }
   }
 

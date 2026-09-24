@@ -1,11 +1,36 @@
 const generateotp = require("../../utils/secure/codefromsecret");
 const { EmbedBuilder } = require("discord.js");
 
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "tfa",
     userOnly: true,
     callback: async (client, interaction) => {
-        const [_, secretKey] = interaction.customId.split("|");
+        const parts = interaction.customId.split("|");
+        let secretKey;
+
+        if (parts.length === 3) {
+            const [, userId, uid] = parts;
+            const isUserOwner = await isOwner(interaction.user.id);
+            if (userId && interaction.user.id !== userId && !isUserOwner) {
+                return interaction.reply({
+                    content: "You do not have permission to refresh 2FA codes for this account.",
+                    ephemeral: true
+                });
+            }
+
+            const accountRows = await client.queryParams("SELECT secretkey FROM accounts WHERE uid = ?", [uid]);
+            if (!accountRows || accountRows.length === 0) {
+                return interaction.reply({
+                    content: "Account not found.",
+                    ephemeral: true
+                });
+            }
+            secretKey = accountRows[0].secretkey;
+        } else {
+            secretKey = parts[1];
+        }
         
         if (!secretKey) {
             return interaction.reply({

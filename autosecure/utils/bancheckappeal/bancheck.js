@@ -132,38 +132,68 @@ function parseBanTime(timeStr) {
 }
 
 function getBanId(text) {
+    if (!text) return null;
     const fullText = text.toLowerCase();
-    let banIdMatch = fullText.match(/ban id: (#[a-z0-9]+)/i);
-    if (!banIdMatch) banIdMatch = fullText.match(/block id: (#[a-z0-9]+)/i);
-    if (!banIdMatch) banIdMatch = fullText.match(/punishment id: (#[a-z0-9]+)/i);
+    let banIdMatch = fullText.match(/ban id:\s*(#[a-z0-9]+)/i);
+    if (!banIdMatch) banIdMatch = fullText.match(/block id:\s*(#[a-z0-9]+)/i);
+    if (!banIdMatch) banIdMatch = fullText.match(/punishment id:\s*(#[a-z0-9]+)/i);
+    if (!banIdMatch) banIdMatch = fullText.match(/(?:ban|block|punishment)\s*id:\s*([a-z0-9]+)/i);
     if (!banIdMatch) banIdMatch = fullText.match(/#([a-z0-9]{4,16})\b/i);
-    return banIdMatch ? (banIdMatch[1].startsWith('#') ? banIdMatch[1] : `#${banIdMatch[1]}`) : null;
+    return banIdMatch ? (banIdMatch[1].startsWith('#') ? banIdMatch[1].toUpperCase() : `#${banIdMatch[1].toUpperCase()}`) : null;
 }
 
 function extractKickText(reason) {
     if (!reason) return '';
+
+    if (Array.isArray(reason)) {
+        return reason.map(extractKickText).filter(Boolean).join(' ').trim();
+    }
+
     if (typeof reason === 'string') {
         try {
             const parsed = JSON.parse(reason);
-            return extractKickText(parsed);
+            if (typeof parsed !== 'string') {
+                return extractKickText(parsed);
+            }
+            return parsed.replace(/§[0-9a-fk-or]/gi, '').trim();
         } catch {
             return reason.replace(/§[0-9a-fk-or]/gi, '').trim();
         }
     }
+
+    if (typeof reason !== 'object') {
+        return String(reason).replace(/§[0-9a-fk-or]/gi, '').trim();
+    }
+
     let text = '';
-    if (reason.text) text += reason.text;
+
+    if (typeof reason.text === 'string') {
+        text += reason.text;
+    } else if (reason.text && typeof reason.text === 'object') {
+        text += extractKickText(reason.text);
+    }
+
+    if (reason.value) {
+        text += ' ' + extractKickText(reason.value);
+    }
+
     if (Array.isArray(reason.extra)) {
         for (const item of reason.extra) {
-            text += extractKickText(item);
+            text += ' ' + extractKickText(item);
         }
     }
+
     if (Array.isArray(reason.with)) {
         for (const item of reason.with) {
-            text += extractKickText(item);
+            text += ' ' + extractKickText(item);
         }
     }
-    if (reason.translate) text += ' ' + reason.translate;
-    return text.replace(/§[0-9a-fk-or]/gi, '').trim();
+
+    if (reason.translate) {
+        text += ' ' + reason.translate;
+    }
+
+    return text.replace(/§[0-9a-fk-or]/gi, '').replace(/\s+/g, ' ').trim();
 }
 
 function parseHypixelBanReason(reason, profile) {
@@ -197,66 +227,61 @@ function parseHypixelBanReason(reason, profile) {
             };
         }
 
-        if (fullText.includes('you logged in from another location') || fullText.includes('disconnected') || fullText.includes('already connected')) {
-            return {
-                server: 'hypixel',
-                serverName: 'Hypixel',
-                banId: null,
-                banReason: 'online',
-                unbanTime: null,
-                ban: `Couldn't check ban:`,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
-        if (fullText.includes('closed') && !fullText.includes('ban') && !fullText.includes('suspicious')) {
-            return {
-                server: 'hypixel',
-                serverName: 'Hypixel',
-                banId: null,
-                banReason: null,
-                unbanTime: null,
-                ban: false,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
         const banId = getBanId(fullText);
-        let banReason = 'unknown';
-        let unbanTime = null;
-
-        const timeMatch = fullText.match(/(\d+[dhms]\s*)+/);
-        if (timeMatch) {
-            unbanTime = parseBanTime(timeMatch[0]);
-        }
-
-        if (fullText.includes('blocked') || fullText.includes('permanent') || fullText.includes('permanently')) {
-            unbanTime = 'never';
-        }
-
-        if (fullText.includes('suspicious activity has been detected on your account') || fullText.includes('security alert')) {
-            banReason = 'security';
-        } else if (fullText.includes('cheating through the use of unfair game advantages') || fullText.includes('unfair game advantages')) {
-            banReason = 'cheating';
-        } else if (fullText.includes('boosting detected')) {
-            banReason = 'sbboosting';
-        } else if (fullText.includes('boosting to')) {
-            banReason = 'boosting';
-        } else if (fullText.includes('extreme chat infraction') || fullText.includes('chat infraction')) {
-            banReason = 'chat';
-        } else if (fullText.includes('teaming') || fullText.includes('cross teaming')) {
-            banReason = 'teaming';
-        } else if (fullText.includes("your account's security appeal was processed and the account has entered a recovery phase")) {
-            banReason = 'already appealed';
-        } else if (fullText.includes('ban') || fullText.includes('suspended') || fullText.includes('blocked')) {
-            banReason = 'banned';
-        }
-
-        const isBanned = fullText.includes('ban') || fullText.includes('blocked') || fullText.includes('suspicious activity') || fullText.includes('punishment') || !!banId;
+        const isBanned = fullText.includes('banned from this server') ||
+                         fullText.includes('permanently banned') ||
+                         fullText.includes('temporarily banned') ||
+                         fullText.includes('you are banned') ||
+                         fullText.includes('suspicious activity has been detected') ||
+                         fullText.includes('security alert') ||
+                         fullText.includes('unfair game advantages') ||
+                         fullText.includes('watchdog cheat detection') ||
+                         fullText.includes('hypixel.net/appeal') ||
+                         fullText.includes('sharing your ban id') ||
+                         fullText.includes("your account's security appeal was processed") ||
+                         (fullText.includes('ban') && !fullText.includes('banner')) ||
+                         (fullText.includes('punishment') && !fullText.includes('nopunishment')) ||
+                         fullText.includes('blocked') ||
+                         !!banId;
 
         if (isBanned) {
+            let banReason = 'unknown';
+            let unbanTime = null;
+
+            const timeMatch = fullText.match(/(\d+[dhms]\s*)+/);
+            if (timeMatch) {
+                unbanTime = parseBanTime(timeMatch[0]);
+            }
+
+            if (fullText.includes('blocked') || fullText.includes('permanent') || fullText.includes('permanently') || fullText.includes('never')) {
+                unbanTime = 'never';
+            }
+
+            if (fullText.includes('suspicious activity') || fullText.includes('security alert')) {
+                banReason = 'security';
+            } else if (fullText.includes('unfair game advantages') || fullText.includes('cheating')) {
+                banReason = 'cheating';
+            } else if (fullText.includes('boosting detected')) {
+                banReason = 'sbboosting';
+            } else if (fullText.includes('boosting to') || fullText.includes('boosting')) {
+                banReason = 'boosting';
+            } else if (fullText.includes('extreme chat infraction') || fullText.includes('chat infraction')) {
+                banReason = 'chat';
+            } else if (fullText.includes('teaming') || fullText.includes('cross teaming')) {
+                banReason = 'teaming';
+            } else if (fullText.includes("recovery phase") || fullText.includes("security appeal was processed")) {
+                banReason = 'already appealed';
+            } else if (fullText.includes('botting') || fullText.includes('automated')) {
+                banReason = 'botting';
+            } else {
+                const reasonMatch = rawText.match(/reason:\s*([^\n\r.]+)/i);
+                if (reasonMatch) {
+                    banReason = reasonMatch[1].trim();
+                } else {
+                    banReason = 'banned';
+                }
+            }
+
             return {
                 server: 'hypixel',
                 serverName: 'Hypixel',
@@ -272,13 +297,40 @@ function parseHypixelBanReason(reason, profile) {
             };
         }
 
+        if (fullText.includes('you logged in from another location') || fullText.includes('already connected') || fullText.includes('already playing')) {
+            return {
+                server: 'hypixel',
+                serverName: 'Hypixel',
+                banId: null,
+                banReason: 'online',
+                unbanTime: null,
+                ban: `Couldn't check ban:`,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
+        if (fullText.includes('whitelist') || fullText.includes('maintenance')) {
+            return {
+                server: 'hypixel',
+                serverName: 'Hypixel',
+                banId: null,
+                banReason: fullText.includes('whitelist') ? 'whitelisted' : 'maintenance',
+                unbanTime: null,
+                ban: false,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
+        // Unexpected kick - do not falsely report Clean when connection dropped or kick reason is ambiguous
         return {
             server: 'hypixel',
             serverName: 'Hypixel',
             banId: null,
-            banReason: null,
+            banReason: rawText || 'Unexpected kick from server',
             unbanTime: null,
-            ban: false,
+            ban: `Couldn't check ban:`,
             username: profile?.name || null,
             uuid: profile?.id || null
         };
@@ -327,37 +379,23 @@ function parseDonutBanReason(reason, profile) {
             };
         }
 
-        if (fullText.includes('you logged in from another location') || fullText.includes('already connected') || fullText.includes('already playing') || fullText.includes('you are already on this server')) {
-            return {
-                server: 'donut',
-                serverName: 'DonutSMP',
-                banId: null,
-                banReason: 'online',
-                unbanTime: null,
-                ban: `Couldn't check ban:`,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
-        if (fullText.includes('whitelist') || fullText.includes('server is full') || fullText.includes('maintenance')) {
-            return {
-                server: 'donut',
-                serverName: 'DonutSMP',
-                banId: null,
-                banReason: fullText.includes('whitelist') ? 'whitelisted' : 'server_full',
-                unbanTime: null,
-                ban: false,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
+        const banId = getBanId(fullText) || (fullText.match(/punishment id:\s*([#a-z0-9]+)/i)?.[1] || null);
         const timeMatch = fullText.match(/(\d+[dhms]\s*)+/);
-        const isBanned = fullText.includes('ban') || fullText.includes('punishment') || fullText.includes('suspended') || fullText.includes('blacklisted') || fullText.includes('appeals') || fullText.includes('support.donutsmp.net') || !!timeMatch;
+        const isBanned = fullText.includes('banned from donutsmp') ||
+                         fullText.includes('you are banned') ||
+                         fullText.includes('permanently banned') ||
+                         fullText.includes('temporarily banned') ||
+                         fullText.includes('punishment id') ||
+                         fullText.includes('support.donutsmp.net') ||
+                         fullText.includes('blacklisted') ||
+                         fullText.includes('suspended') ||
+                         (fullText.includes('ban') && !fullText.includes('banner')) ||
+                         (fullText.includes('punishment') && !fullText.includes('nopunishment')) ||
+                         fullText.includes('appeals') ||
+                         (timeMatch && (fullText.includes('expire') || fullText.includes('duration') || fullText.includes('remaining'))) ||
+                         !!banId;
 
         if (isBanned) {
-            const banId = getBanId(fullText) || (fullText.match(/punishment id: (#[a-z0-9]+)/i)?.[1] || null);
             let unbanTime = null;
 
             if (timeMatch) {
@@ -407,13 +445,39 @@ function parseDonutBanReason(reason, profile) {
             };
         }
 
+        if (fullText.includes('you logged in from another location') || fullText.includes('already connected') || fullText.includes('already playing') || fullText.includes('you are already on this server')) {
+            return {
+                server: 'donut',
+                serverName: 'DonutSMP',
+                banId: null,
+                banReason: 'online',
+                unbanTime: null,
+                ban: `Couldn't check ban:`,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
+        if (fullText.includes('whitelist') || fullText.includes('server is full') || fullText.includes('maintenance')) {
+            return {
+                server: 'donut',
+                serverName: 'DonutSMP',
+                banId: null,
+                banReason: fullText.includes('whitelist') ? 'whitelisted' : 'server_full',
+                unbanTime: null,
+                ban: false,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
         return {
             server: 'donut',
             serverName: 'DonutSMP',
             banId: null,
-            banReason: null,
+            banReason: rawText || 'Unexpected kick from server',
             unbanTime: null,
-            ban: false,
+            ban: `Couldn't check ban:`,
             username: profile?.name || null,
             uuid: profile?.id || null
         };
@@ -462,39 +526,24 @@ function parseMcpvpBanReason(reason, profile) {
             };
         }
 
-        if (fullText.includes('you logged in from another location') || fullText.includes('already connected') || fullText.includes('already playing') || fullText.includes('you are already on this server')) {
-            return {
-                server: 'mcpvp',
-                serverName: 'MCPVP',
-                banId: null,
-                banReason: 'online',
-                unbanTime: null,
-                ban: `Couldn't check ban:`,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
-        if (fullText.includes('whitelist') || fullText.includes('server is full') || fullText.includes('maintenance')) {
-            return {
-                server: 'mcpvp',
-                serverName: 'MCPVP',
-                banId: null,
-                banReason: fullText.includes('whitelist') ? 'whitelisted' : 'server_full',
-                unbanTime: null,
-                ban: false,
-                username: profile?.name || null,
-                uuid: profile?.id || null
-            };
-        }
-
-        const isBanned = fullText.includes('ban') || fullText.includes('punishment') || fullText.includes('suspended') || fullText.includes('blacklisted') || fullText.includes('appeals') || fullText.includes('mcpvp.club/appeal');
+        const banId = getBanId(fullText) || (fullText.match(/punishment id:\s*([#a-z0-9]+)/i)?.[1] || null);
+        const timeMatch = fullText.match(/(\d+[dhms]\s*)+/);
+        const isBanned = fullText.includes('mcpvp.club/appeal') ||
+                         fullText.includes('banned from mcpvp') ||
+                         fullText.includes('you are banned') ||
+                         fullText.includes('permanently banned') ||
+                         fullText.includes('temporarily banned') ||
+                         fullText.includes('blacklisted') ||
+                         fullText.includes('suspended') ||
+                         fullText.includes('punishment id') ||
+                         (fullText.includes('ban') && !fullText.includes('banner')) ||
+                         (fullText.includes('punishment') && !fullText.includes('nopunishment')) ||
+                         fullText.includes('appeals') ||
+                         !!banId;
 
         if (isBanned) {
-            const banId = getBanId(fullText) || (fullText.match(/punishment id: (#[a-z0-9]+)/i)?.[1] || null);
             let unbanTime = null;
 
-            const timeMatch = fullText.match(/(\d+[dhms]\s*)+/);
             if (timeMatch) {
                 unbanTime = parseBanTime(timeMatch[0]);
             }
@@ -534,13 +583,39 @@ function parseMcpvpBanReason(reason, profile) {
             };
         }
 
+        if (fullText.includes('you logged in from another location') || fullText.includes('already connected') || fullText.includes('already playing') || fullText.includes('you are already on this server')) {
+            return {
+                server: 'mcpvp',
+                serverName: 'MCPVP',
+                banId: null,
+                banReason: 'online',
+                unbanTime: null,
+                ban: `Couldn't check ban:`,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
+        if (fullText.includes('whitelist') || fullText.includes('server is full') || fullText.includes('maintenance')) {
+            return {
+                server: 'mcpvp',
+                serverName: 'MCPVP',
+                banId: null,
+                banReason: fullText.includes('whitelist') ? 'whitelisted' : 'server_full',
+                unbanTime: null,
+                ban: false,
+                username: profile?.name || null,
+                uuid: profile?.id || null
+            };
+        }
+
         return {
             server: 'mcpvp',
             serverName: 'MCPVP',
             banId: null,
-            banReason: null,
+            banReason: rawText || 'Unexpected kick from server',
             unbanTime: null,
-            ban: false,
+            ban: `Couldn't check ban:`,
             username: profile?.name || null,
             uuid: profile?.id || null
         };
@@ -1000,8 +1075,8 @@ class HypixelBanChecker extends BanChecker {
           });
           if (mirror.status === 200 && mirror.data?.username) {
             const result = new BanCheckResult({
-              status: BAN_STATUSES.NOT_BANNED,
-              reason: "Player active on public Hypixel database",
+              status: BAN_STATUSES.UNKNOWN,
+              reason: "Player exists on Hypixel (ban status requires server connection)",
               source: "hypixel_mirrored_api",
               rawStatus: { username: mirror.data.username, rank: mirror.data.rank }
             });
@@ -1098,7 +1173,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 source: checkResult.source,
                 checkedAt: checkResult.checkedAt,
                 rawStatus: checkResult.rawStatus,
-                ban: checkResult.status === BAN_STATUSES.BANNED ? true : (checkResult.status === BAN_STATUSES.NOT_BANNED ? false : null),
+                ban: checkResult.status === BAN_STATUSES.BANNED ? true : (checkResult.status === BAN_STATUSES.NOT_BANNED ? false : `Couldn't check ban:`),
                 banReason: checkResult.reason,
                 banId: checkResult.banId,
                 unbanTime: checkResult.unbanTime,
@@ -1114,7 +1189,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 source: "hypixel_error_handler",
                 checkedAt: new Date().toISOString(),
                 rawStatus: { error: err.message },
-                ban: null,
+                ban: `Couldn't check ban:`,
                 banReason: err.message,
                 username: profile.name,
                 uuid: profile.id,
@@ -1134,7 +1209,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: 'User is online!',
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1161,7 +1236,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: "Invalid proxy authentication (username/password)",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1171,7 +1246,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: "Invalid proxy host (getaddrinfo error)",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1181,7 +1256,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: "Invalid proxy details",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1191,7 +1266,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: "Proxy is down!",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1201,7 +1276,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: result.error || "General proxy error",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1211,7 +1286,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: result.error || "Proxy ruleset rejected the connection (NotAllowed)",
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1221,7 +1296,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: result.error || 'Connection timed out',
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1231,7 +1306,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
                 server: serverKey,
                 serverName: srvName,
                 banReason: result.error || 'error',
-                ban: null,
+                ban: `Couldn't check ban:`,
                 username: profile.name,
                 uuid: profile.id
             };
@@ -1241,7 +1316,7 @@ async function bancheckSingle(profile, ssid, serverKey = 'hypixel') {
             status: BAN_STATUSES.ERROR,
             server: serverKey,
             serverName: srvName,
-            ban: null,
+            ban: `Couldn't check ban:`,
             banReason: error.message,
             username: profile.name,
             uuid: profile.id
@@ -1355,5 +1430,10 @@ module.exports = {
     BanChecker,
     HypixelBanChecker,
     hypixelBanChecker,
-    checkHypixelBan
+    checkHypixelBan,
+    extractKickText,
+    getBanId,
+    parseHypixelBanReason,
+    parseDonutBanReason,
+    parseMcpvpBanReason
 };

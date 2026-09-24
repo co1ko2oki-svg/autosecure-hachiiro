@@ -33,11 +33,12 @@ module.exports = {
                     return interaction.editReply({ embeds: [embed] });
                 }
 
+                const placeholders = userUIDs.map(() => '?').join(', ');
                 const userAccountsQuery = `SELECT a.*, ab.time 
                                            FROM accounts a 
                                            JOIN accountsbyuser ab ON a.uid = ab.uid 
-                                           WHERE a.uid IN (${userUIDs.map(u => `'${u.uid}'`).join(', ')})`;
-                userAccounts = await queryParams(userAccountsQuery);
+                                           WHERE a.uid IN (${placeholders})`;
+                userAccounts = await queryParams(userAccountsQuery, userUIDs.map(u => u.uid));
             }
 
             if (!userAccounts || userAccounts.length === 0) {

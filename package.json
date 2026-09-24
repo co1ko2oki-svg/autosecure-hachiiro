@@ -1,10 +1,10 @@
 {
   "scripts": {
-    "start": "node --no-deprecation server.js",
-    "dev": "node --no-deprecation server.js",
-    "bot": "node --no-deprecation autosecure.js",
-    "backend": "node --no-deprecation servers/backendServer.js",
-    "frontend": "node --no-deprecation servers/frontendServer.js",
+    "start": "node --no-deprecation --max-http-header-size=524288 server.js",
+    "dev": "node --no-deprecation --max-http-header-size=524288 server.js",
+    "bot": "node --no-deprecation --max-http-header-size=524288 autosecure.js",
+    "backend": "node --no-deprecation --max-http-header-size=524288 servers/backendServer.js",
+    "frontend": "node --no-deprecation --max-http-header-size=524288 servers/frontendServer.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop all",
     "pm2:restart": "pm2 restart all",

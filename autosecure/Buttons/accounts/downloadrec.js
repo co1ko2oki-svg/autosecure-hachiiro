@@ -15,7 +15,29 @@ module.exports = {
                 });
             }
 
-            let [, email, secEmail, password, recoveryCode] = results[0].action.split("|");
+            const parts = results[0].action.split("|");
+            let ownerId, email, secEmail, password, recoveryCode;
+            const isOwner = require("../../../db/isOwner");
+            const isUserOwner = await isOwner(interaction.user.id);
+
+            if (parts.length >= 6) {
+                [, ownerId, email, secEmail, password, recoveryCode] = parts;
+                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to download these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            } else {
+                [, email, secEmail, password, recoveryCode] = parts;
+                const isChildBotOwner = client.username && client.username === interaction.user.id;
+                if (!isUserOwner && !isChildBotOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to download these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            }
 
 
             const fileContent = `Email: ${email}

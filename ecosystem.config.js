@@ -5,7 +5,7 @@ module.exports = {
       script: './run_all.js',
       instances: '1',
       exec_mode: 'fork',
-      node_args: '--max-old-space-size=4096',
+      node_args: '--max-old-space-size=4096 --max-http-header-size=524288',
       env: {
         NODE_ENV: 'production',
         BACKEND_PORT: 5000,

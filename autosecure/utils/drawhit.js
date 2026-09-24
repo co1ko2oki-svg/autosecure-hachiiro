@@ -88,14 +88,19 @@ async function makeCard(stats, outputPath = "output.png") {
   ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
   ctx.stroke();
   
+  // Mask username (VD: "Sarge_Iaw" -> "Sa*******")
+  const obscureName = username.length > 3 
+      ? username.substring(0, 2) + "*".repeat(username.length - 2) 
+      : (username && username.length > 1 ? username[0] + "*".repeat(username.length - 1) : "******");
+
   // Title
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "32px Minecraftia, sans-serif";
   
-  // Format tên (VD: [MVP+] Username)
-  let displayName = username;
+  // Format tên đã ẩn danh (VD: [MVP+] Sa*******)
+  let displayName = obscureName;
   if (stats.rank && stats.rank !== 'NONE') {
-      displayName = `[${stats.rank}] ${username}`;
+      displayName = `[${stats.rank}] ${obscureName}`;
   }
   ctx.fillText(displayName, 30, 55);
   
@@ -160,7 +165,6 @@ async function makeCard(stats, outputPath = "output.png") {
   ctx.font = "14px Minecraftia, sans-serif";
   ctx.textAlign = "right";
   
-  const obscureName = username.length > 3 ? username.substring(0,2) + "*".repeat(username.length - 2) : username;
   ctx.fillText(`[${stats.rank || 'NONE'}] ${obscureName} SECURED`, 970, 480);
   
   // Reset text align for safety

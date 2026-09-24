@@ -20,7 +20,7 @@ async function couldntFullSecure(interaction, data, reason, uid) {
     let recsecId = generate(32);
     await queryParams(
         `INSERT INTO actions(id, action) VALUES(?, ?)`,
-        [`${recsecId}`, `copyrec|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
+        [`${recsecId}`, `copyrec|${interaction.user.id}|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
     );
 
     if (uid) {

@@ -64,7 +64,7 @@ module.exports = {
                 const recsecId = generate(32);
                 await queryParams(
                     `INSERT INTO actions(id, action) VALUES(?, ?)`,
-                    [`${recsecId}`, `recsecure|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
+                    [`${recsecId}`, `recsecure|${interaction.user.id}|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
                 );
 
                 const msg = {

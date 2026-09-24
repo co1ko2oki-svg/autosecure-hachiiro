@@ -1,3 +1,6 @@
+const { attachGlobalLoggerGuard } = require('../autosecure/utils/logging/interceptLogger');
+attachGlobalLoggerGuard();
+
 const express = require('express');
 const path = require('path');
 const http = require('http');

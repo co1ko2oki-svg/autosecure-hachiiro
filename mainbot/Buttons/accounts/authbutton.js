@@ -1,5 +1,6 @@
 const generateotp = require("../../../autosecure/utils/secure/codefromsecret");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const isOwner = require("../../../db/isOwner");
 
 module.exports = {
     name: "auth",
@@ -7,7 +8,33 @@ module.exports = {
     userOnly: true,
     callback: async (client, interaction) => {
         try {
-            const [, secretKey] = interaction.customId.split("|");
+            const parts = interaction.customId.split("|");
+            let secretKey;
+            let refreshCustomId;
+
+            if (parts.length === 3) {
+                const [, userId, uid] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (userId && interaction.user.id !== userId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You do not have permission to view 2FA codes for this account.",
+                        ephemeral: true
+                    });
+                }
+
+                const accountRows = await client.queryParams("SELECT secretkey FROM accounts WHERE uid = ?", [uid]);
+                if (!accountRows || accountRows.length === 0) {
+                    return interaction.reply({
+                        content: "Account not found.",
+                        ephemeral: true
+                    });
+                }
+                secretKey = accountRows[0].secretkey;
+                refreshCustomId = `tfa|${userId}|${uid}`;
+            } else {
+                secretKey = parts[1];
+                refreshCustomId = `tfa|${secretKey}`;
+            }
 
 
 if (
@@ -55,7 +82,7 @@ if (
 
             const refreshButton = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`tfa|${secretKey}`)
+                    .setCustomId(refreshCustomId)
                     .setLabel("Refresh Code")
                     .setStyle(ButtonStyle.Primary)
             );

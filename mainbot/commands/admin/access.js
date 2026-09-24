@@ -61,6 +61,9 @@ module.exports = {
   name: "admin",
   description: "Admin commands",
   type: 1, 
+  ownerOnly: true,
+  default_member_permissions: "8",
+  dm_permission: false,
   options: [
     {
       name: "access",
@@ -143,18 +146,15 @@ module.exports = {
   ],
 
   async autocomplete(client, interaction) {
+    const isUserOwner = await isOwner(interaction.user.id);
+    if (!isUserOwner) {
+      return interaction.respond([]);
+    }
 
     const focusedOption = interaction.options.getFocused(true);
     const subcommand = interaction.options.getSubcommand();
-    const isUserOwner = await isOwner(interaction.user.id);
 
     if (subcommand === 'access') {
-      if (!isUserOwner) {
-        return interaction.respond([{
-          name: "You cannot manage access! Use /redeem to claim your license!",
-          value: "license"
-        }]);
-      }
 
       const choices = [
         { name: "---Manage Keys---", value: "placeholder"},
@@ -183,13 +183,6 @@ module.exports = {
 
       return interaction.respond(choices);
     } else if (subcommand === 'config') {
-      if (!isUserOwner) {
-        return interaction.respond([{
-          name: "You cannot manage VinGr0ups3cur3.",
-          value: "license"
-        }]);
-      }
-
       const choices = [
         { name: "Assign buyer role to buyers", value: "fixupdate" },
         { name: "Reset tickets count", value: "resetcount"},

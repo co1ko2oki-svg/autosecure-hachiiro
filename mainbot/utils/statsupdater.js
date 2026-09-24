@@ -104,7 +104,6 @@ async function updateStatsMessage(client) {
             try {
                 const channel = await client.channels.fetch(chId);
                 const message = await channel.messages.fetch(messageId);
-                payload.attachments = [];
                 await message.edit({ ...payload, flags: 0 });
                 return;
             } catch (err) {
@@ -124,7 +123,6 @@ async function updateStatsMessage(client) {
                     const messages = await channel.messages.fetch({ limit: 5 });
                     const botMessage = messages.find(m => m.author.id === client.user.id);
                     if (botMessage) {
-                        payload.attachments = [];
                         try {
                             await botMessage.edit({ ...payload, flags: 0 });
                             await updatemessageid(botMessage.id, channelId);

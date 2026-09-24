@@ -2,6 +2,7 @@ const {
     updateStatus,
     updateExtraInformation
 } = require("../process/helpers");
+const { queryParams } = require("../../../db/database");
 const removeDevices = require("../devices/removeDevices");
 const removeConsents = require("../consents/removeConsents");
 const resetWindowsHello = require("../logout/resetWindowsHello");
@@ -44,6 +45,18 @@ module.exports = async function removesection(settings, signout, exploit, uid, a
         family = await getFamily(axios);
     } catch (e) {
         console.error(`[REMOVE_SECTION] Error fetching family for ${uid}:`, e.message);
+    }
+
+    if (!family || (!family.Members?.length && !family.members?.length)) {
+        try {
+            const dbRows = await queryParams("SELECT family FROM extrainformation WHERE uid = ?", [uid]);
+            const savedFamily = dbRows?.[0]?.family;
+            if (savedFamily && !savedFamily.includes("No members found") && !savedFamily.includes("Error") && savedFamily.trim().length > 0) {
+                family = { members: [{ name: "Family detected" }] };
+            }
+        } catch (dbErr) {
+            // ignore
+        }
     }
 
     // 0. Remove old security email proofs (while session is still fresh)
@@ -117,19 +130,15 @@ module.exports = async function removesection(settings, signout, exploit, uid, a
     }
 
     // 3. Leave Microsoft Family (sequential)
-    if (family) {
-        const members = Array.isArray(family.Members) ? family.Members : (Array.isArray(family.members) ? family.members : []);
-        if (members.length > 0) {
-            try {
-                const familysecured = await leaveFamily(axios);
-                console.log(`[REMOVE_SECTION] Family removal result for ${uid}:`, familysecured);
-                await updateExtraInformation(uid, "leftfamily", familysecured ? "True" : "False");
-            } catch (famErr) {
-                console.error(`[REMOVE_SECTION] Error in leaveFamily for ${uid}:`, famErr.message);
-                await updateExtraInformation(uid, "leftfamily", "Failed to leave family!");
-            }
-        } else {
-            await updateExtraInformation(uid, "leftfamily", "None");
+    const members = Array.isArray(family?.Members) ? family.Members : (Array.isArray(family?.members) ? family.members : []);
+    if (members.length > 0) {
+        try {
+            const familysecured = await leaveFamily(axios);
+            console.log(`[REMOVE_SECTION] Family removal result for ${uid}:`, familysecured);
+            await updateExtraInformation(uid, "leftfamily", familysecured ? "True" : "False");
+        } catch (famErr) {
+            console.error(`[REMOVE_SECTION] Error in leaveFamily for ${uid}:`, famErr.message);
+            await updateExtraInformation(uid, "leftfamily", "Failed to leave family!");
         }
     } else {
         await updateExtraInformation(uid, "leftfamily", "None");

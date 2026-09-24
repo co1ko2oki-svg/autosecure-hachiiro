@@ -38,7 +38,11 @@ async function generateAndSendImage(acc, interaction) {
         };
 
         // Generate image
-        const outputPath = path.join(__dirname, 'temp', `${acc.newName}_stats.png`);
+        const obscureName = (acc.newName || acc.username || "").length > 3
+            ? (acc.newName || acc.username).substring(0, 2) + "x".repeat((acc.newName || acc.username).length - 2)
+            : "account";
+        const filename = `hit_${obscureName}_${Date.now()}.png`;
+        const outputPath = path.join(__dirname, 'temp', filename);
 
         // Create temp directory if it doesn't exist
         const tempDir = path.dirname(outputPath);
@@ -49,7 +53,7 @@ async function generateAndSendImage(acc, interaction) {
         const buffer = await makeCard(stats, outputPath);
 
         // Create Discord attachment
-        const attachment = new AttachmentBuilder(buffer, { name: `${acc.newName}_stats.png` });
+        const attachment = new AttachmentBuilder(buffer, { name: filename });
 
         // Send the image
         await interaction.user.send({

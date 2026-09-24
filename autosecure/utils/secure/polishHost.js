@@ -46,8 +46,8 @@ module.exports = async (host, amsc) => {
         }
         
         if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
-            console.log(`[POLISHHOST] Network timeout or connection reset`);
-            throw new Error('Network timeout during authentication');
+            console.log(`[POLISHHOST] Network timeout or connection reset - falling back to original host`);
+            return host;
         }
         
         // For other errors, return the original host

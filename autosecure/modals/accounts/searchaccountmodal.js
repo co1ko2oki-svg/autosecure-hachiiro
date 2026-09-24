@@ -25,8 +25,11 @@ module.exports = {
                     });
                 }
 
-                const uids = userAccounts.map(u => `'${u.uid}'`).join(', ');
-                allAccounts = await client.queryParams(`SELECT * FROM accounts WHERE uid IN (${uids})`);
+                const placeholders = userAccounts.map(() => '?').join(', ');
+                allAccounts = await client.queryParams(
+                    `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
+                    userAccounts.map(u => u.uid)
+                );
             }
 
             if (!allAccounts || allAccounts.length === 0) {

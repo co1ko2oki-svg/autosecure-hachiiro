@@ -127,27 +127,32 @@ async function checkBlacklist(interaction) {
 }
 
 async function handleSortAccounts(client, interaction, params) {
-  const [userId] = params;
+  const [targetUserId] = params;
+  const isUserOwner = await isOwner(interaction.user.id);
+  if (targetUserId && interaction.user.id !== targetUserId && !isUserOwner) {
+    return interaction.reply({ content: "You do not have permission to sort these accounts.", ephemeral: true });
+  }
+  const effectiveUserId = interaction.user.id;
   const selectedValue = interaction.values[0];
 
   const existing = await client.queryParams(
     `SELECT 1 FROM settings WHERE user_id = ?`,
-    [userId]
+    [effectiveUserId]
   );
 
   if (existing.length > 0) {
     await client.queryParams(
       `UPDATE settings SET sortingtype = ? WHERE user_id = ?`,
-      [selectedValue, userId]
+      [selectedValue, effectiveUserId]
     );
   } else {
     await client.queryParams(
       `INSERT INTO settings (user_id, sortingtype) VALUES (?, ?)`,
-      [userId, selectedValue]
+      [effectiveUserId, selectedValue]
     );
   }
 
-  const msg = await accountsmsg(userId, 1); 
+  const msg = await accountsmsg(effectiveUserId, 1); 
   await interaction.update(msg);
 }
 

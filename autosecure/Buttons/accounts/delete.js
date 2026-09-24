@@ -2,11 +2,18 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 const { queryParams } = require("../../../db/database");
 const accountsmsg = require('../../utils/accounts/accountsmsg');
 
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "deleteconfirm",
     callback: async (client, interaction) => {
         let [t, id, current, uid] = interaction.customId.split("|"); // Extract UID from customId
-        current = parseInt(current);
+        current = parseInt(current) || 1;
+
+        const isUserOwner = await isOwner(interaction.user.id);
+        if (id && interaction.user.id !== id && !isUserOwner) {
+            return interaction.reply({ content: "You do not have permission to delete this account.", ephemeral: true });
+        }
 
 
         let embed = new EmbedBuilder()

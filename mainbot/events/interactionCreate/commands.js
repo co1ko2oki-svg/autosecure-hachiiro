@@ -37,6 +37,10 @@ module.exports = async (client, interaction) => {
                     value: "blacklisted" 
                 }]);
             }
+
+            if (cmdObj.ownerOnly && !(await isOwner(interaction.user.id))) {
+                return interaction.respond([]);
+            }
             
             if (cmdObj.autocomplete) {
                 await cmdObj.autocomplete(client, interaction);

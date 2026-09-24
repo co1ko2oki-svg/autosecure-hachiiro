@@ -71,7 +71,7 @@ async function quarantinemsg(userId, ssid) {
 
     const banCheck = await bancheck(ssid).catch(err => {
         console.error('Ban check failed:', err);
-        return { ban: false, error: err.message };
+        return { ban: "Couldn't check ban:", banReason: err.message, error: err.message };
     });
 
     if (banCheck.banReason === 'invalid_token' || banCheck.error) {

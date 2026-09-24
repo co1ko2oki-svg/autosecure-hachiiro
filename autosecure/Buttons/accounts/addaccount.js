@@ -1,11 +1,20 @@
 const { TextInputBuilder, ActionRowBuilder, TextInputStyle } = require("discord.js");
 const modalBuilder = require('../../utils/modalBuilder');
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "addaccount",
     callback: async (client, interaction) => {
         const [t, userId] = interaction.customId.split("|");
+        const isUserOwner = await isOwner(interaction.user.id);
+        if (userId && interaction.user.id !== userId && !isUserOwner) {
+            return interaction.reply({
+                content: "You do not have permission to add accounts for this user.",
+                ephemeral: true
+            });
+        }
        
-        interaction.showModal(modalBuilder(`addaccountmodal|${userId}`, `Add New Account`, [
+        interaction.showModal(modalBuilder(`addaccountmodal|${userId || interaction.user.id}`, `Add New Account`, [
             {
                 setCustomId: 'oldName',
                 setMaxLength: 256,

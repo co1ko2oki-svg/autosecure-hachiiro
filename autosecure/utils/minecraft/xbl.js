@@ -262,6 +262,7 @@ async function sisuFlow(token, noProxy = false) {
  */
 async function ppftPostFlow(token) {
     const httpClient = new HttpClient();
+    httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
     const cookieHeader = `__Host-MSAAUTH=${token}`;
     const loginRes = await httpClient.get('https://login.live.com/login.srf', {
         headers: {
@@ -336,6 +337,8 @@ async function ppftPostFlow(token) {
  */
 async function msalXboxLiveFlow(token, noProxy = false) {
     const httpClient = new HttpClient(!noProxy);
+    httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
+    httpClient.setCookie(`__Host-MSAAUTHP=${token}; Domain=.live.com; Path=/`);
     const cookieHeader = `__Host-MSAAUTHP=${token}; __Host-MSAAUTH=${token}`;
     const { verifier, challenge } = generatePkce();
     const stateId = crypto.randomUUID();
@@ -430,7 +433,12 @@ async function msalXboxLiveFlow(token, noProxy = false) {
             TokenType: 'JWT'
         },
         {
-            headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'x-xbl-contract-version': '1'
+            },
             timeout: 10000
         }
     );
@@ -447,7 +455,12 @@ async function msalXboxLiveFlow(token, noProxy = false) {
             TokenType: 'JWT'
         },
         {
-            headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                'Accept': 'application/json',
+                'x-xbl-contract-version': '1'
+            },
             timeout: 10000
         }
     );
@@ -468,7 +481,12 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                 TokenType: 'JWT'
             },
             {
-                headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'x-xbl-contract-version': '1'
+                },
                 timeout: 8000
             }
         );
@@ -488,7 +506,12 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                 TokenType: 'JWT'
             },
             {
-                headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'x-xbl-contract-version': '1'
+                },
                 timeout: 8000
             }
         );
@@ -507,7 +530,12 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                 TokenType: 'JWT'
             },
             {
-                headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'x-xbl-contract-version': '1'
+                },
                 timeout: 8000
             }
         );

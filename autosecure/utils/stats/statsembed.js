@@ -46,10 +46,11 @@ async function statsembed(client, acc, interaction) {
             embed.setThumbnail(`https://visage.surgeplay.com/bust/${encodedName}.png?y=-40&quality=lossless`);
         }
 
-        if (acc?.banchecked || acc?.donutBanchecked) {
+        if (acc?.banchecked || acc?.donutBanchecked || acc?.mcpvpBanchecked) {
             const hpxStr = acc?.ban === true ? `🔴 Banned (${acc?.banReason || 'Unknown'})` : (acc?.ban === false ? '🟢 Clean' : '⚪ -');
             const donutStr = acc?.donutBan === true ? `🔴 Banned (${acc?.donutBanReason || 'Unknown'})` : (acc?.donutBan === false ? '🟢 Clean' : '⚪ -');
-            embed.setFooter({ text: `Ban Status • Hypixel: ${hpxStr} | Donut: ${donutStr}` });
+            const mcpvpStr = acc?.mcpvpBan === true ? `🔴 Banned (${acc?.mcpvpBanReason || 'Unknown'})` : (acc?.mcpvpBan === false ? '🟢 Clean' : '⚪ -');
+            embed.setFooter({ text: `Ban Status • Hypixel: ${hpxStr} | Donut: ${donutStr} | MCPVP: ${mcpvpStr}` });
         }
     }
 

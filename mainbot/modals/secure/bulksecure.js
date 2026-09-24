@@ -103,7 +103,7 @@ module.exports = {
                                 let recsecId = generate(32);
                                 await queryParams(
                                     `INSERT INTO actions(id, action) VALUES(?, ?)`,
-                                    [`${recsecId}`, `copyrec|${result.email2}|${result.secEmail}|${result.password}|${result.recoveryCode}`]
+                                    [`${recsecId}`, `copyrec|${interaction.user.id}|${result.email2}|${result.secEmail}|${result.password}|${result.recoveryCode}`]
                                 );
 
                                 dmContent = {

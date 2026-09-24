@@ -11,3 +11,6 @@ database.sqlite
 logs/
 *.log
 command_logs.txt
+timelog.txt
+debug/*
+!debug/**/.gitkeep

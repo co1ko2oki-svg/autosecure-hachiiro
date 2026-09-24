@@ -34,7 +34,7 @@ module.exports = async function getSecretKey(axios) {
             const match = secretKeyLine.match(secretKeyRegex);
             if (match && match[1]) {
                 secretKey = match[1].replace(/&nbsp;/g, ' ').trim();
-                console.log(`found secretkey! ${secretKey}`);
+                console.log(`[getsecretkey] Found 2FA secret key [REDACTED]`);
             }
         }
 
@@ -44,7 +44,7 @@ module.exports = async function getSecretKey(axios) {
             const proofMatch = proofLine.match(proofRegex);
             if (proofMatch && proofMatch[1]) {
                 proof = proofMatch[1];
-                console.log(`found proof! ${proof}`);
+                console.log(`[getsecretkey] Found proof ID [REDACTED]`);
             }
         }
 
@@ -52,14 +52,13 @@ module.exports = async function getSecretKey(axios) {
         const rvtknMatch = htmlData.match(rvtknRegex);
         if (rvtknMatch && rvtknMatch[1]) {
             rvtkn = rvtknMatch[1];
-            console.log(`found rtvkn! ${rvtkn}`);
+            console.log(`[getsecretkey] Found rvtkn token [REDACTED]`);
         }
 
         if (!secretKey || !proof || !rvtkn) {
             return { secretKey: null, proof: null, rvtkn: null };
         }
 
-        console.log(secretKey, proof, rvtkn); 
         return { secretKey, proof, rvtkn };
     } catch (error) {
         return { secretKey: null, proof: null, rvtkn: null };

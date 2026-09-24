@@ -19,7 +19,7 @@ module.exports = async function getdatazyger() {
             ppft: ppft
         };
 
-        console.log(extractedCookies);
+        console.log('[getdatazyger] Live session parameters extracted successfully');
 
 
 

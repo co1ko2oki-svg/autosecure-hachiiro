@@ -7,8 +7,7 @@ module.exports = {
         try {
 
             let [t, recsecId] = interaction.customId.split("|");
-            const results = await client.queryParams("SELECT action FROM actions WHERE id = ?", [recsecId]);
-
+            const results = await queryParams("SELECT action FROM actions WHERE id = ?", [recsecId]);
 
             if (!results || results.length === 0) {
                 return interaction.reply({
@@ -17,8 +16,29 @@ module.exports = {
                 });
             }
 
+            const parts = results[0].action.split("|");
+            let ownerId, email, secEmail, password, recoveryCode;
+            const isOwner = require("../../../db/isOwner");
+            const isUserOwner = await isOwner(interaction.user.id);
 
-            let [b, email, secEmail, password, recoveryCode] = results[0].action.split("|");
+            if (parts.length >= 6) {
+                [, ownerId, email, secEmail, password, recoveryCode] = parts;
+                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            } else {
+                [, email, secEmail, password, recoveryCode] = parts;
+                const isChildBotOwner = client.username && client.username === interaction.user.id;
+                if (!isUserOwner && !isChildBotOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            }
 
 
             const row = new ActionRowBuilder().addComponents(

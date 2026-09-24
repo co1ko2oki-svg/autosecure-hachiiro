@@ -46,13 +46,12 @@ module.exports = {
 
             await interaction.deferReply({ ephemeral: true });
 
-            console.log(email, password, secretkey);
+            console.log('[ZYGER_SECURE] Initiating zyger secure authentication...');
 
             const { otp } = await generateotp(secretkey);
-            console.log(otp)
 
             let host = await login({ otp: otp, email: email, pw: password }, null);
-            console.log(`zygersecure: ${host}`)
+            console.log(`[ZYGER_SECURE] Authentication result: ${host ? 'success' : 'failed'}`);
 
             if (host === "tfa") {
                 return interaction.editReply({

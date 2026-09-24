@@ -18,7 +18,28 @@ module.exports = {
             }
 
 
-            let [b, email, secEmail, password, recoveryCode] = results[0].action.split("|");
+            const parts = results[0].action.split("|");
+            let ownerId, email, secEmail, password, recoveryCode;
+            const isOwner = require("../../../db/isOwner");
+            const isUserOwner = await isOwner(interaction.user.id);
+
+            if (parts.length >= 6) {
+                [, ownerId, email, secEmail, password, recoveryCode] = parts;
+                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            } else {
+                [, email, secEmail, password, recoveryCode] = parts;
+                if (!isUserOwner) {
+                    return interaction.reply({
+                        content: "You are not authorized to view these credentials.",
+                        ephemeral: true,
+                    });
+                }
+            }
 
 
             const row = new ActionRowBuilder().addComponents(

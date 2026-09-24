@@ -4,6 +4,8 @@ const { autosecureMap } = require("../../handlers/botHandler");
 module.exports = {
     name: "notify",
     ownerOnly: true,
+    default_member_permissions: "8",
+    dm_permission: false,
     description: "Notify users when server is lost",
     options: [{
         name: "message",

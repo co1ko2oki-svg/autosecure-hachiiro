@@ -1,5 +1,12 @@
-const attachGlobalProxy = require('./autosecure/utils/process/globalAxiosProxy');
-attachGlobalProxy();
+try {
+  const { attachGlobalLoggerGuard } = require('./autosecure/utils/logging/interceptLogger');
+  if (attachGlobalLoggerGuard) attachGlobalLoggerGuard();
+} catch (e) {}
+
+try {
+  const attachGlobalProxy = require('./autosecure/utils/process/globalAxiosProxy');
+  if (attachGlobalProxy) attachGlobalProxy();
+} catch (e) {}
 
 const { spawn, exec } = require("child_process");
 const { startup } = require("./db/db");

@@ -14,6 +14,6 @@ module.exports = async (amrp, id) => {
   if (id) {
    await client.queryParams(`UPDATE autosecure_hits SET password=? WHERE id=?`, [password, id])
   }
-  console.log(`Changed password to ${password}`)
+  console.log(`Password updated successfully [REDACTED]`);
  }
 }
