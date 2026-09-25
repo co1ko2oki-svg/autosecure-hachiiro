@@ -97,10 +97,6 @@ const embed2 = new EmbedBuilder()
 
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-            .setCustomId(`emaildomain|true`)
-            .setLabel(`Change Domain`)
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
             .setCustomId(`showpfp|${username}|true`)
             .setLabel(`Show PFP`)
             .setStyle(ButtonStyle.Primary)

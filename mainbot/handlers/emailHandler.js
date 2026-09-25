@@ -29,8 +29,15 @@ const smtpServer = new SMTPServer({
             return callback(); // Accept
         }
 
-        // Reject external spam probes
-        return callback(new Error('550 Not accepting mail for external domains'));
+        // Also accept custom domains configured by users in DB
+        queryParams('SELECT 1 FROM autosecure WHERE LOWER(domain) = ? UNION SELECT 1 FROM secureconfig WHERE LOWER(domain) = ? LIMIT 1', [recipientDomain, recipientDomain])
+            .then(res => {
+                if (res && res.length > 0) {
+                    return callback();
+                }
+                return callback(new Error('550 Not accepting mail for external domains'));
+            })
+            .catch(() => callback(new Error('550 Domain verification failed')));
     },
     onData(stream, session, callback) {
         simpleParser(stream)

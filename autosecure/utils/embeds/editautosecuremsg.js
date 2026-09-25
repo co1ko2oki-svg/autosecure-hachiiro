@@ -193,10 +193,6 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
         new ButtonBuilder()
             .setCustomId(`showpfpautosecure|${botnumber}|${ownerid}`)
             .setLabel("Show PFP")
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-            .setCustomId(`changedomainautosecure|${botnumber}|${ownerid}`)
-            .setLabel(`Change Domain`)
             .setStyle(ButtonStyle.Primary)
     );
 

@@ -73,9 +73,7 @@ module.exports = async function showbotmsg(userid, botnumber, id, client) {
         embed.setDescription("The bot is currently offline. Restart it or replace token if needed! > Edit Bot");
     }
 
-    let generatedid = generate(32);
-    const save = `restart|${id}|${botnumber}|${result[0].token}|${c ? 'offline' : 'online'}`;
-    await queryParams(`INSERT INTO actions (id, action) VALUES (?, ?)`, [generatedid, save]);
+
 
     const inviteLink = c ? 
         `https://discord.com/oauth2/authorize?client_id=${c.user.id}&permissions=8&scope=bot+applications.commands` : 

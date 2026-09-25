@@ -97,12 +97,7 @@ module.exports = async (email, id, current) => {
 
     if (emails.length === 0) {
         if (owndomain) {
-            embed.description = `No emails yet. You seem to be using a different (own) domain. Verify the domain setup is correct using the button if you're not getting emails.`;
-
-            let setupButton = new ButtonBuilder()
-                .setCustomId(`setupdomain|${emaildomain}`)
-                .setLabel("Setup mail forwarding")
-                .setStyle(ButtonStyle.Success);
+            embed.description = `No emails yet. You seem to be using a different (own) domain.`;
 
             let refreshButton = new ButtonBuilder()
                 .setCustomId("refresh|" + email + "|" + current)
@@ -110,7 +105,13 @@ module.exports = async (email, id, current) => {
                 .setEmoji({ name: "🔄" })
                 .setStyle(ButtonStyle.Primary);
 
-            buttons.push(new ActionRowBuilder().addComponents(refreshButton, setupButton));
+            let setupDomainButton = new ButtonBuilder()
+                .setCustomId("setupdomain")
+                .setLabel("Setup mail forwarding")
+                .setEmoji({ name: "📧" })
+                .setStyle(ButtonStyle.Secondary);
+
+            buttons.push(new ActionRowBuilder().addComponents(refreshButton, setupDomainButton));
         } else {
             embed.description = `This address hasn't received any emails yet.`;
 

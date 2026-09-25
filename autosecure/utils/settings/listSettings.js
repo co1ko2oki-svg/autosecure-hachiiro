@@ -146,10 +146,6 @@ const featureMenu = new StringSelectMenuBuilder()
             .setLabel(`Show PFP`)
             .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
-            .setCustomId('changedomain')
-            .setLabel('Change Domain')
-            .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
             .setCustomId('posttoserver')
             .setLabel('Post to server')
             .setStyle(ButtonStyle.Primary),
@@ -171,11 +167,6 @@ const featureMenu = new StringSelectMenuBuilder()
         const row5 = new ActionRowBuilder();
 
         row1.addComponents(
-            new ButtonBuilder()
-                .setCustomId("emaildomain")
-                .setLabel("Domain")
-                .setEmoji("📧")
-                .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
                 .setCustomId("oauthset")
                 .setLabel("OAuth")
@@ -246,17 +237,14 @@ const featureMenu = new StringSelectMenuBuilder()
         const msRow1 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
-                    .setCustomId('change_domain')
-                    .setLabel('Change Domain')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
-                    .setCustomId('dns_records')
-                    .setLabel('DNS Records')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
                     .setCustomId(`showpfp|${client.username}`)
                     .setLabel('Show PFP')
-                    .setStyle(ButtonStyle.Primary)
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`dns_records`)
+                    .setLabel('DNS Records')
+                    .setEmoji('📋')
+                    .setStyle(ButtonStyle.Secondary)
             );
 
         const msRow2 = new ActionRowBuilder()

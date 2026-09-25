@@ -72,10 +72,6 @@ const embed = new EmbedBuilder()
             [ownerid, botnumber]
         );
 
-        let generatedid = generate(32);
-        const save = `restart|${ownerid}|${botnumber}|${result[0].token}|${c ? 'offline' : 'online'}`;
-        await queryParams(`INSERT INTO actions (id, action) VALUES (?, ?)`, [generatedid, save]);
-
         const key = `${ownerid}|${botnumber}`;
 
 const row1 = new ActionRowBuilder().addComponents(
@@ -101,7 +97,7 @@ const row2 = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
         .setLabel('Restart')
         .setStyle(ButtonStyle.Success)
-        .setCustomId(`action|${generatedid}`),
+        .setCustomId(`restart|${ownerid}|${botnumber}`),
     new ButtonBuilder()
         .setLabel('Swap Token')
         .setStyle(ButtonStyle.Success)
