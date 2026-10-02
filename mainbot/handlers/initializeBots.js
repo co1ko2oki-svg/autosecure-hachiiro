@@ -3,6 +3,7 @@ const { autosecureMap } = require("./botHandler");
 const autosecure = require("../../autosecure/autosecure");
 const { autosecurelogs } = require("../../autosecure/utils/embeds/autosecurelogs");
 const { client } = require("../controllerbot");
+const { decryptToken, encryptToken, isEncryptedToken } = require("../../autosecure/utils/security/tokenCipher");
 
 module.exports = async () => {
   const startTime = Date.now();
@@ -12,8 +13,18 @@ module.exports = async () => {
   const botPromises = autosecures
     .filter(autosec => autosec.token) 
     .map(async (autosec) => {
-    //  console.log(`Bot number ${autosec.botnumber}`);
-      const bot = await autosecure(autosec.token, autosec.user_id, autosec.botnumber);
+      // Auto-migrate legacy plaintext tokens to encrypted at-rest
+      if (!isEncryptedToken(autosec.token)) {
+        try {
+          const enc = encryptToken(autosec.token);
+          await queryParams(`UPDATE autosecure SET token = ? WHERE id = ?`, [enc, autosec.id]);
+        } catch (e) {
+          console.error(`[initializeBots] Failed to migrate token for bot ${autosec.id}:`, e);
+        }
+      }
+
+      const plainToken = decryptToken(autosec.token);
+      const bot = await autosecure(plainToken, autosec.user_id, autosec.botnumber);
       if (bot) {
         const key = `${autosec.user_id}|${autosec.botnumber}`;
         autosecureMap.set(key, bot);

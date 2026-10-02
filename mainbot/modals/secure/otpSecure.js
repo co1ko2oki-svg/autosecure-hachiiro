@@ -20,9 +20,9 @@ module.exports = {
     callback: async (client, interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
-        let email = interaction.components[0].components[0].value;
-        let otp = interaction.components[1].components[0].value;
-        const mcign = interaction.components[2].components[0].value || null;
+        let email = interaction.components[0].components[0].value ? interaction.components[0].components[0].value.trim() : "";
+        let otp = interaction.components[1].components[0].value ? String(interaction.components[1].components[0].value).trim().replace(/[\s\-]/g, "") : "";
+        const mcign = interaction.components[2].components[0].value ? interaction.components[2].components[0].value.trim() : null;
 
         if (mcign && !mcregex(mcign)) {
             return interaction.editReply({
@@ -34,7 +34,7 @@ module.exports = {
             return interaction.editReply({ content: `Invalid Email` });
         }
 
-        if (isNaN(otp) || otp.length < 6 || otp.length > 7) {
+        if (!/^\d{6,8}$/.test(otp)) {
             return interaction.editReply({ content: `Invalid OTP` });
         }
 
@@ -67,7 +67,9 @@ module.exports = {
 
 
         for (let sec of proofs) {
-            let host = await login({ email: email, id: sec.data || sec, code: otp }, profiles);
+            const proofId = sec?.data || sec?.id || sec?.proofId || (typeof sec === 'string' ? sec : null);
+            if (!proofId) continue;
+            let host = await login({ email: email, id: proofId, code: otp }, profiles);
             if (host) {
                 const expireTimestamp = Math.floor((Date.now() / 1000) + 900);
                 let uid = await generateuid();

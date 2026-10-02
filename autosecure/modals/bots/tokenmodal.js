@@ -4,6 +4,8 @@ const { queryParams } = require("../../../db/database");
 const { autosecureMap } = require("../../../mainbot/handlers/botHandler");
 const autosecure = require("../../autosecure");
 const checkToken = require("../../utils/utils/checkToken");
+const isOwner = require("../../../db/isOwner");
+const { encryptToken } = require("../../utils/security/tokenCipher");
 
 module.exports = {
     name: "tokenmodal",
@@ -24,6 +26,15 @@ module.exports = {
 
         await interaction.deferUpdate();
 
+        const [userId, botnumber] = interaction.customId.split('|').slice(1);
+        const isAuthorized = interaction.user.id === userId || await isOwner(interaction.user.id);
+        if (!isAuthorized) {
+            return interaction.followUp({
+                content: `You are not authorized to update this bot's token.`,
+                ephemeral: true
+            });
+        }
+
         const checked = await checkToken(token);
         if (!checked) {
             return interaction.followUp({
@@ -32,7 +43,6 @@ module.exports = {
             });
         }
 
-        const [userId, botnumber] = interaction.customId.split('|').slice(1);
         const key = `${userId}|${botnumber}`;
         const existing = autosecureMap.get(key);
 
@@ -44,9 +54,10 @@ module.exports = {
         const instance = await autosecure(token, userId, botnumber);
         autosecureMap.set(key, instance);
 
+        const encryptedToken = encryptToken(token);
         await queryParams(
             'UPDATE autosecure SET token = ? WHERE user_id = ? AND botnumber = ?',
-            [token, userId, botnumber]
+            [encryptedToken, userId, botnumber]
         );
 
         const msg = await showbotmsg(interaction.user.id, botnumber, interaction.user.id, client);

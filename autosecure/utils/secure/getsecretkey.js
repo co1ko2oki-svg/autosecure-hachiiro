@@ -21,7 +21,10 @@ module.exports = async function getSecretKey(axios) {
             }
         );
 
-        const htmlData = response.data;
+        const htmlData = response?.data;
+        if (!htmlData || typeof htmlData !== 'string') {
+            return { secretKey: null, proof: null, rvtkn: null };
+        }
         const lines = htmlData.split('\n');
 
         let secretKey = '';

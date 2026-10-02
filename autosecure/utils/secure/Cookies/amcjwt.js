@@ -39,17 +39,19 @@ module.exports = async (httpClient) => {
       'Connection': 'keep-alive'
     };
 
-   // console.log("Sending first GET request...");
-    const firstResponse = await httpClient.get(firstUrl, { headers: firstHeaders });
-   // console.log("First response status:", firstResponse.status);
+    if (httpClient.getCookie && httpClient.getCookie("AMCSecAuthJWT")) {
+      return httpClient.getCookie("AMCSecAuthJWT");
+    }
 
-    if (!firstResponse.headers.location) {
+    const firstResponse = await httpClient.get(firstUrl, { headers: firstHeaders, maxRedirects: 0 });
+
+    let redirectUrl = firstResponse?.headers?.location;
+    if (!redirectUrl) {
+      const existing = httpClient.getCookie && httpClient.getCookie("AMCSecAuthJWT");
+      if (existing) return existing;
       console.log("Redirect location not found in first response.");
       return false;
     }
-
-    const redirectUrl = firstResponse.headers.location;
- //   console.log("Redirect URL found:", redirectUrl);
 
     const secondHeaders = {
       'Cache-Control': 'max-age=0',
@@ -69,13 +71,9 @@ module.exports = async (httpClient) => {
       'Connection': 'keep-alive'
     };
 
-  //  console.log("Sending second GET request to redirect URL...");
-    const secondResponse = await httpClient.get(redirectUrl, { headers: secondHeaders });
-   // console.log("Second response status:", secondResponse.status);
+    await httpClient.get(redirectUrl, { headers: secondHeaders, maxRedirects: 0 });
 
     const jwt = httpClient.getCookie("AMCSecAuthJWT");
- //   console.log("JWT Cookie:", jwt ? jwt.slice(0, 30) + "..." : "Not found");
-
     return jwt || false;
   } catch (err) {
     console.error("Error in getAMCSecAuthJWT:", err.message);

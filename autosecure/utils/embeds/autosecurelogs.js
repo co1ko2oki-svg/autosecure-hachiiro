@@ -13,14 +13,16 @@ async function autosecurelogs(client, reason, user, seconduser, botid, blacklist
 
     if (!client) return;
 
-    const timeout = 30000;
-    const start = Date.now();
-    while (!client.readyAt) {
-        if (Date.now() - start > timeout) {
-            console.log(`Client is not ready after 30s, ddos?`);
-            return;
+    if (!client.isReady || !client.isReady()) {
+        const timeout = 5000;
+        const start = Date.now();
+        while (!client.isReady || !client.isReady()) {
+            if (Date.now() - start > timeout) {
+                console.log(`[autosecurelogs] Client is not ready yet, skipping log.`);
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 500));
         }
-        await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     const logChannelId = config.log;
@@ -35,38 +37,15 @@ async function autosecurelogs(client, reason, user, seconduser, botid, blacklist
 
     if (reason === "config") {
         embed = new EmbedBuilder()
-            .setTitle('Autosaved backup config!')
-            .setDescription(`Generated config backup for expired user: <@${user}> (\`${user}\`)`)
-            .setColor(color);
+            .setTitle('License Expired Backup')
+            .setDescription(`Config backup processed for expired user: <@${user}> (\`${user}\`). Configuration saved internally without secrets.`)
+            .setColor(color)
+            .setTimestamp();
 
         try {
-            const config = await saveFullConfig(user);
-            const buffer = Buffer.from(JSON.stringify(config, null, 2));
-            const attachment = new AttachmentBuilder(buffer, { name: `full_config_${user}.json` });
-
-            const message = await logChannel.send({
-                embeds: [embed],
-                files: [attachment]
-            });
-
-            try {
-                await message.pin();
-            } catch (pinError) {
-                console.error(`Failed to pin config backup message for user ${user}:`, pinError);
-                const pinErrorEmbed = new EmbedBuilder()
-                    .setTitle('Pin Failed')
-                    .setDescription(`Could not pin the backup message for <@${user}>`)
-                    .setColor(0xFFA500);
-                await logChannel.send({ embeds: [pinErrorEmbed] });
-            }
-
+            await logChannel.send({ embeds: [embed] });
         } catch (error) {
-            console.error(`Failed to generate or send config backup for user ${user}:`, error);
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('Config Backup Failed')
-                .setDescription(`Failed to generate backup for <@${user}>`)
-                .setColor(0xFF0000);
-            await logChannel.send({ embeds: [errorEmbed] });
+            console.error(`Failed to send license expiration log for user ${user}:`, error);
         }
         return;
     }
@@ -195,16 +174,17 @@ async function autosecurelogs(client, reason, user, seconduser, botid, blacklist
             .setTitle("Refreshing Key!")
             .setTimestamp();
     } else if (reason === "newkey") {
-    let text = codeblock(user);
-    const converted = `<t:${Math.floor(seconduser / 1000)}:R>`;
+        const masked = typeof user === 'string' && user.length > 8 ? `${user.slice(0, 4)}...${user.slice(-4)}` : '********';
+        let text = codeblock(masked);
+        const converted = `<t:${Math.floor(seconduser / 1000)}:R>`;
 
-    embed = new EmbedBuilder()
-        .setTitle("Generated new Hypixel API-Key")
-        .addFields(
-            { name: `Key`, value: text },
-            { name: `Expiration`, value: converted }
-        )
-        .setTimestamp();
+        embed = new EmbedBuilder()
+            .setTitle("Generated new Hypixel API-Key")
+            .addFields(
+                { name: `Key`, value: text },
+                { name: `Expiration`, value: converted }
+            )
+            .setTimestamp();
 } else if (reason === "indian"){
                 let text = codeblock(seconduser)
                 let text2 = codeblock(botid)

@@ -10,6 +10,7 @@ module.exports = {
     ownerOnly: true,
     callback: async (client, interaction) => {
         try {
+            await interaction.deferReply({ ephemeral: true });
             const parts = interaction.customId.split("|");
             let uid;
 
@@ -17,9 +18,8 @@ module.exports = {
                 const [, userId, targetUid] = parts;
                 const isUserOwner = await isOwner(interaction.user.id);
                 if (userId && interaction.user.id !== userId && !isUserOwner) {
-                    return interaction.reply({
+                    return interaction.editReply({
                         content: "You do not have permission to view extra information for this account.",
-                        ephemeral: true,
                     });
                 }
                 uid = targetUid;
@@ -30,9 +30,8 @@ module.exports = {
             const results = await queryParams("SELECT * FROM extrainformation WHERE uid = ?", [uid]);
 
             if (results.length === 0) {
-                return interaction.reply({
+                return interaction.editReply({
                     content: "No information found for the provided UID.",
-                    ephemeral: true,
                 });
             }
 
@@ -225,13 +224,12 @@ module.exports = {
                     new ButtonBuilder().setCustomId(`addresses|${uid}`).setLabel("Addresses").setStyle(ButtonStyle.Secondary)
                 );
 
-            await interaction.reply({ embeds: [embed], components: [row1, row2], ephemeral: true });
+            await interaction.editReply({ embeds: [embed], components: [row1, row2] });
         } catch (error) {
             console.error("Error processing extra information:", error);
             if (interaction.replied || interaction.deferred) {
-                return interaction.followUp({
+                return interaction.editReply({
                     content: "An error occurred while retrieving the information.",
-                    ephemeral: true,
                 }).catch(() => {});
             } else {
                 return interaction.reply({

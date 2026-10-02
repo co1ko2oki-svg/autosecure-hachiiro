@@ -1,5 +1,6 @@
 const { queryParams } = require("../../../db/database");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const isOwner = require("../../../db/isOwner");
 
 module.exports = {
     name: "deletebot",
@@ -32,6 +33,19 @@ module.exports = {
 
         const id = split[1];
         const botnumber = split[2];
+
+        const isAuthorized = interaction.user.id === id || await isOwner(interaction.user.id);
+        if (!isAuthorized) {
+            return await interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setTitle("Unauthorized")
+                        .setDescription("You are not authorized to delete this bot.")
+                        .setColor("#FF0000")
+                ],
+                ephemeral: true
+            });
+        }
 
         // Get bot data from database and client
         const botData = await queryParams(

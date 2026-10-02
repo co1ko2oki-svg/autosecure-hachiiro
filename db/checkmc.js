@@ -1,5 +1,5 @@
 function checkmc(mc) {
-    if (mc === "Purchased" || mc === "True (Source: N/A)" || mc === "Gamepass") {
+    if (mc === true || mc === "true" || mc === "True" || mc === "Purchased" || mc === "True (Source: N/A)" || mc === "Gamepass") {
         return true;
     }
     return false;

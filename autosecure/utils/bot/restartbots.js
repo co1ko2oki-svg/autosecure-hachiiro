@@ -2,6 +2,7 @@ const { queryParams } = require("../../../db/database");
 const { autosecureMap } = require("../../../mainbot/handlers/botHandler");
 const checkToken = require("../../../mainbot/utils/checkToken");
 const autosecure = require("../../autosecure");
+const { decryptToken } = require("../security/tokenCipher");
 
 // Restart multiple bots and return a message for each
 async function restartbots(userid, array) {
@@ -22,7 +23,7 @@ async function gettoken(userid, botnumber) {
     [userid, botnumber]
   );
   if (!settings || settings.length === 0) return null;
-  return settings[0].token;
+  return decryptToken(settings[0].token);
 }
 
 // Fully start bot (destroy old instance if exists, then start new)

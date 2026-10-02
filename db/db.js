@@ -545,88 +545,92 @@ async function checkApiKey() {
 }
 
 async function initializeDB() {
-  for (let query of Object.values(queries)) {
-    try {
-      await new Promise((resolve, reject) => {
-        db.run(query, [], (err) => {
-          if (err) {
-            console.log(err.message);
-            reject(err);
-          } else {
-            resolve();
-          }
+  try {
+    for (const [key, query] of Object.entries(queries)) {
+      try {
+        await new Promise((resolve, reject) => {
+          db.run(query, [], (err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
         });
-      });
-    } catch (err) {
-      console.error("Error running query:", err);
-      return false;
-    }
-  }
-
-  // Automatic column migration for extrainformation
-  try {
-    const tableInfo = await queryParams("PRAGMA table_info(extrainformation);");
-    const columns = (tableInfo || []).map(col => col.name);
-    const requiredCols = ["donut", "cards", "cardstatus", "devicestatus", "family", "leftfamily", "exploit", "signout"];
-    for (const col of requiredCols) {
-      if (!columns.includes(col)) {
-        await queryParams(`ALTER TABLE extrainformation ADD COLUMN ${col} TEXT;`);
-        console.log(`[DB] Added missing column '${col}' to extrainformation`);
+      } catch (err) {
+        console.error(`[DB] Error initializing table/query for '${key}'. Ensure database integrity.`);
+        return false;
       }
     }
-  } catch (migErr) {
-    console.error("[DB] Column migration check error (extrainformation):", migErr.message);
-  }
 
-  // Automatic column migration for secureconfig
-  try {
-    const tableInfo = await queryParams("PRAGMA table_info(secureconfig);");
-    const columns = (tableInfo || []).map(col => col.name);
-    const requiredCols = [
-      { name: "changeskin", type: "INTEGER DEFAULT 0" },
-      { name: "skinurl", type: "TEXT" },
-      { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
-      { name: "changeprimary", type: "INTEGER DEFAULT 1" },
-      { name: "removecards", type: "INTEGER DEFAULT 1" },
-      { name: "leavefamily", type: "INTEGER DEFAULT 1" },
-      { name: "removelinkednumbers", type: "INTEGER DEFAULT 1" }
-    ];
-    for (const col of requiredCols) {
-      if (!columns.includes(col.name)) {
-        await queryParams(`ALTER TABLE secureconfig ADD COLUMN ${col.name} ${col.type};`);
-        console.log(`[DB] Added missing column '${col.name}' to secureconfig`);
+    // Automatic column migration for extrainformation
+    try {
+      const tableInfo = await queryParams("PRAGMA table_info(extrainformation);");
+      const columns = (tableInfo || []).map(col => col.name);
+      const requiredCols = ["donut", "cards", "cardstatus", "devicestatus", "family", "leftfamily", "exploit", "signout"];
+      for (const col of requiredCols) {
+        if (!columns.includes(col)) {
+          await queryParams(`ALTER TABLE extrainformation ADD COLUMN ${col} TEXT;`);
+          console.log(`[DB] Added missing column to extrainformation`);
+        }
       }
+    } catch (migErr) {
+      console.error("[DB] Column migration check error (extrainformation): Failed to verify or update columns.");
     }
-  } catch (migErr) {
-    console.error("[DB] Column migration check error (secureconfig):", migErr.message);
-  }
 
-  // Automatic column migration for autosecure
-  try {
-    const tableInfo = await queryParams("PRAGMA table_info(autosecure);");
-    const columns = (tableInfo || []).map(col => col.name);
-    const requiredCols = [
-      { name: "changeskin", type: "INTEGER DEFAULT 0" },
-      { name: "skinurl", type: "TEXT" },
-      { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
-      { name: "changeprimary", type: "INTEGER DEFAULT 1" },
-      { name: "removecards", type: "INTEGER DEFAULT 0" },
-      { name: "removesubs", type: "INTEGER DEFAULT 0" },
-      { name: "leavefamily", type: "INTEGER DEFAULT 1" },
-      { name: "removelinkednumbers", type: "INTEGER DEFAULT 1" },
-      { name: "note", type: "TEXT" }
-    ];
-    for (const col of requiredCols) {
-      if (!columns.includes(col.name)) {
-        await queryParams(`ALTER TABLE autosecure ADD COLUMN ${col.name} ${col.type};`);
-        console.log(`[DB] Added missing column '${col.name}' to autosecure`);
+    // Automatic column migration for secureconfig
+    try {
+      const tableInfo = await queryParams("PRAGMA table_info(secureconfig);");
+      const columns = (tableInfo || []).map(col => col.name);
+      const requiredCols = [
+        { name: "changeskin", type: "INTEGER DEFAULT 0" },
+        { name: "skinurl", type: "TEXT" },
+        { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
+        { name: "changeprimary", type: "INTEGER DEFAULT 1" },
+        { name: "removecards", type: "INTEGER DEFAULT 1" },
+        { name: "leavefamily", type: "INTEGER DEFAULT 1" },
+        { name: "removelinkednumbers", type: "INTEGER DEFAULT 1" }
+      ];
+      for (const col of requiredCols) {
+        if (!columns.includes(col.name)) {
+          await queryParams(`ALTER TABLE secureconfig ADD COLUMN ${col.name} ${col.type};`);
+          console.log(`[DB] Added missing column to secureconfig`);
+        }
       }
+    } catch (migErr) {
+      console.error("[DB] Column migration check error (secureconfig): Failed to verify or update columns.");
     }
-  } catch (migErr) {
-    console.error("[DB] Column migration check error (autosecure):", migErr.message);
-  }
 
-  return true;
+    // Automatic column migration for autosecure
+    try {
+      const tableInfo = await queryParams("PRAGMA table_info(autosecure);");
+      const columns = (tableInfo || []).map(col => col.name);
+      const requiredCols = [
+        { name: "changeskin", type: "INTEGER DEFAULT 0" },
+        { name: "skinurl", type: "TEXT" },
+        { name: "prefix", type: "TEXT DEFAULT 'HachiiroMC'" },
+        { name: "changeprimary", type: "INTEGER DEFAULT 1" },
+        { name: "removecards", type: "INTEGER DEFAULT 0" },
+        { name: "removesubs", type: "INTEGER DEFAULT 0" },
+        { name: "leavefamily", type: "INTEGER DEFAULT 1" },
+        { name: "removelinkednumbers", type: "INTEGER DEFAULT 1" },
+        { name: "note", type: "TEXT" }
+      ];
+      for (const col of requiredCols) {
+        if (!columns.includes(col.name)) {
+          await queryParams(`ALTER TABLE autosecure ADD COLUMN ${col.name} ${col.type};`);
+          console.log(`[DB] Added missing column to autosecure`);
+        }
+      }
+    } catch (migErr) {
+      console.error("[DB] Column migration check error (autosecure): Failed to verify or update columns.");
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[DB] Database initialization encountered a critical error.");
+    return false;
+  }
 }
 
 async function createapikey() {
@@ -642,7 +646,7 @@ async function createapikey() {
     );
   }
   } catch (error){
-    console.log(`Createapikey error: ${error}`)
+    console.log(`[DB] Error in createapikey: Failed to ensure API key entry exists.`)
   }
 
 }
@@ -657,7 +661,7 @@ async function createcontrolbot() {
       await queryParams(`INSERT INTO controlbot (id) VALUES (?)`, [1]);
     }
   } catch (error) {
-    console.log(`Create controlbot error: ${error}`);
+    console.log(`[DB] Error in createcontrolbot: Failed to ensure control bot entry exists.`);
   }
 }
 

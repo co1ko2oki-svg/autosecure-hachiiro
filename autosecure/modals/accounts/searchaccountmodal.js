@@ -9,28 +9,21 @@ module.exports = {
 
             const userId = interaction.user.id;
             const searchQuery = interaction.fields.getTextInputValue('searchQuery');
-            const isOwner = require("../../../db/isOwner");
-            const isAdmin = await isOwner(userId);
 
-            let allAccounts = [];
-            if (isAdmin) {
-                allAccounts = await client.queryParams("SELECT * FROM accounts ORDER BY time DESC");
-            } else {
-                const userAccounts = await client.queryParams(`SELECT * FROM accountsbyuser WHERE user_id=? ORDER BY time DESC`, [userId]);
+            const userAccounts = await client.queryParams(`SELECT * FROM accountsbyuser WHERE user_id=? ORDER BY time DESC`, [userId]);
 
-                if (!userAccounts || userAccounts.length === 0) {
-                    return interaction.reply({
-                        content: "No accounts found to search.",
-                        ephemeral: true
-                    });
-                }
-
-                const placeholders = userAccounts.map(() => '?').join(', ');
-                allAccounts = await client.queryParams(
-                    `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
-                    userAccounts.map(u => u.uid)
-                );
+            if (!userAccounts || userAccounts.length === 0) {
+                return interaction.reply({
+                    content: "No accounts found to search.",
+                    ephemeral: true
+                });
             }
+
+            const placeholders = userAccounts.map(() => '?').join(', ');
+            const allAccounts = await client.queryParams(
+                `SELECT * FROM accounts WHERE uid IN (${placeholders})`,
+                userAccounts.map(u => u.uid)
+            );
 
             if (!allAccounts || allAccounts.length === 0) {
                 return interaction.reply({

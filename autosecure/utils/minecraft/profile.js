@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const HttpClient = require('../process/HttpClient');
 
 module.exports = async (ssid) => {

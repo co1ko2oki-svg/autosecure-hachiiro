@@ -93,38 +93,43 @@ function sanitizeString(raw) {
     text = text.replace(/\b[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}\b/g, '[RECOVERY CODE REDACTED]');
 
     // 4. JWT & OAuth Bearer Tokens
-    text = text.replace(/Bearer\s+[A-Za-z0-9-_=.]+/gi, 'Bearer [TOKEN REDACTED]');
-    text = text.replace(/\beyJ[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]+\b/g, (jwt) => {
-        const fp = crypto.createHash('sha256').update(jwt).digest('hex').slice(0, 6);
-        return `[JWT REDACTED fp=${fp}]`;
-    });
+    text = text.replace(/Bearer\s+[A-Za-z0-9-_=.]+/gi, 'Authorization=[REDACTED]');
+    text = text.replace(/(["']?authorization["']?\s*[:=]\s*["']?)(?:Bearer\s+)?[^"',\r\n\s}\]]+(["']?)/gi, '$1[REDACTED]$2');
+    text = text.replace(/\beyJ[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]{10,}\.[A-Za-z0-9-_]+\b/g, '[REDACTED]');
 
-    // 5. Discord Bot Tokens
-    text = text.replace(/\b[M-Z][A-Za-z0-9]{23,28}\.[A-Za-z0-9-_]{6}\.[A-Za-z0-9-_]{27,38}\b/g, '[DISCORD TOKEN REDACTED]');
+    // 5. Discord Bot Tokens & Config/Env Tokens
+    text = text.replace(/\b(?:BOT_TOKEN|TOKEN)\s*=\s*[^\r\n\s]+/gi, 'BOT_TOKEN=[REDACTED]');
+    text = text.replace(/\b[M-Z][A-Za-z0-9]{23,28}\.[A-Za-z0-9-_]{6}\.[A-Za-z0-9-_]{27,38}\b/g, '[REDACTED]');
 
     // 6. Discord Webhook URLs (keep webhook ID, redact token)
     text = text.replace(/(https?:\/\/discord(?:app)?\.com\/api\/webhooks\/\d+\/)([A-Za-z0-9-_]+)/gi, '$1[REDACTED]');
+    text = text.replace(/\b(?:NOTIFIER_WEBHOOK|WEBHOOK)\s*=\s*[^\r\n\s]+/gi, 'NOTIFIER_WEBHOOK=[REDACTED]');
 
-    // 7. Passwords in labeled logs & JSON/Query strings
+    // 7. JWT Secret in logs & environment variables
+    text = text.replace(/\b(?:JWT_SECRET|jwtsecret)\s*=\s*[^\r\n\s]+/gi, 'JWT_SECRET=[REDACTED]');
+    text = text.replace(/(["']?(?:jwtsecret|jwt_secret)["']?\s*[:=]\s*["']?)([^"',\r\n\s}\]]+)(["']?)/gi, '$1[REDACTED]$3');
+
+    // 8. Passwords in labeled logs & JSON/Query strings
     // Matches: "password": "...", password: ..., Pw: ..., Mật khẩu mới : ...
     text = text.replace(/(["']?(?:password|passwd|pw|newpassword|oldpassword|mật\s*khẩu(?:\s*mới)?|userpassword)["']?\s*[:=]\s*["']?)([^"',\r\n\s}\]]+)(["']?)/gi, '$1[REDACTED]$3');
 
-    // 8. OTP / Verification codes in labeled logs
-    // Matches: "code": "...", Code: ..., Mã OTP : ..., otc: ...
-    text = text.replace(/(["']?(?:otp|otc|code|mã\s*otp|verification_code|security\s*code)["']?\s*[:=]\s*["']?)([0-9]{4,8})(["']?)/gi, (m, p1, p2, p3) => {
-        return `${p1}${maskOtp(p2)}${p3}`;
-    });
+    // 9. OTP / Verification codes in labeled logs
+    // Matches: "code": "...", Code: ..., Mã OTP : ..., otc: ..., OTP=...
+    text = text.replace(/\bOTP\s*=\s*\d+/gi, 'OTP=[REDACTED]');
+    text = text.replace(/(["']?(?:otp|otc|code|mã\s*otp|verification_code|security\s*code)["']?\s*[:=]\s*["']?)([0-9]{4,8})(["']?)/gi, '$1[REDACTED]$3');
 
-    // 9. Sensitive Cookie names & values
-    text = text.replace(/\b(AMRPSSecAuth|MSPOK|MSPRequ|uaid|ppft|HostCookie|RPSAuth)=([^;\r\n\s,]+)/gi, '$1=[COOKIE REDACTED]');
+    // 10. Sensitive Cookie names & values
+    text = text.replace(/\b(AMRPSSecAuth|MSPOK|MSPRequ|uaid|ppft|HostCookie|RPSAuth|token|ssid)=([^;\r\n\s,]+)/gi, '$1=[REDACTED]');
 
-    // 10. TOTP Secret Keys & rvtkn in labeled logs
-    text = text.replace(/(["']?(?:secretkey|secret\s*key|rvtkn|proofid)["']?\s*[:=]\s*["']?)([A-Za-z0-9+/=]{10,})(["']?)/gi, '$1[SECRET KEY REDACTED]$3');
+    // 11. TOTP Secret Keys & rvtkn in labeled logs
+    text = text.replace(/(["']?(?:secretkey|secret\s*key|rvtkn|proofid|authkey)["']?\s*[:=]\s*["']?)([A-Za-z0-9+/=_-]{10,})(["']?)/gi, '$1[REDACTED]$3');
 
-    // 11. Proxy Credentials (username:password@host:port)
+    // 12. Proxy Credentials
+    text = text.replace(/\b(?:PROXY_PASSWORD|PROXY_PASS)\s*=\s*[^\r\n\s]+/gi, 'PROXY_PASSWORD=[REDACTED]');
+    text = text.replace(/\b(?:PROXY_\d+|SOCKS_PROXY_\d+)\s*=\s*([^:\r\n\s]+):(\d+):([^:\r\n\s]+):([^\r\n\s]+)/gi, '$1=$2:***:[REDACTED]');
     text = text.replace(/([a-zA-Z0-9_.+-]+):([^@\s:/?#]+)@([a-zA-Z0-9.-]+:\d+)/g, '$1:[REDACTED]@$3');
 
-    // 12. Payment Card Numbers (PCI-DSS PAN with Luhn check)
+    // 13. Payment Card Numbers (PCI-DSS PAN with Luhn check)
     text = text.replace(/\b(?:\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{1,7}|\d{13,19})\b/g, (match) => {
         const cleaned = match.replace(/[\s-]/g, '');
         if (isValidLuhn(cleaned)) {
@@ -194,19 +199,14 @@ function sanitizeObject(obj, seen = new WeakSet()) {
         const sanitized = {};
         for (const [key, value] of Object.entries(obj)) {
             const lowerKey = key.toLowerCase().replace(/[^a-z]/g, '');
-            if (SENSITIVE_OBJECT_KEYS.has(lowerKey) || lowerKey.includes('pass') || lowerKey.includes('secret') || lowerKey.includes('token')) {
-                if (typeof value === 'string' && value.length > 0) {
-                    const fp = crypto.createHash('sha256').update(value).digest('hex').slice(0, 6);
-                    sanitized[key] = `[REDACTED fp=${fp}]`;
-                } else {
-                    sanitized[key] = '[REDACTED]';
-                }
+            if (SENSITIVE_OBJECT_KEYS.has(lowerKey) || lowerKey.includes('pass') || lowerKey.includes('secret') || lowerKey.includes('token') || lowerKey.includes('auth') || lowerKey.includes('cookie') || lowerKey.includes('webhook')) {
+                sanitized[key] = '[REDACTED]';
             } else if (lowerKey.includes('email')) {
                 sanitized[key] = typeof value === 'string' ? maskEmail(value) : sanitizeObject(value, seen);
             } else if (lowerKey.includes('ip') || lowerKey === 'remoteaddress') {
                 sanitized[key] = typeof value === 'string' ? maskIp(value) : sanitizeObject(value, seen);
             } else if (lowerKey.includes('otp') || lowerKey === 'code' || lowerKey === 'otc') {
-                sanitized[key] = typeof value === 'string' ? maskOtp(value) : sanitizeObject(value, seen);
+                sanitized[key] = '[REDACTED]';
             } else {
                 sanitized[key] = sanitizeObject(value, seen);
             }

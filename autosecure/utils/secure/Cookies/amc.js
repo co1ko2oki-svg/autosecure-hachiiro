@@ -2,16 +2,44 @@ const generate = require("../../generate")
 const fs = require("fs")
 const path = require("path")
 
+function extractT(html) {
+    if (!html || typeof html !== "string") return null;
+    let match = html.match(/<input[^>]+name=["']t["'][^>]+value=["']([^"']+)["']/i);
+    if (match && match[1]) return match[1];
+    match = html.match(/<input[^>]+value=["']([^"']+)["'][^>]+name=["']t["']/i);
+    if (match && match[1]) return match[1];
+    match = html.match(/name="t"\s+id="t"\s+value="([^"]+)"/i);
+    if (match && match[1]) return match[1];
+    return null;
+}
+
 /**
  * 
  * @param {HttpClient} axios 
  */
 module.exports = async (axios) => {
     try {
-        let amct = null;
-        let fetchtreq = await axios.get('https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=170&checkda=1&rver=7.5.2112.0&wp=MBI_SSL&wreply=https:%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-silent-signin%3Fru%3Dhttps%3A%2F%2Faccount.microsoft.com%2F%3Flang%3Dfr-FR%26refd%3Daccount.live.com%26refp%3Dlanding%26mkt%3DFR-FR&lc=1036&id=292666')
+        if (axios.getCookie && axios.getCookie("AMCSecAuth")) {
+            return true;
+        }
 
-        let match = fetchtreq.data.match(/<input\s+type="hidden"\s+name="t"\s+id="t"\s+value="([^"]+)"\s*\/?>/)
+        let amct = null;
+        let fetchtreq = await axios.get('https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=170&checkda=1&rver=7.5.2112.0&wp=MBI_SSL&wreply=https:%2F%2Faccount.microsoft.com%2Fauth%2Fcomplete-silent-signin%3Fru%3Dhttps%3A%2F%2Faccount.microsoft.com%2F%3Flang%3Dfr-FR%26refd%3Daccount.live.com%26refp%3Dlanding%26mkt%3DFR-FR&lc=1036&id=292666', {
+            maxRedirects: 0,
+            validateStatus: (status) => status >= 200 && status < 400
+        });
+
+        if (axios.getCookie && axios.getCookie("AMCSecAuth")) {
+            return true;
+        }
+
+        amct = extractT(fetchtreq?.data);
+        if (!amct && fetchtreq?.headers?.location) {
+            try {
+                const locUrl = new URL(fetchtreq.headers.location, "https://account.microsoft.com");
+                amct = locUrl.searchParams.get("t");
+            } catch (e) {}
+        }
 
         // Debug directory setup
         const debugBaseDir = path.join(__dirname, "../../../../debug/amc")
@@ -19,15 +47,13 @@ module.exports = async (axios) => {
             fs.mkdirSync(debugBaseDir, { recursive: true })
         }
 
-        if (!match || !match[1]) {
+        if (!amct) {
             // Failed to get T parameter
             const fileName = `failedamct-${generate(16)}.txt`
             const filePath = path.join(debugBaseDir, fileName)
-            fs.writeFileSync(filePath, fetchtreq.data, "utf-8")
+            fs.writeFileSync(filePath, fetchtreq?.data || "", "utf-8")
             return false
         }
-
-        amct = match[1]
 
         const url = "https://account.microsoft.com/auth/complete-silent-signin?ru=https://account.microsoft.com/?lang=nl-NL&refd=account.live.com&refp=landing&mkt=NL-NL&wa=wsignin1.0"
         const data = `t=${encodeURIComponent(amct)}`

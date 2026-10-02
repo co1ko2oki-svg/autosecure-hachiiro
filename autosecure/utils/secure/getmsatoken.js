@@ -2,6 +2,9 @@ const axios = require('axios');
 const { URLSearchParams } = require('url');
 
 async function getMSAToken(hostCookie) {
+    if (!hostCookie || typeof hostCookie !== 'string') {
+        return null;
+    }
     try {
         const headers = {
             "Host": "login.live.com",
@@ -26,16 +29,19 @@ async function getMSAToken(hostCookie) {
             return null;
         }
 
-        const redirectUrl = response.headers.location;
-        if (!redirectUrl) {
-            console.log('No redirect URL found at msatoken!');
+        const redirectUrl = response?.headers?.location;
+        if (!redirectUrl || typeof redirectUrl !== 'string') {
+            console.log('[MSATOKEN] No valid redirect URL found');
             return null;
         }
 
-        const params = new URLSearchParams(redirectUrl.split('#')[1]);
+        const fragment = redirectUrl.includes('#') ? redirectUrl.split('#')[1] : (redirectUrl.includes('?') ? redirectUrl.split('?')[1] : '');
+        const params = new URLSearchParams(fragment);
         const Token = params.get('access_token');
-        const MSAToken = `MSADELEGATE1.0=${Token}`;
-        return MSAToken || null;
+        if (!Token) {
+            return null;
+        }
+        return `MSADELEGATE1.0=${Token}`;
     } catch (error) {
         return null;
     }

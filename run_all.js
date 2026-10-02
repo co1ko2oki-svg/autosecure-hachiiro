@@ -1,7 +1,13 @@
+require('dotenv').config();
+require('./configLoader');
+
 try {
   const { attachGlobalLoggerGuard } = require('./autosecure/utils/logging/interceptLogger');
   if (attachGlobalLoggerGuard) attachGlobalLoggerGuard();
 } catch (e) {}
+
+const { setupGlobalErrorHandlers, performShutdown } = require('./autosecure/utils/process/gracefulShutdown');
+setupGlobalErrorHandlers('RunAll');
 
 process.env.RUN_ALL_MODE = 'true';
 
@@ -56,9 +62,13 @@ async function startAll() {
 
         console.log("\n======================================================");
         console.log("🎉 TẤT CẢ DỊCH VỤ ĐÃ HOẠT ĐỘNG TRÊN CÙNG 1 PROCESS!");
+        console.log(" • Backend  : ✔ Sẵn sàng");
+        console.log(" • Frontend : ✔ Sẵn sàng");
+        console.log(" • Bot      : ✔ Sẵn sàng");
         console.log("======================================================");
     } catch (error) {
-        console.error("❌ Có lỗi trong quá trình khởi động hệ thống:", error);
+        console.error("❌ Fatal error during system initialization:", error);
+        await performShutdown('StartupFailure', 1);
     }
 }
 

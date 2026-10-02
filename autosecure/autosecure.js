@@ -2,7 +2,7 @@ const discord = require("discord.js");
 const eventHandler = require("./Handlers/eventHandler");
 const { queryParams } = require("../db/database.js");
 const { ActivityType } = require("discord.js");
-const { tablesbotnumber } = require("../db/gettablesarray.js")
+const { tablesbotnumber, tablesclientid } = require("../db/gettablesarray.js");
 
 module.exports = async (token, username, d = 1, dmmode = false) => {
 try {
@@ -55,6 +55,10 @@ client.queryParams = async (query, params = [], method = "all") => {
   const needsBotNumber = table && allowed.includes(table);
 
   if (needsBotNumber) {
+    const isClientIdTable = tablesclientid().includes(table);
+    const tenantCol = isClientIdTable ? 'client_id' : 'user_id';
+    const tenantVal = client.username;
+
     if (command === "INSERT") {
       const valuesIndex = normalizedQuery.toUpperCase().indexOf('VALUES');
       if (valuesIndex > -1) {
@@ -62,19 +66,36 @@ client.queryParams = async (query, params = [], method = "all") => {
         const afterValues = query.substring(valuesIndex);
         const columnsMatch = beforeValues.match(/\(([^)]+)\)/);
         if (columnsMatch) {
-          const newBeforeValues = beforeValues.replace(
-            `(${columnsMatch[1]})`, 
-            `(${columnsMatch[1]}, botnumber)`
-          );
-          const valuesMatch = afterValues.match(/\(([^)]*)\)/);
-          if (valuesMatch) {
-            const newAfterValues = afterValues.replace(
-              `(${valuesMatch[1]})`, 
-              `(${valuesMatch[1]}, ?)`
+          const cols = columnsMatch[1];
+          const hasBotNumber = /\bbotnumber\b/i.test(cols);
+          const hasTenant = new RegExp(`\\b${tenantCol}\\b`, 'i').test(cols);
+
+          let addedCols = [];
+          let addedParams = [];
+          if (!hasBotNumber) {
+            addedCols.push('botnumber');
+            addedParams.push(client.botnumber);
+          }
+          if (!hasTenant) {
+            addedCols.push(tenantCol);
+            addedParams.push(tenantVal);
+          }
+
+          if (addedCols.length > 0) {
+            const newBeforeValues = beforeValues.replace(
+              `(${cols})`, 
+              `(${cols}, ${addedCols.join(', ')})`
             );
-            
-            query = newBeforeValues + newAfterValues;
-            params.push(client.botnumber);
+            const valuesMatch = afterValues.match(/\(([^)]*)\)/);
+            if (valuesMatch) {
+              const extraPlaceholders = addedCols.map(() => '?').join(', ');
+              const newAfterValues = afterValues.replace(
+                `(${valuesMatch[1]})`, 
+                `(${valuesMatch[1]}, ${extraPlaceholders})`
+              );
+              query = newBeforeValues + newAfterValues;
+              params.push(...addedParams);
+            }
           }
         }
       }
@@ -82,23 +103,53 @@ client.queryParams = async (query, params = [], method = "all") => {
     else if (command === "UPDATE") {
       const whereIndex = normalizedQuery.toUpperCase().indexOf('WHERE');
       if (whereIndex > -1) {
-        query = query.substring(0, whereIndex + 5) + ' botnumber = ? AND ' + query.substring(whereIndex + 5);
-        params.splice(query.indexOf('SET') < whereIndex ? 
-                     query.substring(query.indexOf('SET') + 3, whereIndex).split('?').length - 1 : 
-                     0, 0, client.botnumber);
+        const whereClause = query.substring(whereIndex + 5);
+        const hasBotNumber = /\bbotnumber\b/i.test(whereClause);
+        const hasTenant = new RegExp(`\\b${tenantCol}\\b`, 'i').test(whereClause);
+        let injectSql = '';
+        let injectParams = [];
+        if (!hasBotNumber) {
+          injectSql += ' botnumber = ? AND';
+          injectParams.push(client.botnumber);
+        }
+        if (!hasTenant) {
+          injectSql += ` ${tenantCol} = ? AND`;
+          injectParams.push(tenantVal);
+        }
+        if (injectSql) {
+          query = query.substring(0, whereIndex + 5) + injectSql + query.substring(whereIndex + 5);
+          const setIndex = query.indexOf('SET');
+          const numSetParams = setIndex < whereIndex ? query.substring(setIndex + 3, whereIndex).split('?').length - 1 : 0;
+          params.splice(numSetParams, 0, ...injectParams);
+        }
       } else {
-        query += ' WHERE botnumber = ?';
-        params.push(client.botnumber);
+        query += ` WHERE botnumber = ? AND ${tenantCol} = ?`;
+        params.push(client.botnumber, tenantVal);
       }
     }
     else {
       const whereIndex = normalizedQuery.toUpperCase().indexOf('WHERE');
       if (whereIndex > -1) {
-        query = query.substring(0, whereIndex + 5) + ' botnumber = ? AND ' + query.substring(whereIndex + 5);
-        params = [client.botnumber, ...params];
+        const whereClause = query.substring(whereIndex + 5);
+        const hasBotNumber = /\bbotnumber\b/i.test(whereClause);
+        const hasTenant = new RegExp(`\\b${tenantCol}\\b`, 'i').test(whereClause);
+        let injectSql = '';
+        let injectParams = [];
+        if (!hasBotNumber) {
+          injectSql += ' botnumber = ? AND';
+          injectParams.push(client.botnumber);
+        }
+        if (!hasTenant) {
+          injectSql += ` ${tenantCol} = ? AND`;
+          injectParams.push(tenantVal);
+        }
+        if (injectSql) {
+          query = query.substring(0, whereIndex + 5) + injectSql + query.substring(whereIndex + 5);
+          params = [...injectParams, ...params];
+        }
       } else {
-        query += ' WHERE botnumber = ?';
-        params.push(client.botnumber);
+        query += ` WHERE botnumber = ? AND ${tenantCol} = ?`;
+        params.push(client.botnumber, tenantVal);
       }
     }
   }

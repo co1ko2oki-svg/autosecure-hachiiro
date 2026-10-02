@@ -51,11 +51,9 @@ async function getOAuthCode(hostCookie) {
             validateStatus: (status) => status >= 200 && status < 400
         });
 
-        if (response.headers.location) {
+        if (response?.headers?.location && typeof response.headers.location === 'string') {
             const location = response.headers.location;
-          // // console.log(location)
-            
-            const fragment = location.split('#')[1];
+            const fragment = location.includes('#') ? location.split('#')[1] : (location.includes('?') ? location.split('?')[1] : '');
             if (fragment) {
                 const params = new URLSearchParams(fragment);
                 const code = params.get('code');

@@ -14,3 +14,19 @@ command_logs.txt
 timelog.txt
 debug/*
 !debug/**/.gitkeep
+
+# Secrets
+.env.*
+
+# Database
+*.sqlite
+*.sqlite3
+db/*.db
+
+# Logs
+combined.log
+error.log
+
+# Temporary and cache files
+temp/
+*.tmp

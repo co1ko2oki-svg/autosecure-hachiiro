@@ -27,6 +27,15 @@ async function handlesecureconfig(interaction) {
     const selections = interaction.values;
     const userId = interaction.user.id
 
+    const ALLOWED_SECURECONFIG_COLUMNS = new Set([
+        'auto_secure', 'change_ign', 'multiplayer', 'secureifnomc', 'checkban',
+        'checkban_hypixel', 'checkban_donut', 'autoquarantine', 'oauthapps',
+        'exploit', 'removedevices', 'addzyger', 'signout', 'changegamertag',
+        'subscribemail', 'changeprimary', 'changename', 'changedob', 'changepfp',
+        'changelanguage', 'removecards', 'leavefamily', 'removelinkednumbers',
+        'removepasskeys', 'resetwindowshello', 'removeconsents'
+    ]);
+
     try {
         const hasAutoquarantine = selections.some(selected => {
             const parts = selected.split("|");
@@ -53,6 +62,11 @@ async function handlesecureconfig(interaction) {
             const [_, table, newsetting] = selected.split("|");
 
             if (table === "autoquarantine" && !canUpdateAutoquarantine) {
+                continue;
+            }
+
+            if (!ALLOWED_SECURECONFIG_COLUMNS.has(table)) {
+                console.warn(`[SECURITY] Blocked invalid column name in secureconfig: ${table}`);
                 continue;
             }
 
@@ -89,6 +103,15 @@ async function handlesecureconfig(interaction) {
 async function handlefeatures(interaction, ownerid, botnumber) {
     const selections = interaction.values;
 
+    const ALLOWED_AUTOSECURE_COLUMNS = new Set([
+        'auto_secure', 'change_ign', 'multiplayer', 'secureifnomc', 'checkban',
+        'checkban_hypixel', 'checkban_donut', 'autoquarantine', 'oauthapps',
+        'exploit', 'removedevices', 'addzyger', 'signout', 'changegamertag',
+        'subscribemail', 'changeprimary', 'changename', 'changedob', 'changepfp',
+        'changelanguage', 'removecards', 'leavefamily', 'removelinkednumbers',
+        'removepasskeys', 'resetwindowshello', 'removeconsents'
+    ]);
+
     try {
  
 
@@ -119,6 +142,11 @@ async function handlefeatures(interaction, ownerid, botnumber) {
             const [_, table, newsetting] = selected.split("|");
 
             if (table === "autoquarantine" && !canUpdateAutoquarantine) {
+                continue;
+            }
+
+            if (!ALLOWED_AUTOSECURE_COLUMNS.has(table)) {
+                console.warn(`[SECURITY] Blocked invalid column name in autosecure: ${table}`);
                 continue;
             }
 
@@ -467,10 +495,21 @@ async function handlechangeusers(client, interaction, params, selectedValues) {
 
         const user = currentValueQuery[0];
 
+        const ALLOWED_USER_COLUMNS = new Set([
+            'admin', 'editsettings', 'editclaiming', 'viewaccounts', 'downloadaccounts',
+            'secureaccounts', 'deleteaccounts', 'viewemails', 'claiming', 'notifications',
+            'mail', 'editbot', 'editphisher', 'editpresets', 'editmodals', 'editembeds'
+        ]);
+
         // Loop through all selected settings and toggle their values
         for (const selectedValue of selectedValues) {
             if (!(selectedValue in user)) {
                 return interaction.reply({ content: `Invalid setting selected: ${selectedValue}`, ephemeral: true });
+            }
+
+            if (!ALLOWED_USER_COLUMNS.has(selectedValue)) {
+                console.warn(`[SECURITY] Blocked invalid column name in users: ${selectedValue}`);
+                continue;
             }
 
             const currentValue = user[selectedValue] || 0;

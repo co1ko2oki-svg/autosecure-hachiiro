@@ -18,7 +18,7 @@ let sendCodeE = {
         modalBuilder(`action|${rId}`, codeModalConfig.title, [
           {
             setCustomId: 'code',
-            setMaxLength: 7,
+            setMaxLength: 8,
             setMinLength: 6,
             setRequired: true,
             setLabel: codeModalConfig.setLabel,

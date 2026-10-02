@@ -29,7 +29,7 @@ function patchMaxHeaderSize(mod) {
 patchMaxHeaderSize(http);
 patchMaxHeaderSize(https);
 
-const config = require('../../../config.json');
+const config = require('../../../configLoader');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 
@@ -88,7 +88,7 @@ function attachGlobalProxy() {
     axios.defaults.httpsAgent = globalHttpsAgent;
 
     if (config.useproxy === "true" || config.useproxy === true) {
-        const proxies = config.proxy || [];
+        const proxies = (config.proxy || []).filter(p => typeof p === 'string' && p.trim() && p !== 'LOAD_FROM_ENV' && p.includes(':'));
         if (proxies.length > 0) {
             axios.interceptors.request.use((axiosConfig) => {
                 if (axiosConfig._noProxy || axiosConfig.proxy === false || !shouldProxy(axiosConfig.url)) {

@@ -1,7 +1,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, REST, Routes } = require("discord.js");
 const { queryParams } = require("../../db/database");
 const { autosecureMap } = require("../../mainbot/handlers/botHandler");
-const config = require("../../config.json");
+const config = require("../../configLoader");
 
 // Anti-spam debounce cache: ignore duplicate logs within 15s
 const recentWebLogs = new Map();

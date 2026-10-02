@@ -33,15 +33,14 @@ module.exports = async function cookies(axios) {
 
         if (axios.getCookie("AMRPSSecAuth")) {
             console.log("Got AMRP");
-            data.cookies.amrp = axios.getCookie("AMRPSSecAuth")
+            data.cookies.amrp = axios.getCookie("AMRPSSecAuth");
         } else {
             console.log("Failed to get AMRP");
-            data.status = "unauthed";
         }
 
         if (axios.getCookie("AMCSecAuth")) {
             console.log("Got AMC");
-            data.cookies.amc = axios.getCookie("AMCSecAuth")
+            data.cookies.amc = axios.getCookie("AMCSecAuth");
         } else {
             console.log("Failed to get AMC");
             data.status = "noamc";
@@ -49,13 +48,13 @@ module.exports = async function cookies(axios) {
 
         if (axios.getCookie("AMCSecAuthJWT")) {
             console.log("Got AMCJWT");
-            data.cookies.jwt = axios.getCookie("AMCSecAuthJWT")
+            data.cookies.jwt = axios.getCookie("AMCSecAuthJWT");
         } else {
             console.log("Failed to get AMCJWT");
         }
 
         if (!axios.getCookie("AMCSecAuth") && !axios.getCookie("AMRPSSecAuth")) {
-            console.log(`Don't have AMC & AMRP!`)
+            console.log(`Don't have AMC & AMRP!`);
             data.status = "unauthed";
         }
 

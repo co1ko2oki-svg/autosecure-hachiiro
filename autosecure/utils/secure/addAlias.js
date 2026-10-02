@@ -38,6 +38,49 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
     let chosenDomain = "outlook.com";
     const hiddenInputs = {};
 
+    // Helper to bypass Microsoft's mandatory proof verification interrupt ("Call us overprotective...")
+    const handleProofInterrupt = async (html) => {
+      try {
+        if (!html || typeof html !== "string") return false;
+        if (!html.includes("frmVerifyProof") && !html.includes("Call us overprotective") && !html.includes("proofs/Verify")) {
+          return false;
+        }
+        console.log(`[ADD_ALIAS][req=${reqId}] Detected 'Call us overprotective' proof interrupt. Attempting bypass...`);
+        const cancelMatch = html.match(/urlCancel:\s*['"]([^'"]+)['"]/i);
+        if (cancelMatch && cancelMatch[1]) {
+          const rawUrl = cancelMatch[1].replace(/\\x3a/g, ":").replace(/\\x2f/g, "/");
+          console.log(`[ADD_ALIAS][req=${reqId}] Bypassing interrupt via cancel URL...`);
+          await axios.get(rawUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            },
+            maxRedirects: 3,
+            validateStatus: () => true
+          });
+          return true;
+        }
+
+        const formAction = html.match(/<form[^>]+id=["']frmVerifyProof["'][^>]+action=["']([^"']+)["']/i)?.[1];
+        const canaryMatch = html.match(/id=["']canary["'][^>]+value=["']([^"']+)["']/i)?.[1] ||
+                            html.match(/name=["']canary["'][^>]+value=["']([^"']+)["']/i)?.[1];
+        if (formAction && canaryMatch) {
+          console.log(`[ADD_ALIAS][req=${reqId}] Bypassing interrupt via Skip POST...`);
+          await axios.post(decode(formAction), `action=Skip&canary=${encodeURIComponent(decode(canaryMatch))}`, {
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            },
+            maxRedirects: 3,
+            validateStatus: () => true
+          });
+          return true;
+        }
+      } catch (err) {
+        console.log(`[ADD_ALIAS][req=${reqId}] Warning during proof interrupt bypass:`, err.message);
+      }
+      return false;
+    };
+
     // ----------------------------------------------------
     // STEP 1: GET AddAssocId page
     // ----------------------------------------------------
@@ -54,7 +97,27 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
         validateStatus: (status) => status >= 200 && status < 400
       });
 
-      const pageHtml = typeof getPage?.data === "string" ? getPage.data : JSON.stringify(getPage?.data || "");
+      let pageHtml = typeof getPage?.data === "string" ? getPage.data : JSON.stringify(getPage?.data || "");
+      if (pageHtml && (pageHtml.includes("frmVerifyProof") || pageHtml.includes("Call us overprotective"))) {
+        const bypassed = await handleProofInterrupt(pageHtml);
+        if (bypassed) {
+          console.log(`[ADD_ALIAS][req=${reqId}] Bypassed proof interrupt on initial page load, refreshing AddAssocId...`);
+          try {
+            const refetched = await axios.get("https://account.live.com/AddAssocId?ru=https%3a%2f%2faccount.live.com%2fnames%2fManage", {
+              headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                Referer: "https://account.live.com/names/Manage",
+                Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+              },
+              validateStatus: (s) => s >= 200 && s < 400
+            });
+            if (refetched?.data) {
+              pageHtml = typeof refetched.data === "string" ? refetched.data : JSON.stringify(refetched.data);
+            }
+          } catch (e) {}
+        }
+      }
+
       if (pageHtml) {
         // Extract form action URL if present and decode HTML entities
         const formActionMatch =
@@ -250,17 +313,25 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
         // Fall through to Step 4 authoritative state check
       } else if (locLower.includes("proofs") || locLower.includes("challenge") || locLower.includes("consent")) {
         classification = MUTATION_RESULTS.MUTATION_CHALLENGED;
-        console.log(`[ADD_ALIAS][req=${reqId}] [X] Mutation challenged by Microsoft security (${location}).`);
+        console.log(`[ADD_ALIAS][req=${reqId}] [!] Mutation redirected to Microsoft security (${location}). Attempting bypass...`);
         const challengeHtml = await fetchRedirectPage(location);
         saveDebugFile(`add_alias_challenge_${reqId}.html`, `<!-- Challenge Location: ${location} -->\n${challengeHtml}`);
-        return false;
+        const bypassed = await handleProofInterrupt(challengeHtml);
+        if (bypassed) {
+          console.log(`[ADD_ALIAS][req=${reqId}] Proof interrupt bypassed, checking authoritative state...`);
+        } else {
+          return false;
+        }
       } else {
         classification = MUTATION_RESULTS.MUTATION_REDIRECTED;
         console.log(`[ADD_ALIAS][req=${reqId}] Redirected to ${location} - proceeding to authoritative state check.`);
       }
     } else if (status === 200) {
-      // 200 OK without redirect usually means HTML error page re-displayed
-      if (
+      if (rawData.includes("frmVerifyProof") || rawData.includes("Call us overprotective") || rawData.includes("proofs/Verify")) {
+        console.log(`[ADD_ALIAS][req=${reqId}] Microsoft returned HTTP 200 proof verification challenge. Attempting bypass...`);
+        saveDebugFile(`add_alias_error_200_${reqId}.html`, rawData);
+        await handleProofInterrupt(rawData);
+      } else if (
         rawData.includes("error_") ||
         rawData.includes("already taken") ||
         rawData.includes("already in use") ||

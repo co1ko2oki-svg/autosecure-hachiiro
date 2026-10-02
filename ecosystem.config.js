@@ -10,7 +10,8 @@ module.exports = {
         NODE_ENV: 'production',
         BACKEND_PORT: 5000,
         FRONTEND_PORT: 3667,
-        PM2_PIDUSAGE_DISABLE: 'true'
+        PM2_PIDUSAGE_DISABLE: 'true',
+        PM2_HOME: './.pm2'
       },
       windowsHide: true,
       pmx: false,

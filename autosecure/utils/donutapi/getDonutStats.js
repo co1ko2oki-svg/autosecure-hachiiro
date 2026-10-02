@@ -15,7 +15,7 @@ function parseFormattedNumber(val) {
 }
 
 function parseDonutStatsHtml(html, ign) {
-    if (!html || (html.includes('404') && html.includes('Player not found')) || html.includes('Failed to find player')) {
+    if (typeof html !== 'string' || !html.trim() || (html.includes('404') && html.includes('Player not found')) || html.includes('Failed to find player')) {
         return null;
     }
 

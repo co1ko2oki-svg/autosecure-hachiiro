@@ -233,15 +233,23 @@ async function getXBL3(userToken, relyingParty = 'rp://api.minecraftservices.com
                 'X-Xbl-Contract-Version': '1'
             },
             maxHeaderSize: 131072,
-            timeout: 10000
+            timeout: 10000,
+            validateStatus: (status) => status >= 200 && status < 500
         });
+
+        if (response.status === 401) {
+            const xerr = response.data?.XErr;
+            console.log(`[getxbl3] XSTS authorize returned 401 with XErr: ${xerr}`);
+            return null;
+        }
 
         const token = response.data?.Token;
         const uhs = response.data?.DisplayClaims?.xui?.[0]?.uhs;
         if (!token || !uhs) return null;
 
         return `XBL3.0 x=${uhs};${token}`;
-    } catch {
+    } catch (err) {
+        console.log('[getxbl3] getXBL3 error:', err.message);
         return null;
     }
 }

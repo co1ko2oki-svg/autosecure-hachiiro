@@ -1,4 +1,5 @@
 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const isOwner = require('../../../db/isOwner');
 
 module.exports = {
     name: "swaptoken",
@@ -6,6 +7,14 @@ module.exports = {
     callback: async (client, interaction) => {
         let id = interaction.customId.split('|')[1];
         let botnumber = interaction.customId.split('|')[2];
+
+        const isAuthorized = interaction.user.id === id || await isOwner(interaction.user.id);
+        if (!isAuthorized) {
+            return await interaction.reply({
+                content: "You are not authorized to modify this bot.",
+                ephemeral: true
+            });
+        }
 
         const modal = new ModalBuilder()
             .setCustomId(`tokenmodal|${id}|${botnumber}`)

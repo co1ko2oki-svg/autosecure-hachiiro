@@ -1,5 +1,5 @@
 const { queryParams } = require("../../../db/database");
-const config = require("../../../config.json");
+const config = require("../../../configLoader");
 const axios = require("axios");
 const FormData = require("form-data");
 const { faker } = require('@faker-js/faker');
@@ -749,6 +749,10 @@ async function checkofflinebots(userid) {
 
 
 async function updateStatus(uid, field, value) {
+  if (!/^[a-zA-Z0-9_]{1,32}$/.test(field)) {
+    console.error(`[updateStatus] Invalid field name rejected: ${field}`);
+    throw new Error(`Invalid field name: ${field}`);
+  }
   try {
     const res = await queryParams(`UPDATE status SET ${field} = ? WHERE uid = ?`, [value, uid], 'run');
     if (res && res.changes === 0) {
@@ -775,6 +779,10 @@ async function updateStatus(uid, field, value) {
 
 
 async function updateExtraInformation(uid, field, value) {
+  if (!/^[a-zA-Z0-9_]{1,32}$/.test(field)) {
+    console.error(`[updateExtraInformation] Invalid field name rejected: ${field}`);
+    throw new Error(`Invalid field name: ${field}`);
+  }
   try {
     const res = await queryParams(`UPDATE extrainformation SET \`${field}\` = ? WHERE uid = ?`, [value, uid], 'run');
     if (res && res.changes === 0) {
@@ -944,11 +952,12 @@ function generateValidGamertag() {
 }
 
 async function submitCaptchaTo2Captcha(base64Image) {
-  if (!API_KEY) {
-    throw new Error('2Captcha API key is not configured in config.json');
+  const apiKey = API_KEY || config.captchakey;
+  if (!apiKey) {
+    throw new Error('2Captcha API key is not configured');
   }
   const form = new FormData();
-  form.append('key', API_KEY);
+  form.append('key', apiKey);
   form.append('method', 'base64');
   form.append('body', base64Image);
 
@@ -956,22 +965,25 @@ async function submitCaptchaTo2Captcha(base64Image) {
     headers: form.getHeaders()
   });
 
-  if (res.data.startsWith('OK|')) {
-    return res.data.split('|')[1];
+  const responseText = typeof res.data === 'string' ? res.data : (res.data ? (res.data.request || JSON.stringify(res.data)) : '');
+  if (responseText.startsWith('OK|')) {
+    return responseText.split('|')[1];
   } else {
-    throw new Error(`Submit captcha failed: ${res.data}`);
+    throw new Error(`Submit captcha failed: ${responseText}`);
   }
 }
 
 async function getCaptchaResult(captchaId) {
+  const apiKey = API_KEY || config.captchakey;
   for (let i = 0; i < 24; i++) {
     await new Promise(resolve => setTimeout(resolve, 5000));
-    const res = await axios.get(`http://2captcha.com/res.php?key=${API_KEY}&action=get&id=${captchaId}`);
-    if (res.data === 'CAPCHA_NOT_READY') continue;
-    if (res.data.startsWith('OK|')) {
-      return res.data.split('|')[1];
+    const res = await axios.get(`http://2captcha.com/res.php?key=${apiKey}&action=get&id=${captchaId}`);
+    const responseText = typeof res.data === 'string' ? res.data : (res.data ? (res.data.request || JSON.stringify(res.data)) : '');
+    if (responseText === 'CAPCHA_NOT_READY') continue;
+    if (responseText.startsWith('OK|')) {
+      return responseText.split('|')[1];
     } else {
-      throw new Error(`Get captcha result failed: ${res.data}`);
+      throw new Error(`Get captcha result failed: ${responseText}`);
     }
   }
   throw new Error('Captcha solving timeout.');

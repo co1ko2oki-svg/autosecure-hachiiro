@@ -3,6 +3,8 @@ const autosecure = require("../../../autosecure/autosecure");
 const { queryParams } = require("../../../db/database");
 const checkToken = require("../../../autosecure/utils/utils/checkToken");
 const showbotmsg = require("../../../autosecure/utils/bot/showbotmsg");
+const isOwner = require("../../../db/isOwner");
+const { decryptToken } = require("../../../autosecure/utils/security/tokenCipher");
 
 module.exports = {
     name: "restart",
@@ -10,6 +12,14 @@ module.exports = {
     callback: async (client, interaction) => {
         let userId = interaction.customId.split('|')[1] || interaction.user.id;
         let botnumber = interaction.customId.split('|')[2];
+
+        const isAuthorized = interaction.user.id === userId || await isOwner(interaction.user.id);
+        if (!isAuthorized) {
+            return await interaction.reply({
+                content: "You are not authorized to restart this bot.",
+                ephemeral: true
+            });
+        }
 
         await interaction.update({ content: `Restarting bot...`, embeds: [], components: [] });
         
@@ -21,7 +31,7 @@ module.exports = {
             });
         }
 
-        let token = result[0].token;
+        let token = decryptToken(result[0].token);
         
         let checked = await checkToken(token);
         if (!checked) {
@@ -50,3 +60,4 @@ module.exports = {
         await interaction.editReply(msg);
     }
 };
+

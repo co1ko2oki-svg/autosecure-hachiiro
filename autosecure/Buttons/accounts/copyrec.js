@@ -3,6 +3,7 @@ const { queryParams } = require("../../../db/database");
 
 module.exports = {
     name: "copyrec",
+    userOnly: true,
     callback: async (client, interaction) => {
         try {
 

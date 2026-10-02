@@ -121,6 +121,10 @@ async function handleShowConfig(client, interaction, user_id, mode, botNumber) {
         title = 'Full config';
     } else if (mode === 'bot') {
         if (!botNumber) throw new Error('Please specify a bot number for bot mode');
+        const userBotNumbers = await getUserBotNumbers(user_id);
+        if (!userBotNumbers.includes(botNumber)) {
+            throw new Error(`You don't have access to bot number ${botNumber}`);
+        }
         
         config = await saveBotConfig(user_id, botNumber);
         fileName = `bot${botNumber}_config.json`;

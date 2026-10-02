@@ -1,9 +1,20 @@
-const sqlite = require("sqlite3").verbose();
+const sqlite = require("sqlite3");
 const { join } = require("path");
-const path = join(__dirname, "database.db");
+const fs = require("fs");
+const dbPath = join(__dirname, "database.db");
 
-const db = new sqlite.Database(path, (err) => {
-  if (err) throw err;
+// Ensure database file permissions are restrictive (owner-only read/write)
+try {
+  if (fs.existsSync(dbPath)) {
+    fs.chmodSync(dbPath, 0o600);
+  }
+} catch (e) {}
+
+const db = new sqlite.Database(dbPath, (err) => {
+  if (err) {
+    console.error('[DATABASE] Failed to open database:', err.message);
+    process.exit(1);
+  }
 });
 
 // Configure SQLite for high concurrency & resilience

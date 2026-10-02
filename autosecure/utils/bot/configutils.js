@@ -3,11 +3,15 @@ const { queryParams } = require('../../../db/database');
 const autosecure = require('../../autosecure');
 const { autosecureMap } = require("../../../mainbot/handlers/botHandler");
 const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
+const { encryptToken, decryptToken } = require('../security/tokenCipher');
 
 
 async function getTableColumns(tableName) {
+    if (!/^[a-zA-Z0-9_]{1,64}$/.test(tableName)) {
+        throw new Error(`Invalid table name: ${tableName}`);
+    }
     const rows = await queryParams(
-        `PRAGMA table_info(${tableName})`,
+        `PRAGMA table_info(\`${tableName}\`)`,
         [],
         "all"
     );
@@ -83,14 +87,20 @@ async function importConfig(config, user_id, botnumber = null) {
                 }
             }
 
+            if (tableName === 'autosecure' && dbEntry.token) {
+                dbEntry.token = encryptToken(dbEntry.token);
+            }
+
             if (Object.keys(dbEntry).length === 0) continue;
 
             try {
-                const columns = Object.keys(dbEntry).join(', ');
-                const values = Object.values(dbEntry);
+                const safeColumns = Object.keys(dbEntry).filter(col => /^[a-zA-Z0-9_]{1,64}$/.test(col));
+                if (safeColumns.length === 0) continue;
+                const columns = safeColumns.map(col => `\`${col}\``).join(', ');
+                const values = safeColumns.map(col => dbEntry[col]);
                 const placeholders = values.map(() => '?').join(', ');
                 await queryParams(
-                    `INSERT INTO ${tableName} (${columns}) VALUES (${placeholders})`,
+                    `INSERT INTO \`${tableName}\` (${columns}) VALUES (${placeholders})`,
                     values
                 );
             } catch {
@@ -200,12 +210,39 @@ async function saveFullConfig(user_id) {
     return config;
 }
 
+const SENSITIVE_FIELDS = new Set([
+    'token',
+    'bottoken',
+    'bot_token',
+    'password',
+    'secret',
+    'apikey',
+    'api_key',
+    'authkey',
+    'auth_key',
+    'clientsecret',
+    'client_secret',
+    'encodedpassword',
+    'secretkey',
+    'recoverycode',
+    'credentials'
+]);
+
 function cleanEntry(entry) {
     const cleaned = {};
     for (const [key, value] of Object.entries(entry)) {
-        if (key !== 'id' && value !== undefined && value !== null) {
-            cleaned[key] = value;
+        if (key === 'id') continue;
+        if (value === undefined || value === null) continue;
+        const lowerKey = key.toLowerCase();
+        if (SENSITIVE_FIELDS.has(lowerKey) ||
+            lowerKey.includes('token') ||
+            lowerKey.includes('password') ||
+            lowerKey.includes('secret') ||
+            lowerKey.includes('apikey') ||
+            lowerKey.includes('authkey')) {
+            continue;
         }
+        cleaned[key] = value;
     }
     return cleaned;
 }
@@ -217,18 +254,38 @@ async function importBotConfig(config, user_id, botnumber) {
         throw new Error(`You don't have access to bot number ${botnumber}`);
     }
 
-    await clearBotConfig(user_id, botnumber);
+    // Preserve existing token if config does not provide one
+    let existingToken = null;
+    const existingBot = await queryParams(
+        'SELECT token FROM autosecure WHERE user_id = ? AND botnumber = ?',
+        [user_id, botnumber]
+    );
+    if (existingBot && existingBot.length > 0 && existingBot[0].token) {
+        existingToken = existingBot[0].token;
+    }
+
+    await clearBotConfig(user_id, botnumber, true);
     const configinfo = await importConfig(config, user_id, botnumber);
     
-    if (!configinfo.botnumber || !configinfo.token) {
+    const tokenToUse = configinfo.token || existingToken;
+    if (!tokenToUse) {
         console.log(`No autosecure token found for bot ${botnumber}`);
         return false;
     }
+
+    const plainToken = decryptToken(tokenToUse);
     
-    console.log(`Starting bot number ${configinfo.botnumber}`);
-    const bot = await autosecure(configinfo.token, configinfo.user_id, configinfo.botnumber);
+    if (!configinfo.token && existingToken) {
+        await queryParams(
+            'UPDATE autosecure SET token = ? WHERE user_id = ? AND botnumber = ?',
+            [existingToken, user_id, botnumber]
+        );
+    }
+    
+    console.log(`Starting bot number ${botnumber}`);
+    const bot = await autosecure(plainToken, user_id, botnumber);
     if (bot) {
-        const key = `${configinfo.user_id}|${configinfo.botnumber}`;
+        const key = `${user_id}|${botnumber}`;
         console.log(`Added bot to autosecureMap with key: ${key}`);
         autosecureMap.set(key, bot);
         return true;
@@ -236,11 +293,14 @@ async function importBotConfig(config, user_id, botnumber) {
     return false;
 }
 
-async function clearBotConfig(user_id, botnumber) {
+async function clearBotConfig(user_id, botnumber, preserveToken = false) {
     const botTables = tablesbotnumber();
     const clientIdTables = tablesclientid();
     
     for (const table of botTables) {
+        if (preserveToken && table === 'autosecure') {
+            continue;
+        }
         try {
             const query = clientIdTables.includes(table)
                 ? `DELETE FROM ${table} WHERE client_id = ? AND botnumber = ?`

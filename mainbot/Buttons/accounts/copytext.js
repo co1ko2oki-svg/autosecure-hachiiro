@@ -5,6 +5,7 @@ const isOwner = require("../../../db/isOwner");
 
 module.exports = {
     name: "copyText",
+    userOnly: true,
     callback: async (client, interaction) => {
         try {
             let [, copyTextId] = interaction.customId.split("|");

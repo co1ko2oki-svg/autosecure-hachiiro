@@ -113,25 +113,23 @@ async function getOAuthCode(hostCookie) {
         const location = response.headers.location;
         console.log('Redirected to:', location);
 
-        if (!location) {
+        if (!location || typeof location !== 'string') {
             return { success: false, message: "Microsoft changed something." };
         }
 
-
-
-        const fragment = location.split('#')[1];
-        let authed = true
+        const fragment = location.includes('#') ? location.split('#')[1] : (location.includes('?') ? location.split('?')[1] : '');
+        let authed = true;
         if (fragment) {
             const params = new URLSearchParams(fragment);
             const code = params.get('code');
 
             if (code) {
                 return code;
-            } else{
+            } else {
                 authed = false;
             }
-        } else{
-        authed = false;
+        } else {
+            authed = false;
         }
 
         if (!authed){
@@ -389,7 +387,7 @@ async function multiplayerhandler(email, password, action = 'disable', secretkey
         
         console.log("Getting user token...");
         const userToken = await getUserToken(rpsTicket);
-        console.log(`Usertoken: ${userToken}`)
+        console.log(`Usertoken: [REDACTED]`);
         if (typeof userToken !== 'string') {
             return userToken; 
         }

@@ -41,7 +41,7 @@ module.exports = async function login(obj, creds) {
         return null;
     }
 
-    if (creds?.Credentials?.HasPassword === 0) {
+    if (creds?.Credentials?.HasPassword === 0 || creds?.Credentials?.HasPassword === false) {
         nopassword = true;
     }
     console.log(`Nopassword: ${nopassword}`);
@@ -59,28 +59,35 @@ module.exports = async function login(obj, creds) {
     try {
         let loginData = null;
 
-        if (obj.email && obj.id && obj.code) {
+        if (obj.email && (obj.id || obj.secId) && (obj.code || obj.otp)) {
+            const rawCode = obj.code || obj.otp;
+            const cleanCode = rawCode ? String(rawCode).trim().replace(/[\s\-]/g, "") : "";
+            const cleanId = String(obj.id || obj.secId || "").trim();
+
             if (nopassword) {
-                console.log(`No password!`)
+                console.log(`No password!`);
                 loginData = await axios({
                     method: "POST",
                     url: "https://login.live.com/ppsecure/post.srf",
+                    maxRedirects: 0,
+                    validateStatus: (status) => status >= 200 && status < 500,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                         Cookie: data.cookies,
                     },
-                    data: `SentProofIDE=${obj.id}&ProofType=1&npotc=${obj.code}&ps=3&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=&PPFT=${data.ppft}&PPSX=Pass&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=1&isSignupPost=0&isRecoveryAttemptPost=0&i13=0&login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=24&LoginOptions=3&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=`,
+                    data: `SentProofIDE=${encodeURIComponent(cleanId)}&ProofType=1&npotc=${encodeURIComponent(cleanCode)}&ps=3&psRNGCDefaultType=&psRNGCEntropy=&psRNGCSLK=&canary=&ctx=&hpgrequestid=&PPFT=${encodeURIComponent(data.ppft)}&PPSX=Pass&NewUser=1&FoundMSAs=&fspost=0&i21=0&CookieDisclosure=0&IsFidoSupported=1&isSignupPost=0&isRecoveryAttemptPost=0&i13=0&login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=24&LoginOptions=3&lrt=&lrtPartition=&hisRegion=&hisScaleUnit=`,
                 });
             } else {
                 loginData = await axios({
                     method: "POST",
                     url: "https://login.live.com/ppsecure/post.srf",
-                    validateStatus: (status) => status >= 200 && status < 400,
+                    maxRedirects: 0,
+                    validateStatus: (status) => status >= 200 && status < 500,
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded",
                         Cookie: data.cookies,
                     },
-                    data: `login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=27&SentProofIDE=${obj.id}&otc=${obj.code}&PPFT=${data.ppft}`,
+                    data: `login=${encodeURIComponent(obj.email)}&loginfmt=${encodeURIComponent(obj.email)}&type=27&SentProofIDE=${encodeURIComponent(cleanId)}&otc=${encodeURIComponent(cleanCode)}&PPFT=${encodeURIComponent(data.ppft)}`,
                 });
             }
 
@@ -370,26 +377,170 @@ module.exports = async function login(obj, creds) {
         console.log("loginData status:", loginData?.status);
         console.log("loginData location:", loginData?.headers?.location);
 
-        if (loginData?.data) {
-            if (loginData.data.includes('name="fmHF"')) {
-                console.log("Microsoft returned a self-submitting form (fmHF)!");
-            } else if (loginData.data.includes('id="error"')) {
-                console.log("Microsoft returned an error page!");
-            } else {
-                console.log("loginData.data length:", loginData.data.length);
+        // Check if Microsoft returned an explicit error page
+        const isError =
+            loginData?.data &&
+            (loginData.data.includes('id="error"') ||
+             loginData.data.includes('id="c_error"') ||
+             loginData.data.includes('alert-error') ||
+             loginData.data.includes('sErrTxt') ||
+             loginData.data.includes("That code didn't work") ||
+             loginData.data.includes("The code you entered is not valid") ||
+             loginData.data.includes("Enter your password"));
+
+        if (isError) {
+            let errorMsg = null;
+            const sErrMatch = loginData.data.match(/"sErrTxt":"([^"]+)"/);
+            if (sErrMatch && sErrMatch[1]) {
+                errorMsg = sErrMatch[1];
+            }
+            const htmlErrMatch =
+                loginData.data.match(/<div[^>]+id=["'](?:error|c_error)["'][^>]*>([^<]+)<\/div>/i) ||
+                loginData.data.match(/<div[^>]+class=["'][^"']*alert-error[^"']*["'][^>]*>([^<]+)<\/div>/i);
+            if (htmlErrMatch && htmlErrMatch[1]) {
+                errorMsg = htmlErrMatch[1].trim();
+            }
+            console.log(`[login] Microsoft rejected authentication: ${errorMsg || 'Invalid verification code or login error'}`);
+            return null;
+        }
+
+        let hostp = null;
+        const extractCookies = (cookieList) => {
+            if (!cookieList) return;
+            const list = Array.isArray(cookieList) ? cookieList : [cookieList];
+            list.forEach(cookie => {
+                if (typeof cookie !== 'string') return;
+                const [rawName, ...values] = cookie.split("=");
+                const name = (rawName || '').trim();
+                const val = values.join("=").split(";").shift().trim();
+                if (name === "__Host-MSAAUTH") {
+                    host = val;
+                    console.log(`[login] Host cookie (__Host-MSAAUTH) acquired`);
+                } else if (name === "__Host-MSAAUTHP") {
+                    hostp = val;
+                    console.log(`[login] Persistent cookie (__Host-MSAAUTHP) acquired`);
+                } else if (name === "MSAAUTH" && !host) {
+                    host = val;
+                    console.log(`[login] Host cookie (MSAAUTH) acquired`);
+                }
+            });
+            if (!host && hostp) {
+                host = hostp;
+                console.log(`[login] Using __Host-MSAAUTHP as fallback for host`);
+            }
+        };
+
+        if (loginData?.headers?.["set-cookie"]) {
+            extractCookies(loginData.headers["set-cookie"]);
+        }
+
+        // Handle KMSI ("Stay signed in?") prompt when returned as HTTP 200
+        const isKmsi =
+            loginData?.status === 200 &&
+            loginData?.data &&
+            (loginData.data.includes('kmsi') ||
+             loginData.data.includes('Keep me signed in') ||
+             loginData.data.includes('Stay signed in') ||
+             loginData.data.includes('type=28') ||
+             loginData.data.includes('fKMSIEnabled'));
+
+        if (isKmsi) {
+            let kmsiPPFT = null;
+            const sftMatch = loginData.data.match(/var ServerData = ({.*?});/s);
+            if (sftMatch) {
+                try {
+                    const sd = JSON.parse(sftMatch[1]);
+                    kmsiPPFT = sd.sFT || sd.sFTTag?.match(/value="([^"]*)"/)?.[1];
+                } catch (e) {}
+            }
+            if (!kmsiPPFT) {
+                kmsiPPFT =
+                    loginData.data.match(/name="PPFT"[^>]*value="([^"]*)"/)?.[1] ||
+                    loginData.data.match(/value="([^"]*)"[^>]*name="PPFT"/)?.[1];
+            }
+
+            if (kmsiPPFT) {
+                console.log("[login] KMSI prompt detected. Auto-submitting KMSI to finalize authenticated session...");
+                const actionMatch = loginData.data.match(/action="([^"]*post\.srf[^"]*)"/i);
+                const kmsiAction = actionMatch ? actionMatch[1] : "https://login.live.com/ppsecure/post.srf";
+
+                let currentCookieStr = data.cookies || "";
+                if (loginData?.headers?.["set-cookie"]) {
+                    const newC = loginData.headers["set-cookie"].map(c => c.split(";")[0]).join("; ");
+                    currentCookieStr = `${currentCookieStr}; ${newC}`;
+                }
+
+                try {
+                    const kmsiRes = await axios({
+                        method: "POST",
+                        url: kmsiAction,
+                        maxRedirects: 0,
+                        validateStatus: (s) => s >= 200 && s < 400,
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Cookie": currentCookieStr,
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Referer": "https://login.live.com/login.srf"
+                        },
+                        data: `PPFT=${encodeURIComponent(kmsiPPFT)}&type=28&LoginOptions=3`
+                    });
+
+                    console.log(`[login] KMSI response status: ${kmsiRes?.status}, location: ${kmsiRes?.headers?.location}`);
+                    if (kmsiRes?.headers?.["set-cookie"]) {
+                        extractCookies(kmsiRes.headers["set-cookie"]);
+                    }
+                    loginData = kmsiRes;
+                } catch (kmsiErr) {
+                    console.error("[login] Error submitting KMSI:", kmsiErr.message);
+                }
+            }
+        }
+
+        // Handle self-submitting form (fmHF)
+        if (loginData?.data && loginData.data.includes('name="fmHF"')) {
+            const fmAction = loginData.data.match(/<form[^>]+name="fmHF"[^>]+action="([^"]+)"/i)?.[1];
+            const fmT = loginData.data.match(/<input[^>]+name="t"[^>]+value="([^"]+)"/i)?.[1];
+            if (fmAction && fmT) {
+                console.log("[login] Submitting self-posting fmHF form to:", fmAction);
+                let currentCookieStr = data.cookies || "";
+                if (loginData?.headers?.["set-cookie"]) {
+                    const newC = loginData.headers["set-cookie"].map(c => c.split(";")[0]).join("; ");
+                    currentCookieStr = `${currentCookieStr}; ${newC}`;
+                }
+                try {
+                    const fmRes = await axios.post(fmAction, `t=${encodeURIComponent(fmT)}`, {
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Cookie": currentCookieStr
+                        },
+                        maxRedirects: 0,
+                        validateStatus: (s) => s >= 200 && s < 400
+                    });
+                    if (fmRes?.headers?.["set-cookie"]) {
+                        extractCookies(fmRes.headers["set-cookie"]);
+                    }
+                    loginData = fmRes;
+                } catch (fmErr) {
+                    console.error("[login] Error submitting fmHF:", fmErr.message);
+                }
             }
         }
 
         if (loginData && loginData.headers && loginData.headers["set-cookie"]) {
-            loginData.headers["set-cookie"].forEach(cookie => {
-                const [name, ...values] = cookie.split("=");
-                if (name === "__Host-MSAAUTH") {
-                    host = values.join("=").split(";").shift();
-                    console.log(`[login] Final host cookie acquired successfully`);
+            extractCookies(loginData.headers["set-cookie"]);
+        } else if (loginData && loginData.request && loginData.request.res && loginData.request.res.rawHeaders) {
+            const raw = loginData.request.res.rawHeaders;
+            for (let i = 0; i < raw.length; i += 2) {
+                if (raw[i].toLowerCase() === 'set-cookie') {
+                    extractCookies([raw[i + 1]]);
                 }
-            });
-        } else {
-            console.log("No set-cookie in final loginData response");
+            }
+        }
+
+        // Verify that authentication actually succeeded
+        if (!host && loginData?.status === 200 && !loginData?.headers?.location) {
+            console.log("[login] Login request completed with HTTP 200 without redirect and without host cookie. Not authenticated.");
+            return null;
         }
 
         if (host && nopassword) {

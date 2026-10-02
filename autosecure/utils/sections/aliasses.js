@@ -12,7 +12,7 @@ const {
   ALIAS_STATES
 } = require("../secure/aliasHelper");
 const generate = require("../generate");
-const config = require("../../../config.json");
+const config = require("../../../configLoader");
 
 /**
  * Enforces Microsoft Live ID naming rules on top of base sanitization:
@@ -155,7 +155,29 @@ module.exports = async function aliasses(
       uid
     );
 
-    if (isPrimarySuccess) {
+    let primarySuccess = isPrimarySuccess;
+    if (!primarySuccess) {
+      // makePrimary reported failure. Before rolling back, re-verify the
+      // authoritative server state: the mutation may have actually succeeded
+      // while only the verification step failed (e.g. transient network error).
+      let actualPrimary = null;
+      try {
+        const recheck = await getAliases(axios);
+        actualPrimary = normalizeEmail(recheck?.primary);
+      } catch (_) {}
+
+      if (actualPrimary && isSameEmail(actualPrimary, verifiedNewEmail)) {
+        primarySuccess = true;
+        logAliasEvent("ALIAS_WORKFLOW", {
+          requestId: rootReqId,
+          step: "MAKE_PRIMARY",
+          status: "STATE_VERIFIED",
+          message: `Re-verified: ${verifiedNewEmail} is authoritative primary despite makePrimary returning false`
+        });
+      }
+    }
+
+    if (primarySuccess) {
       acc.email = verifiedNewEmail;
       await Promise.allSettled([
         updateStatus(uid, "email", acc.email),
@@ -226,67 +248,41 @@ module.exports = async function aliasses(
         updateExtraInformation(uid, "newaliases", JSON.stringify([verifiedNewEmail]))
       ]);
     } else {
-      // makePrimary reported failure. Before rolling back, re-verify the
-      // authoritative server state: the mutation may have actually succeeded
-      // while only the verification step failed (e.g. transient network error).
-      let actualPrimary = null;
+      // ROLLBACK: makePrimary truly failed — remove the alias we just added to avoid quota leak
+      logAliasEvent("ALIAS_WORKFLOW", {
+        requestId: rootReqId,
+        step: "MAKE_PRIMARY",
+        status: "FAILED",
+        message: `MakePrimary failed; rolling back alias ${verifiedNewEmail}`
+      });
+
       try {
-        const recheck = await getAliases(axios);
-        actualPrimary = normalizeEmail(recheck?.primary);
-      } catch (_) {}
-
-      if (actualPrimary && isSameEmail(actualPrimary, verifiedNewEmail)) {
-        // Server did change primary — accept the authoritative truth instead of
-        // rolling back and reporting a stale email.
-        acc.email = verifiedNewEmail;
-        await Promise.allSettled([
-          updateStatus(uid, "email", acc.email),
-          updateExtraInformation(uid, "primary", acc.email)
-        ]);
+        const rollbackState = await getAliases(axios);
+        const rollbackCanary = rollbackState?.apiCanary || rollbackState?.formCanary || null;
+        const rollbackResult = await removeAlias(axios, verifiedNewEmail, rollbackCanary, amrp, amsc, rootReqId);
 
         logAliasEvent("ALIAS_WORKFLOW", {
           requestId: rootReqId,
-          step: "MAKE_PRIMARY",
-          status: "STATE_VERIFIED",
-          message: `Re-verified: ${verifiedNewEmail} is authoritative primary despite makePrimary returning false`
+          step: "ROLLBACK_ALIAS",
+          status: rollbackResult ? "SUCCESS" : "FAILED",
+          message: rollbackResult
+            ? `Rolled back alias ${verifiedNewEmail} successfully`
+            : `Failed to rollback alias ${verifiedNewEmail} — manual cleanup may be required`
         });
-      } else {
-        // ROLLBACK: makePrimary truly failed — remove the alias we just added to avoid quota leak
+      } catch (rollbackErr) {
         logAliasEvent("ALIAS_WORKFLOW", {
           requestId: rootReqId,
-          step: "MAKE_PRIMARY",
+          step: "ROLLBACK_ALIAS",
           status: "FAILED",
-          message: `MakePrimary failed; rolling back alias ${verifiedNewEmail}`
+          message: `Rollback error for ${verifiedNewEmail}: ${rollbackErr.message}`
         });
-
-        try {
-          const rollbackState = await getAliases(axios);
-          const rollbackCanary = rollbackState?.apiCanary || rollbackState?.formCanary || null;
-          const rollbackResult = await removeAlias(axios, verifiedNewEmail, rollbackCanary, amrp, amsc, rootReqId);
-
-          logAliasEvent("ALIAS_WORKFLOW", {
-            requestId: rootReqId,
-            step: "ROLLBACK_ALIAS",
-            status: rollbackResult ? "SUCCESS" : "FAILED",
-            message: rollbackResult
-              ? `Rolled back alias ${verifiedNewEmail} successfully`
-              : `Failed to rollback alias ${verifiedNewEmail} — manual cleanup may be required`
-          });
-        } catch (rollbackErr) {
-          logAliasEvent("ALIAS_WORKFLOW", {
-            requestId: rootReqId,
-            step: "ROLLBACK_ALIAS",
-            status: "FAILED",
-            message: `Rollback error for ${verifiedNewEmail}: ${rollbackErr.message}`
-          });
-        }
-
-        acc.email = initialPrimary;
-        await Promise.allSettled([
-          updateStatus(uid, "email", acc.email),
-          updateExtraInformation(uid, "primary", acc.email)
-        ]);
       }
+
+      acc.email = initialPrimary;
+      await Promise.allSettled([
+        updateStatus(uid, "email", acc.email),
+        updateExtraInformation(uid, "primary", acc.email)
+      ]);
     }
   } else {
     // changeprimary is disabled — read and persist the current authoritative primary

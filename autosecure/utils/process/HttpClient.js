@@ -300,6 +300,7 @@ class HttpClient {
   }
 
   getCookie(cName, domain = null) {
+    let fallback = null;
     for (const cookie of this._cookieJar.values()) {
       if (cookie.name === cName) {
         if (cookie.isDeleted || (cookie.expires && cookie.expires.getTime() <= Date.now())) {
@@ -308,14 +309,23 @@ class HttpClient {
         if (!domain || domainMatches(cookie.domain, domain)) {
           return cookie.value;
         }
+        fallback = cookie.value;
       }
     }
-    return null;
+    return fallback;
   }
 
   setCookie(cookieStr, originUrl = null) {
     const parsed = parseSetCookie(cookieStr, originUrl);
     if (!parsed) return;
+
+    if (!parsed.domain) {
+      for (const [k, c] of this._cookieJar.entries()) {
+        if (c.name === parsed.name && (!c.domain || c.domain === "login.live.com" || c.domain === "live.com")) {
+          this._cookieJar.delete(k);
+        }
+      }
+    }
 
     const key = `${parsed.domain}:${parsed.path}:${parsed.name}`;
     if (parsed.isDeleted) {

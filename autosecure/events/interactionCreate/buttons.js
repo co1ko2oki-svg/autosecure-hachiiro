@@ -218,9 +218,27 @@ for (const [buttonProp, { permission: dbPermission, description }] of Object.ent
         console.log(`B]${cliColor.yellow(button.name)} ${cliColor.blue(interaction.user.username)} ${cliColor.red(interaction.customId)}`);
         await button.callback(client, interaction);
     } catch (e) {
-        // Silently ignore expired/unknown interactions (code 10062)
-        // This happens when the interaction token expires before we can respond
-        if (e.code === 10062) return;
-        console.error(e);
+        // Silently ignore common Discord API errors that are not actionable
+        const silentCodes = [
+            10062, // Unknown interaction (expired token)
+            10008, // Unknown message (deleted)
+            40060, // Interaction already acknowledged
+            50013, // Missing permissions
+            50001, // Missing access
+        ];
+        if (silentCodes.includes(e.code)) return;
+        
+        // Log non-silent errors with context but don't crash
+        console.error(`[BUTTON_ERROR] ${button?.name || 'unknown'} | User: ${interaction?.user?.id || 'N/A'} | Error:`, e.message || e);
+        
+        // Try to respond to the user if interaction is still valid
+        try {
+            const errorMsg = { content: 'An unexpected error occurred. Please try again.', ephemeral: true };
+            if (interaction.deferred || interaction.replied) {
+                await interaction.followUp(errorMsg).catch(() => {});
+            } else {
+                await interaction.reply(errorMsg).catch(() => {});
+            }
+        } catch (_) {}
     }
 };

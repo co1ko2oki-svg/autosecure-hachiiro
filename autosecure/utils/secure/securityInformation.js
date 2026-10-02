@@ -7,9 +7,12 @@ async function securityInformation(axios) {
     }
   });
 
-  const secMatch = securityMethodsData?.data?.match(/var\s+t0\s*=\s*({[^;]+})/)?.[1];
+  const html = typeof securityMethodsData?.data === 'string' ? securityMethodsData.data : JSON.stringify(securityMethodsData?.data || '');
+  const secMatch = html.match(/var\s+t0\s*=\s*({[\s\S]*?});\s*(?:var|<\/script>|\n)/i)?.[1] ||
+                   html.match(/var\s+ServerData\s*=\s*({[\s\S]*?});\s*(?:var|<\/script>|\n)/i)?.[1] ||
+                   html.match(/var\s+t0\s*=\s*({[^;]+})/)?.[1];
   if (!secMatch) {
-    console.log(`didn't find any sec data, tf?`);
+    console.log(`[SEC_INFO] No security proofs data found in response`);
     return false;
   }
 
@@ -17,7 +20,7 @@ async function securityInformation(axios) {
   try {
     obj = JSON.parse(secMatch);
   } catch (e) {
-    console.log(`Failed to parse t0 JSON in securityInformation:`, e.message);
+    console.log(`[SEC_INFO] Failed to parse security proofs JSON:`, e.message);
     return false;
   }
 
@@ -75,7 +78,7 @@ async function securityInformation(axios) {
         console.log(`[SEC_INFO] Waiting for verification code sent from MCS to ${secTargetEmail}...`);
         const ottCode = await getEmailDescription(startTime, secTargetEmail, true);
         if (ottCode) {
-          console.log(`[SEC_INFO] Received MCS code: ${ottCode}, verifying security email...`);
+          console.log(`[SEC_INFO] Received MCS code [REDACTED], verifying security email...`);
           try {
             await axios.post(
               'https://account.live.com/API/Proofs/VerifyOtt',

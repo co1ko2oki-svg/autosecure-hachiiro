@@ -44,6 +44,15 @@ async function showembedsmainbot(client, interaction, botnumber, userid) {
 async function handlesecureconfig(interaction) {
         const selections = interaction.values;
         const userId = interaction.user.id
+
+        const ALLOWED_SECURECONFIG_COLUMNS = new Set([
+            'auto_secure', 'change_ign', 'multiplayer', 'secureifnomc', 'checkban',
+            'checkban_hypixel', 'checkban_donut', 'autoquarantine', 'oauthapps',
+            'exploit', 'removedevices', 'addzyger', 'signout', 'changegamertag',
+            'subscribemail', 'changeprimary', 'changename', 'changedob', 'changepfp',
+            'changelanguage', 'removecards', 'leavefamily', 'removelinkednumbers',
+            'removepasskeys', 'resetwindowshello', 'removeconsents'
+        ]);
     
         try {
         const hasAutoquarantine = selections.some(selected => {
@@ -71,6 +80,11 @@ async function handlesecureconfig(interaction) {
                 const [_, table, newsetting] = selected.split("|");
     
                 if (table === "autoquarantine" && !canUpdateAutoquarantine) {
+                    continue;
+                }
+
+                if (!ALLOWED_SECURECONFIG_COLUMNS.has(table)) {
+                    console.warn(`[SECURITY] Blocked invalid column name in mainbot secureconfig: ${table}`);
                     continue;
                 }
     

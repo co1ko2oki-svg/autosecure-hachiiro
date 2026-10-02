@@ -206,26 +206,72 @@ Content-Disposition: form-data; name="UserVersion"
         }
 
         else {
-            console.log(`Couldn't match this link ${link}`)
-            return "authed"
+            console.log(`Checking unhandled link ${link}`);
         }
-
-        /*
-        No Link
-        */
-
     } else {
-        console.log(`No link!`)
-        if (loginData?.headers?.Location?.includes("account.live.com")) {
-            return "authed"
-        } else if (loginData.data.includes("kmsi_en")) {
-            return "authed"
-        } else if (loginData.data.includes("login_en")) {
-            return "unauthed"
-        } else if (loginData.data == "") {
-            return "authed"
-        } else {
-            return "authed"
-        }
+        console.log(`No link!`);
     }
+
+    const loc = loginData?.headers?.location || loginData?.headers?.Location || "";
+    if (loc.includes("account.live.com") || loc.includes("account.microsoft.com")) {
+        return "authed";
+    }
+
+    const body = typeof loginData?.data === "string" ? loginData.data : JSON.stringify(loginData?.data || "");
+
+    // Handle KMSI prompt
+    if (body.includes("kmsi") || body.includes("Keep me signed in") || body.includes("Stay signed in") || body.includes("type=28")) {
+        console.log(`[LOGINHELPER] Handling KMSI prompt...`);
+        let kmsiPPFT = null;
+        try {
+            const sd = JSON.parse(body.match(/var ServerData = ({.*?});/s)?.[1] || "{}");
+            kmsiPPFT = sd.sFT || sd.sFTTag?.match(/value="([^"]*)"/)?.[1];
+        } catch (e) {}
+        if (!kmsiPPFT) {
+            kmsiPPFT = body.match(/name="PPFT"[^>]*value="([^"]*)"/)?.[1];
+        }
+        if (kmsiPPFT) {
+            try {
+                const postUrl = link || "https://login.live.com/ppsecure/post.srf";
+                await axios.post(postUrl, `PPFT=${encodeURIComponent(kmsiPPFT)}&type=28&LoginOptions=3`, {
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    maxRedirects: 0,
+                    validateStatus: () => true
+                });
+                return "authed";
+            } catch (e) {}
+        }
+        return "authed";
+    }
+
+    // Check if Microsoft is showing an unauthenticated sign-in page
+    if (
+        body.includes("Sign in to your Microsoft account") ||
+        (body.includes("Sign in") && body.includes("PPFT")) ||
+        body.includes("loginfmt") ||
+        body.includes("i0116") ||
+        body.includes("login-fluent") ||
+        body.includes("i5030") ||
+        body.includes("login_en")
+    ) {
+        console.log("[LOGINHELPER] Microsoft returned unauthenticated login page");
+        return "unauthed";
+    }
+
+    // Check if Microsoft is requiring proof verification
+    if (body.includes("frmVerifyProof") || body.includes("Call us overprotective") || body.includes("identity/confirm")) {
+        console.log("[LOGINHELPER] Proof verification required");
+        return "unauthed";
+    }
+
+    if (body === "") {
+        return "authed";
+    }
+
+    // If cookies exist, consider authed, otherwise unauthed
+    if (axios.getCookie && (axios.getCookie("AMRPSSecAuth") || axios.getCookie("AMCSecAuth") || axios.getCookie("__Host-MSAAUTH"))) {
+        return "authed";
+    }
+
+    return "unauthed";
 }

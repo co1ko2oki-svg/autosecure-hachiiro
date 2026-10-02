@@ -5,7 +5,7 @@ module.exports = async (host, amsc) => {
             method: "GET",
             url: "https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=21&ct=1708978285&rver=7.5.2156.0&wp=SA_20MIN&wreply=https://account.live.com/proofs/Add?apt=2&uaid=0637740e739c48f6bf118445d579a786&lc=1033&id=38936&mkt=en-US&uaid=0637740e739c48f6bf118445d579a786",
             headers: {
-                cookie: `__Host-MSAAUTH=${host}; amsc=${amsc}`,
+                cookie: `__Host-MSAAUTH=${host}; __Host-MSAAUTHP=${host}; amsc=${amsc}`,
             },
             maxRedirects: 0,
             validateStatus: (status) => status >= 200 && status < 500,
@@ -18,18 +18,26 @@ module.exports = async (host, amsc) => {
     } else if (data.data.includes("working to restore all services")) {
         return `down`
     }
-    let polishedHost = null
-    data.headers["set-cookie"].map((cookie) => {
-        const [name, ...values] = cookie.split("=");
-        if (name == "__Host-MSAAUTH") {
-            polishedHost = values.join("=").split(";").shift()
-        }
-    });
-        if (polishedHost) {
-            return polishedHost
-        } else {
-            return host
-        }
+    let polishedHost = null;
+    let polishedHostP = null;
+    if (data.headers && data.headers["set-cookie"]) {
+        data.headers["set-cookie"].forEach((cookie) => {
+            const [rawName, ...values] = cookie.split("=");
+            const name = (rawName || '').trim();
+            const val = values.join("=").split(";").shift().trim();
+            if (name === "__Host-MSAAUTH") {
+                polishedHost = val;
+            } else if (name === "__Host-MSAAUTHP") {
+                polishedHostP = val;
+            } else if (name === "MSAAUTH" && !polishedHost) {
+                polishedHost = val;
+            }
+        });
+    }
+    if (!polishedHost && polishedHostP) {
+        polishedHost = polishedHostP;
+    }
+    return polishedHost || host;
     } catch (error) {
         console.log(`[POLISHHOST] Error occurred:`, error.message);
         

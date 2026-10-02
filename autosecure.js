@@ -1,3 +1,6 @@
+require('dotenv').config();
+require('./configLoader');
+
 try {
   const { attachGlobalLoggerGuard } = require('./autosecure/utils/logging/interceptLogger');
   if (attachGlobalLoggerGuard) attachGlobalLoggerGuard();
@@ -8,30 +11,24 @@ try {
   if (attachGlobalProxy) attachGlobalProxy();
 } catch (e) {}
 
+const path = require("path");
+if (!process.env.PM2_HOME) {
+  process.env.PM2_HOME = path.join(__dirname, '.pm2');
+}
+
 const { spawn, exec } = require("child_process");
 const { startup } = require("./db/db");
 const { queryParams } = require("./db/database");
 const { initializeController } = require("./mainbot/controllerbot");
 const initializeBots = require("./mainbot/handlers/initializeBots");
-const owners = require("./config.json").owners;
+const owners = require("./configLoader").owners || [];
 const hasAccess = require("./db/access");
 const generate = require("./autosecure/utils/generate");
 const pm2 = require("pm2");
+const { setupGlobalErrorHandlers } = require("./autosecure/utils/process/gracefulShutdown");
 
-// --- ANTI-CRASH & PROCESS STABILITY ---
-process.on('unhandledRejection', (reason, promise) => {
-  // Ignore expired/unknown Discord interactions (code 10062) - harmless
-  if (reason?.code === 10062) return;
-  console.error('[ANTI-CRASH] Unhandled Promise Rejection:', reason);
-});
-
-process.on('uncaughtException', (err, origin) => {
-  console.error(`[ANTI-CRASH] Uncaught Exception: ${err ? err.message : err}`, err ? err.stack : '');
-});
-
-process.on('uncaughtExceptionMonitor', (err, origin) => {
-  console.error(`[ANTI-CRASH] Exception Monitor: ${err ? err.message : err}`);
-});
+// Install unified signal and exception handlers
+setupGlobalErrorHandlers('Bot');
 
 let initializationStatus = new Map();
 initializationStatus.set('botsInitialized', false);

@@ -2,6 +2,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("
 
 module.exports = {
     name: "downloadaccounts",
+    userOnly: true,
     callback: async (client, interaction) => {
         const embed = new EmbedBuilder()
             .setTitle("Download")

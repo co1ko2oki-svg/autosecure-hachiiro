@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const axios = require("axios");
-const config = require('../../../config.json');
+const config = require('../../../configLoader');
 
 // Fixed BUG #5: Previously overrode console.log/warn/process.emitWarning GLOBALLY,
 // which silently swallowed ALL logs containing 'deprecated' or 'mojang auth' across the entire app.
@@ -47,13 +47,15 @@ let proxies = [];
 try {
     if (config.useproxy === true || config.useproxy === "true") {
         if (Array.isArray(config.socksproxy) && config.socksproxy.length > 0) {
-            proxies = config.socksproxy.map(proxyStr => {
-                const [ip, port, username, password] = proxyStr.split(':');
-                return { ip, port, username, password };
-            });
-        } else if (typeof config.socksproxy === 'string' && config.socksproxy) {
+            proxies = config.socksproxy
+                .filter(proxyStr => typeof proxyStr === 'string' && proxyStr.trim() && proxyStr !== 'LOAD_FROM_ENV' && proxyStr.includes(':'))
+                .map(proxyStr => {
+                    const [ip, port, username, password] = proxyStr.split(':');
+                    return { ip, port: parseInt(port, 10), username, password };
+                });
+        } else if (typeof config.socksproxy === 'string' && config.socksproxy && config.socksproxy !== 'LOAD_FROM_ENV' && config.socksproxy.includes(':')) {
             const [ip, port, username, password] = config.socksproxy.split(':');
-            proxies = [{ ip, port, username, password }];
+            proxies = [{ ip, port: parseInt(port, 10), username, password }];
         }
     }
 

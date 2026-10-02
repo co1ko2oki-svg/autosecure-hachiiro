@@ -63,13 +63,28 @@ async function newxbl(axios) {
 
   const accessToken = location.match(/accessToken=([^&]*)/)?.[1];
   if (!accessToken) {
-    console.log(`Didn't get accesstoken!`);
-    console.log(`Link: ${location}`);
+    console.log(`[newxbl] Didn't get accessToken from redirect`);
     return null;
   }
 
-  const json = JSON.parse(Buffer.from(accessToken, "base64").toString("utf-8"));
-  const uhs = json[0]?.Item2?.DisplayClaims?.xui[0]?.uhs;
+  let json = null;
+  try {
+    let rawToken = decodeURIComponent(accessToken);
+    let base64 = rawToken.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4 !== 0) {
+      base64 += '=';
+    }
+    json = JSON.parse(Buffer.from(base64, "base64").toString("utf-8"));
+  } catch (err) {
+    console.log(`[newxbl] Failed to decode/parse accessToken JSON:`, err.message);
+    return null;
+  }
+
+  if (!json || typeof json !== 'object') {
+    return null;
+  }
+
+  const uhs = json[0]?.Item2?.DisplayClaims?.xui?.[0]?.uhs || json?.Item2?.DisplayClaims?.xui?.[0]?.uhs;
 
   let xsts = "";
   let playfabxbl = null;

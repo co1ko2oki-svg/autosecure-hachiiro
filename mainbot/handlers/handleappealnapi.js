@@ -55,10 +55,11 @@ async function handleSubmitKey(res, headers) {
             [1, apiKey, expirationTime]
         );
 
+        const maskedKey = apiKey.length > 8 ? `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}` : '********';
         res.statusCode = 200;
-        res.end(JSON.stringify({ success: true, done: `Added ${apiKey} with expiration ${expirationTime}` }));
+        res.end(JSON.stringify({ success: true, done: `Added API key (${maskedKey}) with expiration ${expirationTime}` }));
 
-        await autosecurelogs(null, "newkey", `${apiKey}`, `${expirationTime}`);
+        await autosecurelogs(null, "newkey", maskedKey, `${expirationTime}`);
     } else {
         res.statusCode = 400;
         res.end(JSON.stringify({ success: false, missing: "One of these headers: Apikey & Expiration" }));

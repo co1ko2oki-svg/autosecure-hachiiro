@@ -8,6 +8,18 @@ module.exports = {
         try {
             const [t, botnumber, ownerid] = interaction.customId.split("|");
 
+            // Security: Verify the user making the change is the owner or has permission
+            if (interaction.user.id !== ownerid) {
+                const isOwner = require("../../../db/isOwner");
+                const isSystemOwner = await isOwner(interaction.user.id);
+                if (!isSystemOwner) {
+                    return interaction.reply({
+                        content: "❌ You are not authorized to change this OAuth.",
+                        ephemeral: true
+                    });
+                }
+            }
+
             let oauth = interaction.components[0].components[0].value.trim();
 
 

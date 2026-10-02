@@ -1,12 +1,29 @@
 const { tablesforuser, tablesfortransfer, tablestheycanhave } = require('../../../db/gettablesarray');
 const { queryParams } = require("../../../db/database");
+const crypto = require('crypto');
 
 async function transferLicense(oldLicenseKey, userId, interactionUserId) {
+    if (!oldLicenseKey || !userId || !interactionUserId || userId === interactionUserId) {
+        return null;
+    }
+
+    // Verify that the license exists and is strictly owned by userId
+    const checkLicense = await queryParams(
+        `SELECT license, user_id FROM usedLicenses WHERE license=? AND user_id=?`,
+        [oldLicenseKey, userId]
+    );
+
+    if (!checkLicense || checkLicense.length === 0) {
+        console.warn(`[transferLicense] No active license found matching key ${oldLicenseKey} for user ${userId}`);
+        return null;
+    }
+
     const generateRandomString = (length) => {
         const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const bytes = crypto.randomBytes(length);
         let result = '';
         for (let i = 0; i < length; i++) {
-            result += characters.charAt(Math.floor(Math.random() * characters.length));
+            result += characters.charAt(bytes[i] % characters.length);
         }
         return result;
     };
@@ -19,45 +36,46 @@ async function transferLicense(oldLicenseKey, userId, interactionUserId) {
 
     try {
         for (const table of tables) {
-            let column;
-            if (table === "blacklisted" || table === "blacklistedemails") {
-                column = "client_id";
-            } else {
-                column = "user_id";
-            }
-            await queryParams(`UPDATE ${table} SET ${column}=? WHERE ${column}=?`, [interactionUserId, userId]);
+            if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
+            let column = (table === "blacklisted" || table === "blacklistedemails") ? "client_id" : "user_id";
+            await queryParams(`UPDATE \`${table}\` SET \`${column}\`=? WHERE \`${column}\`=?`, [interactionUserId, userId]);
         }
 
         for (const table of tablesrecover) {
+            if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
             if (specialTables.includes(table)) {
-                await queryParams(`DELETE FROM ${table} WHERE user_id=?`, [interactionUserId]);
+                await queryParams(`DELETE FROM \`${table}\` WHERE user_id=?`, [interactionUserId]);
 
-                const oldRecords = await queryParams(`SELECT * FROM ${table} WHERE user_id=?`, [userId]);
+                const oldRecords = await queryParams(`SELECT * FROM \`${table}\` WHERE user_id=?`, [userId]);
 
                 for (const record of oldRecords) {
-                    const columns = Object.keys(record);
-                    const placeholders = columns.map(() => '?').join(',');
-                    const values = columns.map(col => col === 'user_id' ? interactionUserId : record[col]);
+                    const safeColumns = Object.keys(record).filter(col => /^[a-zA-Z0-9_]+$/.test(col));
+                    if (safeColumns.length === 0) continue;
+                    const quotedCols = safeColumns.map(col => `\`${col}\``).join(',');
+                    const placeholders = safeColumns.map(() => '?').join(',');
+                    const values = safeColumns.map(col => col === 'user_id' ? interactionUserId : record[col]);
                     await queryParams(
-                        `INSERT INTO ${table} (${columns.join(',')}) VALUES (${placeholders})`,
+                        `INSERT INTO \`${table}\` (${quotedCols}) VALUES (${placeholders})`,
                         values
                     );
                 }
 
-                await queryParams(`DELETE FROM ${table} WHERE user_id=?`, [userId]);
+                await queryParams(`DELETE FROM \`${table}\` WHERE user_id=?`, [userId]);
             } else {
-                await queryParams(`UPDATE ${table} SET user_id=? WHERE user_id=?`, [interactionUserId, userId]);
+                await queryParams(`UPDATE \`${table}\` SET user_id=? WHERE user_id=?`, [interactionUserId, userId]);
             }
         }
 
-
-        const checkLicense = await queryParams(`SELECT license FROM usedLicenses WHERE license=?`, [oldLicenseKey]);
-if (!checkLicense.length) console.warn(`No license found with key: ${oldLicenseKey}`);
-
-        await queryParams(
-            `UPDATE usedLicenses SET license=? WHERE license=?`,
-            [newLicenseKey, oldLicenseKey]
+        const updateRes = await queryParams(
+            `UPDATE usedLicenses SET license=?, user_id=? WHERE license=? AND user_id=?`,
+            [newLicenseKey, interactionUserId, oldLicenseKey, userId],
+            'run'
         );
+
+        if (!updateRes || updateRes.changes === 0) {
+            console.error(`[transferLicense] Failed to update usedLicenses row for ${oldLicenseKey}`);
+            return null;
+        }
 
         return newLicenseKey;
     } catch (error) {
