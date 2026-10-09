@@ -10,6 +10,10 @@ function extractT(html) {
     if (match && match[1]) return match[1];
     match = html.match(/name="t"\s+id="t"\s+value="([^"]+)"/i);
     if (match && match[1]) return match[1];
+    match = html.match(/name=["']?t["']?[^>]*value=["']([^"']+)["']/i);
+    if (match && match[1]) return match[1];
+    match = html.match(/value=["']([^"']+)["'][^>]*name=["']?t["']?/i);
+    if (match && match[1]) return match[1];
     return null;
 }
 
@@ -58,14 +62,16 @@ module.exports = async (axios) => {
             }
         } else {
             console.log(`[DEBUG] Failed AMRP T`);
-            try {
-                const dirPath = path.join(__dirname, "../../../../debug/amrpt");
-                if (!fs.existsSync(dirPath)) {
-                    fs.mkdirSync(dirPath, { recursive: true });
-                }
-                const filePath = path.join(dirPath, `${generate(16)}.html`);
-                fs.writeFileSync(filePath, amrpTRequest?.data || "", "utf-8");
-            } catch (err) {}
+            if (process.env.ENABLE_DEBUG_DUMPS === "true") {
+                try {
+                    const dirPath = path.join(__dirname, "../../../../debug/amrpt");
+                    if (!fs.existsSync(dirPath)) {
+                        fs.mkdirSync(dirPath, { recursive: true });
+                    }
+                    const filePath = path.join(dirPath, `${generate(16)}.html`);
+                    fs.writeFileSync(filePath, amrpTRequest?.data || "", "utf-8");
+                } catch (err) {}
+            }
             return false;
         }
     } catch (e) {

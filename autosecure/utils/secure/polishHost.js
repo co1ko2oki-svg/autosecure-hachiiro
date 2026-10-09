@@ -1,11 +1,16 @@
 const axios = require("axios");
+const crypto = require("crypto");
+
 module.exports = async (host, amsc) => {
     try {
+        const ct = Math.floor(Date.now() / 1000);
+        const uaid = crypto.randomBytes(16).toString("hex");
         let data = await axios({
             method: "GET",
-            url: "https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=21&ct=1708978285&rver=7.5.2156.0&wp=SA_20MIN&wreply=https://account.live.com/proofs/Add?apt=2&uaid=0637740e739c48f6bf118445d579a786&lc=1033&id=38936&mkt=en-US&uaid=0637740e739c48f6bf118445d579a786",
+            url: `https://login.live.com/login.srf?wa=wsignin1.0&rpsnv=21&ct=${ct}&rver=7.5.2156.0&wp=SA_20MIN&wreply=https://account.live.com/proofs/Add?apt=2&uaid=${uaid}&lc=1033&id=38936&mkt=en-US&uaid=${uaid}`,
             headers: {
                 cookie: `__Host-MSAAUTH=${host}; __Host-MSAAUTHP=${host}; amsc=${amsc}`,
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
             },
             maxRedirects: 0,
             validateStatus: (status) => status >= 200 && status < 500,

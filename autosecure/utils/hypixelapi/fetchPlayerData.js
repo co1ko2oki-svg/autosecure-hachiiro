@@ -14,7 +14,9 @@ async function fetchPlayerData(username) {
     const response = await axios.get(url, {
       headers,
       timeout: 3000,
-      httpsAgent: new https.Agent({ rejectUnauthorized: false })
+      httpsAgent: new https.Agent({
+        rejectUnauthorized: process.env.ALLOW_INSECURE_TLS === 'true' ? false : true
+      })
     });
 
     if (response.status === 200) {

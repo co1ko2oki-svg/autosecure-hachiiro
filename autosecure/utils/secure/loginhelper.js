@@ -244,34 +244,26 @@ Content-Disposition: form-data; name="UserVersion"
         return "authed";
     }
 
-    // Check if Microsoft is showing an unauthenticated sign-in page
-    if (
-        body.includes("Sign in to your Microsoft account") ||
-        (body.includes("Sign in") && body.includes("PPFT")) ||
-        body.includes("loginfmt") ||
-        body.includes("i0116") ||
-        body.includes("login-fluent") ||
-        body.includes("i5030") ||
-        body.includes("login_en")
-    ) {
-        console.log("[LOGINHELPER] Microsoft returned unauthenticated login page");
-        return "unauthed";
-    }
-
-    // Check if Microsoft is requiring proof verification
+    // Check if Microsoft is requiring proof verification / checkpoint
     if (body.includes("frmVerifyProof") || body.includes("Call us overprotective") || body.includes("identity/confirm")) {
         console.log("[LOGINHELPER] Proof verification required");
-        return "unauthed";
+        return "locked";
+    }
+
+    if (body.includes("Abuse") || body.includes("account has been locked") || body.includes("account has been suspended")) {
+        console.log("[LOGINHELPER] Account locked / abuse detected");
+        return "locked";
+    }
+
+    // If cookies exist, the session is authenticated!
+    if (axios.getCookie && (axios.getCookie("__Host-MSAAUTH") || axios.getCookie("__Host-MSAAUTHP") || axios.getCookie("AMCSecAuth") || axios.getCookie("AMRPSSecAuth"))) {
+        console.log("[LOGINHELPER] Session authenticated via cookies");
+        return "authed";
     }
 
     if (body === "") {
         return "authed";
     }
 
-    // If cookies exist, consider authed, otherwise unauthed
-    if (axios.getCookie && (axios.getCookie("AMRPSSecAuth") || axios.getCookie("AMCSecAuth") || axios.getCookie("__Host-MSAAUTH"))) {
-        return "authed";
-    }
-
-    return "unauthed";
+    return "authed";
 }

@@ -1,7 +1,8 @@
 const { ButtonBuilder, ActionRowBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const { queryParams } = require("../../../db/database");
-const { footer, domains } = require('../../../config.json');
+const { footer } = require('../../../config.json');
 const config = require('../../../config.json');
+const { fetchEmails, fetchEmailDetail } = require("./mailApiClient");
 
 module.exports = async (email, id, current) => {
     let owndomain;
@@ -15,7 +16,7 @@ module.exports = async (email, id, current) => {
         ephemeral: true
     };
 
-    if (!email.includes("@")) {
+    if (!email || !email.includes("@")) {
         return {
             embeds: [
                 new EmbedBuilder()
@@ -45,35 +46,68 @@ module.exports = async (email, id, current) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-    let emails = await queryParams(
-        `SELECT * FROM emails WHERE LOWER(TRIM(receiver))=? ORDER BY CAST(time AS INTEGER) DESC`,
-        [normalizedEmail]
-    );
+    let emails = [];
 
+    // 1. Fetch live emails from the Web Mail API
+    try {
+        const apiList = await fetchEmails(normalizedEmail);
+        if (Array.isArray(apiList) && apiList.length > 0) {
+            emails = apiList.map(item => {
+                const otpMatch = item.otp_code || (item.subject && item.subject.match(/\b\d{6,7}\b/)?.[0]) || null;
+                return {
+                    id: item.id,
+                    sender: item.sender || "unknown",
+                    receiver: item.recipient || normalizedEmail,
+                    subject: item.subject || "(No Subject)",
+                    description: item.body_text || item.subject || "",
+                    otp: otpMatch,
+                    time: item.created_at || Date.now()
+                };
+            });
+        }
+    } catch (err) {
+        console.warn(`[MAIL_MSG] Failed to fetch emails from API for ${normalizedEmail}:`, err.message);
+    }
+
+    // 2. Fallback to local SQLite database if API returned empty
     if (emails.length === 0) {
-        const broadSearch = await queryParams(
-            `SELECT * FROM emails WHERE LOWER(receiver) LIKE ? ORDER BY CAST(time AS INTEGER) DESC`,
-            [`%${normalizedEmail}%`]
+        const localRows = await queryParams(
+            `SELECT * FROM emails WHERE LOWER(TRIM(receiver))=? ORDER BY CAST(time AS INTEGER) DESC`,
+            [normalizedEmail]
         );
-        if (broadSearch.length > 0) {
-            emails = broadSearch;
+
+        if (localRows.length > 0) {
+            emails = localRows.map(r => ({
+                id: r.id,
+                sender: r.sender || "unknown",
+                receiver: r.receiver || normalizedEmail,
+                subject: r.subject || "(No Subject)",
+                description: r.description || "",
+                otp: r.description ? r.description.match(/\b\d{6,7}\b/)?.[0] : null,
+                time: r.time || Date.now()
+            }));
         } else {
-            const localPart = normalizedEmail.split('@')[0];
-            if (localPart && localPart.length > 3) {
-                const localSearch = await queryParams(
-                    `SELECT * FROM emails WHERE LOWER(receiver) LIKE ? ORDER BY CAST(time AS INTEGER) DESC`,
-                    [`%${localPart}%`]
-                );
-                if (localSearch.length > 0) {
-                    emails = localSearch;
-                }
+            const broadSearch = await queryParams(
+                `SELECT * FROM emails WHERE LOWER(receiver) LIKE ? ORDER BY CAST(time AS INTEGER) DESC`,
+                [`%${normalizedEmail}%`]
+            );
+            if (broadSearch.length > 0) {
+                emails = broadSearch.map(r => ({
+                    id: r.id,
+                    sender: r.sender || "unknown",
+                    receiver: r.receiver || normalizedEmail,
+                    subject: r.subject || "(No Subject)",
+                    description: r.description || "",
+                    otp: r.description ? r.description.match(/\b\d{6,7}\b/)?.[0] : null,
+                    time: r.time || Date.now()
+                }));
             }
         }
     }
 
     console.log(`[DEBUG] Email query for ${email}: found ${emails.length} emails`);
 
-    current = Number(current);
+    current = Number(current) || 1;
 
     let isNotified = await queryParams(
         `SELECT * FROM email_notifier WHERE user_id=? AND email=?`,
@@ -127,24 +161,45 @@ module.exports = async (email, id, current) => {
         buttons.push(new ActionRowBuilder().addComponents(notificationButton));
     } else {
         current = Math.max(1, Math.min(current, emails.length));
+        const activeMail = emails[current - 1];
+
+        // If activeMail has an id, attempt to fetch full detail if body is brief
+        if (activeMail?.id && (!activeMail.description || activeMail.description === activeMail.subject)) {
+            try {
+                const detail = await fetchEmailDetail(activeMail.id);
+                if (detail) {
+                    if (detail.body_text) activeMail.description = detail.body_text;
+                    if (detail.otp_code) activeMail.otp = detail.otp_code;
+                }
+            } catch (detailErr) {}
+        }
 
         msg.content = `${email}`;
-        embed.title = emails[current - 1]?.subject
-            ? emails[current - 1].subject.replaceAll("*", "\\*")
+        embed.title = activeMail?.subject
+            ? activeMail.subject.replaceAll("*", "\\*")
             : `No Subject!`;
 
-        let description = emails[current - 1]?.description
-            ? emails[current - 1].description.replaceAll("*", "\\*")
+        let description = activeMail?.description
+            ? activeMail.description.replaceAll("*", "\\*")
             : `No description!`;
 
+        // If an OTP code was extracted, highlight it prominently at the top of description
+        const detectedOtp = activeMail?.otp || description.match(/\b\d{6,7}\b/)?.[0] || null;
+        if (detectedOtp) {
+            description = `🔐 **Mã OTP**: \`\`\`${detectedOtp}\`\`\`\n\n` + description;
+        }
+
         if (description.length > 4096) {
-            console.log(description);
             description = description.substring(0, 4093) + "...";
         }
 
         embed.description = description;
-        const d = new Date(parseInt(emails[current - 1].time));
-        embed.timestamp = d.toISOString();
+
+        const mailTimestamp = parseInt(activeMail.time);
+        if (!isNaN(mailTimestamp)) {
+            const d = new Date(mailTimestamp);
+            embed.timestamp = d.toISOString();
+        }
         embed.footer = footer;
 
         let next = (current + 1).toString();
@@ -186,7 +241,19 @@ module.exports = async (email, id, current) => {
             .setEmoji({ name: "🔄" })
             .setStyle(ButtonStyle.Primary);
 
-        buttons.push(new ActionRowBuilder().addComponents(notificationButton, refreshButton));
+        const controlRow = new ActionRowBuilder().addComponents(notificationButton, refreshButton);
+
+        // Add 1-tap Copy OTP button if an OTP was detected
+        if (detectedOtp) {
+            const copyOtpButton = new ButtonBuilder()
+                .setCustomId(`copycode|${detectedOtp}`)
+                .setLabel("Copy OTP")
+                .setEmoji({ name: "📋" })
+                .setStyle(ButtonStyle.Success);
+            controlRow.addComponents(copyOtpButton);
+        }
+
+        buttons.push(controlRow);
     }
 
     msg.embeds = [embed];

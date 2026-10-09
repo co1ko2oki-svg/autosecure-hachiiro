@@ -8,6 +8,7 @@ const { queryParams } = require('../../../db/database');
 const validLtcAddress = require('./validLtcAddress');
 const litecore = require("bitcore-lib-ltc")
 const { mainltc, mainmemonics } = require("../../../config.json");
+const { encryptToken, decryptToken } = require("../../../autosecure/utils/security/tokenCipher");
 class Invoice {
     /**
      * 
@@ -42,7 +43,7 @@ class Invoice {
         this.address = invoiceData.address
         this.wallet = invoiceData.wallet
         this.license = invoiceData.license
-        this.mnemonic = invoiceData.wallet
+        this.mnemonic = decryptToken(invoiceData.wallet)
         this.userid = invoiceData.user_id
         this.creator = invoiceData.creator
     }
@@ -60,7 +61,8 @@ class Invoice {
     }
     async logInvoice() {
         try {
-            await queryParams(`INSERT INTO invoices(invoice_id,price,address,wallet,license,available_until,user_id,creator) VALUES(?,?,?,?,?,?,?,?)`, [this.invoiceId, this.price, this.address, this.mnemonic, this.license, this.availableUntil, this.userid, this.creator], "all", "invoices")
+            const encryptedWallet = encryptToken(this.mnemonic);
+            await queryParams(`INSERT INTO invoices(invoice_id,price,address,wallet,license,available_until,user_id,creator) VALUES(?,?,?,?,?,?,?,?)`, [this.invoiceId, this.price, this.address, encryptedWallet, this.license, this.availableUntil, this.userid, this.creator], "all", "invoices")
             return true
         } catch (e) {
             console.log(e)
@@ -99,7 +101,8 @@ class Invoice {
                                     let finalTime = parseInt(time) + timeAdded
                                     console.log(`Added time for ${this.userid}, ${(timeAdded / 1000 / 60 / 60 / 24).toFixed(2)} Days, for ${valueInUsd}$ | ${valueInLtc} LTC`)
                                     try {
-                                        await queryParams(`INSERT INTO logs(txid,license,price,wallet,address,user_id,creator,invoice_id) VALUES(?,?,?,?,?,?,?,?)`, [txid, this.license, this.price, this.wallet, this.address, this.userid, this.creator, this.invoiceId], "all", "invoices")
+                                        const encryptedWallet = encryptToken(this.wallet || this.mnemonic);
+                                        await queryParams(`INSERT INTO logs(txid,license,price,wallet,address,user_id,creator,invoice_id) VALUES(?,?,?,?,?,?,?,?)`, [txid, this.license, this.price, encryptedWallet, this.address, this.userid, this.creator, this.invoiceId], "all", "invoices")
                                         await queryParams(`UPDATE licenses SET available=? WHERE license=?`, [finalTime, this.license])
                                     } catch (e) {
                                         console.log(e)

@@ -117,6 +117,20 @@ function loadConfig() {
         config.jwtsecret = rawJwtSecret.trim();
     }
 
+    // Database Encryption Key (SQLCipher AES-256)
+    const rawDbKey = process.env.DB_ENCRYPTION_KEY || process.env.TOKEN_ENCRYPTION_KEY;
+    if (rawDbKey && typeof rawDbKey === 'string' && rawDbKey.trim().length > 0) {
+        config.dbEncryptionKey = rawDbKey.trim();
+    } else {
+        config.dbEncryptionKey = '';
+    }
+
+    // Mail Web API (mail.hotwar.asia)
+    config.mailApi = {
+        url: (process.env.MAIL_API_URL || config.mailApi?.url || "https://mail.hotwar.asia").trim(),
+        apiKey: (process.env.MAIL_API_KEY || config.mailApi?.apiKey || "8853067346148af0c072071ddac92f63").trim()
+    };
+
     return config;
 }
 

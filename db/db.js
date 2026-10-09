@@ -1,10 +1,11 @@
-const sqlite = require("sqlite3").verbose();
 const { join } = require("path");
 const path = join(__dirname, "database.db");
 const config = require("../config.json");
 const { getnewkey } = require("../autosecure/utils/hypixelapi/getnewkey.js");
 const { queryParams, db } = require("./database.js");
 
+const defaultPfp = String(config.defaultpfp || '').replace(/'/g, "''");
+const defaultDomain = String(config.domains && config.domains[0] ? config.domains[0] : '').replace(/'/g, "''");
 
 const queries = {
   secureconfig: `CREATE TABLE IF NOT EXISTS secureconfig(
@@ -37,8 +38,8 @@ const queries = {
     prefix TEXT DEFAULT "HachiiroMC",
     dob TEXT,
     name TEXT,
-    pfp TEXT DEFAULT '${config.defaultpfp}',
-    domain TEXT DEFAULT '${config.domains[0]}'
+    pfp TEXT DEFAULT '${defaultPfp}',
+    domain TEXT DEFAULT '${defaultDomain}'
   )`,
 
   notifications: `CREATE TABLE IF NOT EXISTS notifications(
@@ -93,7 +94,7 @@ const queries = {
     validateusername INTEGER DEFAULT 1,
     dob TEXT,
     name TEXT,
-    pfp TEXT DEFAULT '${config.defaultpfp}',
+    pfp TEXT DEFAULT '${defaultPfp}',
     language TEXT,
     verifymsg TEXT,
     oauth_link TEXT,
@@ -454,6 +455,37 @@ accountsbyuser: `CREATE TABLE IF NOT EXISTS accountsbyuser(
   idx_cosmetics_name: `CREATE INDEX IF NOT EXISTS idx_cosmetics_name ON cosmetics(name)`,
   idx_web_access_expiry: `CREATE INDEX IF NOT EXISTS idx_web_access_expiry ON web_access(expiry)`,
   idx_leaderboard_user: `CREATE UNIQUE INDEX IF NOT EXISTS idx_leaderboard_user ON leaderboard(user_id)`,
+
+  invoices: `CREATE TABLE IF NOT EXISTS invoices(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id TEXT UNIQUE,
+    price REAL,
+    address TEXT,
+    wallet TEXT,
+    license TEXT,
+    available_until INTEGER,
+    user_id TEXT,
+    creator TEXT,
+    status TEXT DEFAULT 'pending'
+  )`,
+
+  logs: `CREATE TABLE IF NOT EXISTS logs(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    txid TEXT UNIQUE,
+    license TEXT,
+    price REAL,
+    wallet TEXT,
+    address TEXT,
+    user_id TEXT,
+    creator TEXT,
+    invoice_id TEXT,
+    timestamp INTEGER DEFAULT (strftime('%s', 'now'))
+  )`,
+
+  skyblock_stats: `CREATE TABLE IF NOT EXISTS skyblock_stats(
+    id TEXT PRIMARY KEY,
+    data TEXT
+  )`,
 
   v_all_accounts: `CREATE VIEW IF NOT EXISTS v_all_accounts AS
     SELECT 

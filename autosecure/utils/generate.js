@@ -1,14 +1,15 @@
+const crypto = require("crypto");
+
 module.exports = (length = 8) => {
-  let charset = "abcdefghijklmnopqrstuvwxyz0123456789",
-    retVal = "";
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const charset = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let retVal = "";
 
+  retVal += letters.charAt(crypto.randomInt(0, letters.length));
 
-  retVal += "abcdefghijklmnopqrstuvwxyz".charAt(Math.floor(Math.random() * 26));
-
-
-  for (let i = 1, n = charset.length; i < length; ++i) {
-    retVal += charset.charAt(Math.floor(Math.random() * n));
+  for (let i = 1; i < length; ++i) {
+    retVal += charset.charAt(crypto.randomInt(0, charset.length));
   }
 
   return retVal;
-}
+};

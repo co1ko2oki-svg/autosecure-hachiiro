@@ -54,8 +54,22 @@ module.exports = async function cookies(axios) {
         }
 
         if (!axios.getCookie("AMCSecAuth") && !axios.getCookie("AMRPSSecAuth")) {
-            console.log(`Don't have AMC & AMRP!`);
-            data.status = "unauthed";
+            console.log(`Don't have AMC & AMRP! Retrying once after 1s delay...`);
+            await new Promise(r => setTimeout(r, 1000));
+            await Promise.all([amrp(axios), amc(axios)]);
+            if (axios.getCookie("AMRPSSecAuth")) {
+                console.log("Got AMRP on retry");
+                data.cookies.amrp = axios.getCookie("AMRPSSecAuth");
+            }
+            if (axios.getCookie("AMCSecAuth")) {
+                console.log("Got AMC on retry");
+                data.cookies.amc = axios.getCookie("AMCSecAuth");
+                data.status = null;
+            }
+            if (!axios.getCookie("AMCSecAuth") && !axios.getCookie("AMRPSSecAuth")) {
+                console.log(`Still don't have AMC & AMRP after retry!`);
+                data.status = "unauthed";
+            }
         }
 
       //  logDuration("all cookies", cookieStart);

@@ -58,27 +58,29 @@ async function setnew(queryParams) {
 }
 
 async function startapi() {
-  const url = `http://${ip}:8080/refreshkey`;
+  const authKey = process.env.AUTH_KEY || config.authkey;
+  const protocol = process.env.VPS_PROTOCOL || 'http';
+  const url = `${protocol}://${ip}:8080/refreshkey`;
   const headers = {
-    key: config.authkey
+    key: authKey
   };
 
-  console.log(`Posting with ${url} and headers: ${JSON.stringify(headers)}`)
-
-  // Infinite loop to refresh key!
-  while (true) {
+  const maxRetries = 5;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await axios.post(url, null, { headers });
-      // console.log(`Response getnewkey.js: ${response.data}`)
+      const response = await axios.post(url, null, { headers, timeout: 5000 });
       if (response.data && response.data.success === true) {
         return true; 
       }
     } catch (err) {
-      console.log(`Error getnewkey.js: ${err}`);
+      console.log(`[getnewkey] Attempt ${attempt}/${maxRetries} failed: ${err.message}`);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 sec before retrying
+    if (attempt < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
   }
+  return false;
 }
 
 module.exports = {

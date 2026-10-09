@@ -1,9 +1,20 @@
 const { queryParams } = require("../../../db/database");
+const isOwner = require("../../../db/isOwner");
+const { PermissionFlagsBits } = require("discord.js");
 
 module.exports = {
     name: "unbanip",
     callback: async (client, interaction) => {
         try {
+            const isUserOwner = await isOwner(interaction.user.id);
+            const hasAdminPerm = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+            if (!isUserOwner && !hasAdminPerm) {
+                return interaction.reply({
+                    content: "❌ Bạn không có quyền quản trị để thực hiện thao tác gỡ cấm IP này.",
+                    ephemeral: true
+                });
+            }
+
             const [action, targetIp] = interaction.customId.split("|");
             if (!targetIp) {
                 return interaction.reply({ content: "❌ Không tìm thấy địa chỉ IP cần gỡ cấm.", ephemeral: true });

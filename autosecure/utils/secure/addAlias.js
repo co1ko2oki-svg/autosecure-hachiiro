@@ -244,6 +244,7 @@ module.exports = async (axios, name, canary2, correlationId = null) => {
     // Helper to write debug file to project's debug directory
     const debugDir = path.resolve(__dirname, "../../../debug");
     const saveDebugFile = (filename, content) => {
+      if (process.env.ENABLE_DEBUG_DUMPS !== "true") return;
       try {
         if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
         fs.writeFileSync(path.join(debugDir, filename), content, "utf8");

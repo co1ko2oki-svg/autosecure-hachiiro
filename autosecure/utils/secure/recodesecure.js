@@ -213,14 +213,6 @@ module.exports = async (host, settings, uid, username = null) => {
         acc.password = "Locked!";
         acc.status = "locked";
         return acc;
-    } else if (login == "unauthed") {
-        console.log("[RECODE_SECURE] Login failed: Unauthorized");
-        acc.email = "unauthed";
-        acc.secEmail = "unauthed";
-        acc.recoveryCode = "unauthed";
-        acc.password = "unauthed";
-        acc.status = "unauthed";
-        return acc;
     } else if (login == "child") {
         console.log("[RECODE_SECURE] Login failed: Child account");
         acc.email = "Child landing, try login via auth!";
@@ -229,6 +221,8 @@ module.exports = async (host, settings, uid, username = null) => {
         acc.password = "Child landing!";
         acc.status = "Child landing!";
         return acc;
+    } else if (login == "unauthed") {
+        console.log("[RECODE_SECURE] Login helper reported unauthed, proceeding to verify security cookies directly...");
     }
 
     console.log('[RECODE_SECURE] Login successful, proceeding with authentication...');

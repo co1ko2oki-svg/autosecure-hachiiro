@@ -1,5 +1,6 @@
 const { queryParams } = require('../../../db/database');
 const { EmbedBuilder } = require("discord.js");
+const { parsePurchases } = require('../../utils/info/parsePurchases');
 
 module.exports = {
     name: "purchases",
@@ -8,37 +9,65 @@ module.exports = {
         try {
             let [_, uid] = interaction.customId.split("|");
 
-            const purchaseData = await fetchPurchaseData(uid);
+            const result = await queryParams('SELECT purchases FROM extrainformation WHERE uid = ?', [uid]);
+            const rawPurchases = result?.[0]?.purchases || null;
+            const { orders, redeemedCapes } = parsePurchases(rawPurchases);
 
             const embed = new EmbedBuilder()
-                .setTitle("Purchases")
+                .setTitle(`Order History & Purchases (${uid})`)
                 .setColor('#b2c7e0');
 
-            if (!purchaseData || !Array.isArray(purchaseData.orders) || purchaseData.orders.length === 0) {
+            if (orders.length === 0) {
+                embed.setDescription("❌ Không tìm thấy giao dịch mua hàng hoặc áo choàng đã đổi nào cho tài khoản này.");
                 return interaction.reply({
                     embeds: [embed],
                     ephemeral: true,
                 });
             }
 
-            const description = purchaseData.orders.map((order, index) => {
-                const item = order.orderLineItems?.[0];
-                if (!item) return null;
+            // 1. Highlight Redeemed Capes
+            if (redeemedCapes.length > 0) {
+                const capesText = redeemedCapes.map(cape => `✨ **${cape}** \`[Đã đổi mã / Redeemed]\``).join('\n');
+                embed.addFields({
+                    name: `✨ Áo choàng đã đổi / Redeemed Capes (${redeemedCapes.length})`,
+                    value: capesText,
+                    inline: false
+                });
+            }
 
-                const orderId = order.orderId;
-                const itemId = item.orderLineItemId;
-                const type = item.productType;
-                const itemDescription = item.description;
-                const price = item.totalAmount;
+            // 2. All Orders
+            const capeOrders = orders.filter(o => o.isCape);
+            const otherOrders = orders.filter(o => !o.isCape);
 
-                return `**${index + 1}. Order ID:** \`${orderId}\`\n` +
-                       `**Item ID:** \`${itemId}\`\n` +
-                       `**Type:** \`${type}\`\n` +
-                       `**Description:** \`${itemDescription}\`\n` +
-                       `**Price:** \`$${price.toFixed(2)}\`\n`;
-            }).filter(Boolean).join('\n');
+            let descLines = [];
+            if (capeOrders.length > 0) {
+                descLines.push("**🏆 Chi tiết áo choàng đã đổi:**");
+                capeOrders.slice(0, 10).forEach((order, idx) => {
+                    descLines.push(
+                        `**${idx + 1}. ${order.title}**\n` +
+                        `• Giá: \`$${order.price} (Đã đổi mã)\` | Ngày: \`${order.date}\`\n` +
+                        `• Mã đơn hàng: \`${order.orderId}\``
+                    );
+                });
+            }
 
-            embed.setDescription(description);
+            if (otherOrders.length > 0) {
+                if (descLines.length > 0) descLines.push("\n**📦 Các đơn hàng khác:**");
+                otherOrders.slice(0, 15).forEach((order, idx) => {
+                    const statusText = order.isRedeemed ? "Đã đổi mã / Free" : `$${order.price}`;
+                    descLines.push(
+                        `**${idx + 1}. ${order.title}**\n` +
+                        `• Giá: \`${statusText}\` | Ngày: \`${order.date}\`\n` +
+                        `• Mã đơn hàng: \`${order.orderId}\``
+                    );
+                });
+            }
+
+            if (orders.length > 25) {
+                descLines.push(`\n*...và ${orders.length - 25} đơn hàng khác.*`);
+            }
+
+            embed.setDescription(descLines.join('\n'));
 
             await interaction.reply({ 
                 embeds: [embed], 
@@ -53,30 +82,3 @@ module.exports = {
         }
     }
 };
-
-async function fetchPurchaseData(uid) {
-    try {
-        const result = await queryParams('SELECT purchases FROM extrainformation WHERE uid = ?', [uid]);
-        if (!result?.[0]?.purchases) return null;
-
-        let raw = result[0].purchases;
-
-        // Double JSON parse for double-encoded strings
-        if (typeof raw === "string") {
-            try {
-                raw = JSON.parse(raw);
-                if (typeof raw === "string") {
-                    raw = JSON.parse(raw);
-                }
-            } catch (e) {
-                console.error("Error parsing purchases JSON:", e);
-                return null;
-            }
-        }
-
-        return raw;
-    } catch (error) {
-        console.error("Error fetching purchase data:", error);
-        return null;
-    }
-}

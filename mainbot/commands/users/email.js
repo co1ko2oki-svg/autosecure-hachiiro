@@ -126,6 +126,13 @@ module.exports = {
                 }
 
                 await queryParams('INSERT INTO registeredemails (user_id, email) VALUES (?, ?)', [userId, email]);
+
+                try {
+                    const [pfx, dom] = email.split('@');
+                    const { createSecurityMailbox } = require('../../autosecure/utils/emails/mailApiClient');
+                    await createSecurityMailbox({ prefix: pfx, domain: dom });
+                } catch (e) {}
+
                 return interaction.reply({
                     embeds: [{
                         title: `Success`,

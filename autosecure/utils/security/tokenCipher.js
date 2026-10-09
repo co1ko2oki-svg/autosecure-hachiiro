@@ -3,7 +3,10 @@ const config = require('../../../configLoader');
 
 // Derive 32-byte encryption key from environment or persistent secrets
 function getEncryptionKey() {
-    const rawSecret = process.env.TOKEN_ENCRYPTION_KEY || config.jwtsecret || process.env.JWT_SECRET || 'ats-fallback-secure-master-key-32b';
+    const rawSecret = process.env.TOKEN_ENCRYPTION_KEY || config.jwtsecret || process.env.JWT_SECRET;
+    if (!rawSecret) {
+        throw new Error('TOKEN_ENCRYPTION_KEY or JWT_SECRET must be configured in environment variables for token encryption');
+    }
     return crypto.createHash('sha256').update(String(rawSecret)).digest();
 }
 

@@ -1,4 +1,3 @@
-const axios = require("axios");
 const crypto = require("crypto");
 
 // Fallback: Generate standard TOTP code using Node.js crypto module (100% native)
@@ -56,32 +55,11 @@ async function generateotp(secretKey) {
         const formattedSecret = secretKey.replace(/[\s=]+/g, "").toUpperCase();
 
         if (!/^[A-Z2-7]+$/.test(formattedSecret)) {
-            console.log(`[TOTP] Not a valid base32 secret key: ${formattedSecret}`);
+            console.log(`[TOTP] Not a valid base32 secret key`);
             return null;
         }
 
-        let otp;
-
-        // Try getting code from 2fa.live first
-        try {
-            const response = await axios.get(`https://2fa.live/tok/${formattedSecret}`, {
-                timeout: 5000 // 5s timeout
-            });
-            if (response.data && response.data.token) {
-                otp = response.data.token;
-                console.log(`[TOTP] Code generated via 2fa.live API: ${otp}`);
-            }
-        } catch (e) {
-            console.log(`[TOTP] 2fa.live API failed (${e.message}), falling back to native crypto generator.`);
-        }
-
-        // If 2fa.live is unavailable, fallback to local standard crypto TOTP
-        if (!otp) {
-            otp = getLocalTotp(formattedSecret);
-            console.log(`[TOTP] Code generated via Local Crypto fallback: ${otp}`);
-        }
-
-        // 30s reset interval
+        const otp = getLocalTotp(formattedSecret);
         return { otp, nextResetEpoch: Date.now() + 30000 };
     } catch (error) {
         console.error("[TOTP] Generation Error:", error.message);

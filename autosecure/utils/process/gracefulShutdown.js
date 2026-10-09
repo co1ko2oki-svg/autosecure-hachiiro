@@ -85,7 +85,7 @@ async function performShutdown(reason = 'UNKNOWN', exitCode = 0) {
 
     // 4. Close SQLite database connections if open
     try {
-        const { db } = require('../../db/database');
+        const { db } = require('../../../db/database');
         if (db && typeof db.close === 'function') {
             await new Promise((resolve) => {
                 db.close((err) => {

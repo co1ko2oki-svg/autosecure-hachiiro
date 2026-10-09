@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 var Key = "e=10001;m=b897984bbbeaa3da52d1d0b08e6b49e9fe247cadda32e2710656c05f66d738c2eead6cbe0a7713132c1f7a3ab65ebca092fc7c7ed47e2c7cf4c6fe8d5baee5780a6f45030904e011f3567a3435e983daf27f7a5e842e1044b4653b36f2a074085fffb15873be55d41abce4063bf4ebe17f290bcb4e28252240a9a3f4aa31a2994b3180069e21fafeb84b71f4594542fd738bddb79d1e178436d9fc773c71ca2fce34e563ad802470b7363b965a749f2f364c18e21b304e575cbf0c32dac7bfce493c0f9f94dbd4ee3ec924468ad6387ac1b27f94beb611c8116fe810e7dcc7b5f8ecfde6a52677b45123bb9f43ae7a06f603c3fa83faa8cc095a68302731ebd9"; var randomNum = "F1C0543607F09D6DF7408E957D4821AFA2FF1B6B55D9008F73F21F250F74708D95DDBCDB26EF8DE7F78078504AD9F3EB82E2755637CE562BE770EAE33299C5DB14382F5B2A3E7C5451DD14ADC78B263A52C63C9D81CF8219FDF03013A345515ED21BD872"; var SKI = "295C5FF4D4097E118BCD7DF008F1CCAF8A387687";
 function exists(e) {
   return e ? !0 : 0 == e || 0 == e || "" == e
@@ -433,8 +434,9 @@ function applyPKCSv2Padding(e, n, t) {
   s[i] = 1;
   var l = a.concat(s, e),
     c = [];
+  const randBytes = crypto.randomBytes(20);
   for (r = 0; 20 > r; r++) {
-    c[r] = Math.floor(256 * Math.random())
+    c[r] = randBytes[r];
   }
   c = SHA1(c.concat(t));
   var u = MGF(c, n - 21),

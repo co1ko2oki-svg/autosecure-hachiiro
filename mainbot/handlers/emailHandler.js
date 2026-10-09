@@ -57,6 +57,10 @@ const smtpServer = new SMTPServer({
 function initialize(discordClient) {
     client = discordClient;
     console.log('[EMAIL] Handler initialized with Discord client');
+    if (config?.mailApi?.url) {
+        console.log(`[EMAIL] Web Mail API active (${config.mailApi.url}). Local SMTP listener disabled.`);
+        return;
+    }
     startSMTPServer();
 }
 

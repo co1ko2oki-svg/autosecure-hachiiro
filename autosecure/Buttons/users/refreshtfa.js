@@ -1,5 +1,5 @@
 const generateotp = require("../../utils/secure/codefromsecret");
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 const isOwner = require("../../../db/isOwner");
 
@@ -58,9 +58,21 @@ module.exports = {
                 .setDescription(`\`\`\`\n${code}\n\`\`\`\nExpires: ${relativeTime}`)
                 .setColor("#808080");
 
+            const buttonsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(interaction.customId)
+                    .setLabel("Refresh Code")
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`copycode|${code}`)
+                    .setLabel("Copy Code")
+                    .setEmoji("📋")
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
             await interaction.update({
                 embeds: [updatedEmbed],
-                components: interaction.message.components
+                components: [buttonsRow]
             });
         } catch (error) {
             console.error("Error refreshing OTP:", error);

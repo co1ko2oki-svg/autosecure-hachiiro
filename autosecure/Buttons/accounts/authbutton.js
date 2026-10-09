@@ -80,16 +80,21 @@ if (
                 .setDescription(`\`\`\`\n${code}\n\`\`\`\nExpires: ${relativeTime}`)
                 .setColor("#808080");
 
-            const refreshButton = new ActionRowBuilder().addComponents(
+            const buttonsRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId(refreshCustomId)
                     .setLabel("Refresh Code")
-                    .setStyle(ButtonStyle.Primary)
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`copycode|${code}`)
+                    .setLabel("Copy Code")
+                    .setEmoji("📋")
+                    .setStyle(ButtonStyle.Secondary)
             );
 
             return interaction.reply({
                 embeds: [embed],
-                components: [refreshButton],
+                components: [buttonsRow],
                 ephemeral: true
             });
 

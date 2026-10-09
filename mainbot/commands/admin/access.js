@@ -831,12 +831,10 @@ case "enterapi":
           }
         
           if (response.length > 2000) {
-            const fs = require("fs");
-            const filePath = "./database_structure.txt";
-            fs.writeFileSync(filePath, response, "utf8");
+            const fileAttachment = new AttachmentBuilder(Buffer.from(response, "utf8"), { name: "database_structure.txt" });
             await interaction.editReply({
               content: "The database structure is too large to display. Here is the file:",
-              files: [filePath]
+              files: [fileAttachment]
             });
           } else {
             await interaction.editReply({ content: response });

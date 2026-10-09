@@ -10,6 +10,10 @@ function extractT(html) {
     if (match && match[1]) return match[1];
     match = html.match(/name="t"\s+id="t"\s+value="([^"]+)"/i);
     if (match && match[1]) return match[1];
+    match = html.match(/name=["']?t["']?[^>]*value=["']([^"']+)["']/i);
+    if (match && match[1]) return match[1];
+    match = html.match(/value=["']([^"']+)["'][^>]*name=["']?t["']?/i);
+    if (match && match[1]) return match[1];
     return null;
 }
 
@@ -49,9 +53,11 @@ module.exports = async (axios) => {
 
         if (!amct) {
             // Failed to get T parameter
-            const fileName = `failedamct-${generate(16)}.txt`
-            const filePath = path.join(debugBaseDir, fileName)
-            fs.writeFileSync(filePath, fetchtreq?.data || "", "utf-8")
+            if (process.env.ENABLE_DEBUG_DUMPS === "true") {
+                const fileName = `failedamct-${generate(16)}.txt`
+                const filePath = path.join(debugBaseDir, fileName)
+                fs.writeFileSync(filePath, fetchtreq?.data || "", "utf-8")
+            }
             return false
         }
 
@@ -79,24 +85,26 @@ module.exports = async (axios) => {
             return true
         } else {
             // Failed to get AMC cookie but has T parameter
-            const folderName = `failedamc-${generate(16)}`
-            const folderPath = path.join(debugBaseDir, folderName)
-            fs.mkdirSync(folderPath)
+            if (process.env.ENABLE_DEBUG_DUMPS === "true") {
+                const folderName = `failedamc-${generate(16)}`
+                const folderPath = path.join(debugBaseDir, folderName)
+                fs.mkdirSync(folderPath, { recursive: true })
 
-            // Write AMC cookie data
-            const amcFileName = `failedamc.amc-${generate(16)}.txt`
-            const amcFilePath = path.join(folderPath, amcFileName)
-            const amcData = {
-                cookies: axios.getCookies(),
-                headers: response.headers,
-                status: response.status
+                // Write AMC cookie data
+                const amcFileName = `failedamc.amc-${generate(16)}.txt`
+                const amcFilePath = path.join(folderPath, amcFileName)
+                const amcData = {
+                    cookies: axios.getCookies(),
+                    headers: response.headers,
+                    status: response.status
+                }
+                fs.writeFileSync(amcFilePath, JSON.stringify(amcData, null, 2), "utf-8")
+
+                // Write T parameter data
+                const tFileName = `failedamc.t-${generate(16)}.txt`
+                const tFilePath = path.join(folderPath, tFileName)
+                fs.writeFileSync(tFilePath, fetchtreq.data, "utf-8")
             }
-            fs.writeFileSync(amcFilePath, JSON.stringify(amcData, null, 2), "utf-8")
-
-            // Write T parameter data
-            const tFileName = `failedamc.t-${generate(16)}.txt`
-            const tFilePath = path.join(folderPath, tFileName)
-            fs.writeFileSync(tFilePath, fetchtreq.data, "utf-8")
 
             return false
         }

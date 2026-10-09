@@ -280,8 +280,8 @@ async function passwordAuth(email, password) {
 
 /*
 (async () => {
-    const email = "bdkmevnniexgh9m7@outlook.com";
-    const password = "gnj5b6waf0d1wjq1";
+    const email = process.env.TEST_AUTH_EMAIL || "";
+    const password = process.env.TEST_AUTH_PASSWORD || "";
     const token = await passwordAuth(email, password);
     if (token) {
          console.log('Final Token:', token);
