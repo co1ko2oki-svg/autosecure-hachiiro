@@ -628,7 +628,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
                         donutKDR: donutStats?.kdr || null,
                         networth: maxNetworth ? String(maxNetworth) : (hypixelStats?.networth || '0'),
                         bedwars: hypixelStats?.bedwars?.level || '0',
-                        networkLevel: hypixelStats?.networkLevel || '0'
+                        networkLevel: hypixelStats?.nwl || hypixelStats?.networkLevel || '0'
                     };
 
                     const clientTarget = { username: effectiveUserId, botnumber: botNumber };

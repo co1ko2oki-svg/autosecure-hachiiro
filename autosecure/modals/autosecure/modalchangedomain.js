@@ -49,7 +49,8 @@ module.exports = {
             await interaction.update(msg);
         } catch (error) {
             console.error("Error in modalchangedomain:", error);
-            await interaction.reply({ content: "❌ Failed to update domain. Try again later.", ephemeral: true });
+            const method = (interaction.deferred || interaction.replied) ? 'followUp' : 'reply';
+            await interaction[method]({ content: "❌ Failed to update domain. Try again later.", ephemeral: true }).catch(() => {});
         }
     }
 };

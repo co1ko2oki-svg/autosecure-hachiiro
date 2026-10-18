@@ -19,10 +19,21 @@ function safeToString(value) {
 }
 
 async function quarantinemsg(userId, ssid) {
-    const proxyCheck = await queryParams(
-        `SELECT proxy FROM proxies WHERE user_id = ?`,
-        [userId]
-    );
+    if (!ssid && typeof userId === 'string' && (userId.includes('.') || userId.length > 32)) {
+        ssid = userId;
+        userId = null;
+    }
+
+    let proxyCheck = [];
+    if (userId) {
+        proxyCheck = await queryParams(
+            `SELECT proxy FROM proxies WHERE user_id = ?`,
+            [userId]
+        ).catch(() => []);
+    }
+    if (!proxyCheck || proxyCheck.length === 0) {
+        proxyCheck = await queryParams(`SELECT proxy FROM proxies LIMIT 1`).catch(() => []);
+    }
 
     if (!proxyCheck || proxyCheck.length === 0) {
         return {

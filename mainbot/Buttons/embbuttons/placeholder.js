@@ -40,11 +40,6 @@ module.exports = {
                     inline: true
                 },
                 {
-                    name: "Lunar Client",
-                    value: "```\n%LUNARCOSMETICS%\n%LUNAREMOTES%\n%LUNARPLUSCOSMETICS%\n%LUNAREQUIPPEDCOSMETICS%\n%LUNAREQUIPPEDEMOTES%\n%LUNARRANK%\n```",
-                    inline: true
-                },
-                {
                     name: "General Stats",
                     value: "```\n%RANK%\n%NWL%\n%GIFTED%\n%STATUS%\n%GAME%\n%PLUSCOLOR%\n```",
                     inline: true

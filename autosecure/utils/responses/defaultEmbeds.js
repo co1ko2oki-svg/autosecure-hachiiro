@@ -124,9 +124,7 @@ module.exports = (type, client) => {
           { name: "Donut Shards", value: "%DONUTSHARDS%", inline: true },
           { name: "Hypixel Rank", value: "%RANK%", inline: true },
           { name: "Skyblock Net.", value: "%NETWORTHTOTAL%", inline: true },
-          { name: "Bedwars Stars", value: "%BEDWARSTARS%", inline: true },
-          { name: "Lunar Cosmetics", value: "%LUNARCOSMETICS%", inline: true },
-          { name: "Feather Cosmetics", value: "%FEATHERCOSMETICS%", inline: true }
+          { name: "Bedwars Stars", value: "%BEDWARSTARS%", inline: true }
         ]
       };
     case "wrongnumber":

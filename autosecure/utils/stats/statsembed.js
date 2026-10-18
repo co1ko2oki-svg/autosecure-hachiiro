@@ -35,9 +35,7 @@ async function statsembed(client, acc, interaction) {
                 { name: "Donut Shards", value: `${safeShort(acc?.donut?.shards || 0)}`, inline: true },
                 { name: "Hypixel Rank", value: `${acc?.stats?.rank || "None"}`, inline: true },
                 { name: "Skyblock Net.", value: `${safeShort(sbProfile.networth || 0)}`, inline: true },
-                { name: "Bedwars Stars", value: `${bedwars.level || 0}`, inline: true },
-                { name: "Lunar Cosmetics", value: `${acc?.lunar?.cosmetics || "None"}`, inline: true },
-                { name: "Feather Cosmetics", value: `${acc?.feather?.cosmetics || "None"}`, inline: true }
+                { name: "Bedwars Stars", value: `${bedwars.level || 0}`, inline: true }
             );
             
         // Add visage thumbnail even for the fallback embed if we have a username

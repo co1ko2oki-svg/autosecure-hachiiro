@@ -1,16 +1,16 @@
-const getUUID = require("../../utils/hypixelapi/getUUID");
 const short = require("short-number");
+const getUUID = require("../../utils/hypixelapi/getUUID");
 const getStats = require('../../utils/hypixelapi/getStats');
 const { EmbedBuilder } = require("discord.js");
+const { getSkinAttachment } = require("../../utils/imageHandler");
 
 module.exports = {
   name: "duels2",
   usestatsbutton: true,
   callback: async (client, interaction) => {
     let mcname = interaction.customId.split("|")[1];
-    let uuid = getUUID(mcname);
-    if (!uuid) {
-      return sendNone(interaction);
+    if (!mcname) {
+      return interaction.reply({ content: "None", ephemeral: true });
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -53,27 +53,22 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle("Duels stats")
         .setDescription(description)
-        .setColor("#D4B7D9");
+        .setColor("#E74C3C");
 
-      await interaction.editReply({ embeds: [embed], ephemeral: true });
-    } catch (error) {
-      console.error("Error fetching duels stats:", error);
-      return sendNone(interaction);
+      const skinAttachment = await getSkinAttachment(mcname);
+      if (skinAttachment && skinAttachment.name) {
+        embed.setThumbnail("attachment://" + skinAttachment.name);
+      }
+
+      const replyOptions = { embeds: [embed] };
+      if (skinAttachment) {
+        replyOptions.files = [skinAttachment];
+      }
+
+      await interaction.editReply(replyOptions);
+    } catch (e) {
+      console.error("Error in duels2 command:", e);
+      return interaction.editReply({ content: "None" });
     }
   },
 };
-
-async function sendNone(interaction) {
-  await interaction.deferReply({ ephemeral: true });
-  const embed = new EmbedBuilder()
-    .setTitle("Duels stats")
-    .setDescription("None")
-    .setColor("#D4B7D9");
-
-  try {
-    await interaction.editReply({ embeds: [embed], ephemeral: true });
-  } catch (error) {
-    console.error("Error sending 'None' embed:", error);
-    return interaction.followUp({ content: "Error sending message.", ephemeral: true });
-  }
-}

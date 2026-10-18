@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const { quarantinemsg } = require('../../utils/bancheckappeal/quarantinemsg');
 
 module.exports = {
