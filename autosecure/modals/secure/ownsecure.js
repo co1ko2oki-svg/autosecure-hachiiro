@@ -4,6 +4,7 @@ const { domains } = require("../../../config.json");
 const generate = require("../../utils/generate.js");
 const { queryParams } = require("../../../db/database.js");
 const validEmail = require("../../utils/emails/validEmail.js");
+const { getRotatedDomain } = require("../../utils/emails/mailApiClient.js");
 
 module.exports = {
     name: "ownsecure",
@@ -18,12 +19,25 @@ module.exports = {
             );
 
             if (settings.length === 0) {
-                return interaction.editReply({
-                    content: `Couldn't get your settings!`,
-                    ephemeral: true,
-                });
+                console.log(`[OWN_SECURE] No settings found for user: ${interaction.user.id}. Auto-creating default settings...`);
+                await queryParams(`INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)`, [interaction.user.id, 'Rotate (4 Domains)']);
+                settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
             }
-
+            if (!settings || settings.length === 0) {
+                settings = [{
+                    user_id: interaction.user.id,
+                    auto_secure: 1,
+                    change_ign: 0,
+                    multiplayer: 1,
+                    secureifnomc: 1,
+                    checkban: 1,
+                    domain: 'Rotate (4 Domains)'
+                }];
+            }
+            if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+                queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+                settings[0].domain = 'Rotate (4 Domains)';
+            }
             settings = settings[0];
 
             const email = interaction.components[0].components[0].value.trim();
@@ -32,9 +46,17 @@ module.exports = {
 
             const rawPrefix = require("../../../config.json").prefix || "vinGr0up";
             const prefix = String(rawPrefix).toLowerCase();
+
+            let chosenDomain = null;
+            if (settings?.domain && !settings.domain.includes('rotate') && !settings.domain.includes('thapcamstore') && domains.includes(settings.domain)) {
+                chosenDomain = settings.domain.toLowerCase();
+            } else {
+                chosenDomain = await getRotatedDomain();
+            }
+
             const secEmail = secEmailInput && validEmail(secEmailInput)
                 ? secEmailInput.toLowerCase()
-                : `${prefix}${generate(10).toLowerCase()}@${(settings?.domain ? settings.domain : domains[0]).toLowerCase()}`;
+                : `${prefix}${generate(10).toLowerCase()}@${chosenDomain}`;
 
             const password = interaction.components[3]?.components?.[0]?.value?.trim() || generate(16);
 

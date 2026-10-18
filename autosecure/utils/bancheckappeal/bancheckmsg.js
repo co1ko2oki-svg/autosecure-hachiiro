@@ -162,19 +162,19 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
     actionRow.addComponents(
       new ButtonBuilder()
         .setCustomId(`checkbanmc|${actionId}|both`)
-        .setLabel('🔁 Refresh All')
+        .setLabel('Refresh All')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`checkbanmc|${actionId}|hypixel`)
-        .setLabel('⚔️ Hypixel')
+        .setLabel('Hypixel')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`checkbanmc|${actionId}|donut`)
-        .setLabel('🍩 DonutSMP')
+        .setLabel('DonutSMP')
         .setStyle(ButtonStyle.Primary),
       new ButtonBuilder()
         .setCustomId(`checkbanmc|${actionId}|mcpvp`)
-        .setLabel('🛡️ MCPVP')
+        .setLabel('MCPVP')
         .setStyle(ButtonStyle.Primary)
     );
 
@@ -190,7 +190,7 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
         actionRow.addComponents(
           new ButtonBuilder()
             .setCustomId(`appeal|${id}`)
-            .setLabel('📝 Appeal Hypixel Ban')
+            .setLabel('Appeal Hypixel Ban')
             .setStyle(ButtonStyle.Danger)
         );
       } catch (e) {
@@ -356,19 +356,19 @@ module.exports = async function bancheckmsg(ssid, targetServer = 'both') {
   actionRow.addComponents(
     new ButtonBuilder()
       .setCustomId(`checkbanmc|${singleActionId}|both`)
-      .setLabel('🌐 Check All Servers')
+      .setLabel('Check All Servers')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`checkbanmc|${singleActionId}|hypixel`)
-      .setLabel('⚔️ Hypixel')
+      .setLabel('Hypixel')
       .setStyle(targetServer === 'hypixel' ? ButtonStyle.Secondary : ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`checkbanmc|${singleActionId}|donut`)
-      .setLabel('🍩 DonutSMP')
+      .setLabel('DonutSMP')
       .setStyle(targetServer === 'donut' ? ButtonStyle.Secondary : ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId(`checkbanmc|${singleActionId}|mcpvp`)
-      .setLabel('🛡️ MCPVP')
+      .setLabel('MCPVP')
       .setStyle(targetServer === 'mcpvp' ? ButtonStyle.Secondary : ButtonStyle.Primary)
   );
 

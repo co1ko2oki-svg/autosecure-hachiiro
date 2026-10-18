@@ -21,7 +21,6 @@ try {
 const dbKey = (
   process.env.DB_ENCRYPTION_KEY || 
   process.env.TOKEN_ENCRYPTION_KEY || 
-  process.env.JWT_SECRET || 
   ""
 ).trim();
 

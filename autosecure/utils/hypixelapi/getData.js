@@ -143,8 +143,15 @@ module.exports = async (ign) => {
     let t = null;
     let player, profiles = null;
 
+    if (!hypixelApiKey) {
+        stats.hasapi = false;
+    }
+
+    const headers = hypixelApiKey ? { "API-Key": hypixelApiKey } : {};
+
     let p1 = axios({
-        url: `https://api.hypixel.net/v2/player?key=${hypixelApiKey}&uuid=${uuid}`,
+        url: `https://api.hypixel.net/v2/player?uuid=${uuid}`,
+        headers,
         method: "get",
         maxRedirects: 0,
         timeout: 10000,
@@ -168,7 +175,8 @@ module.exports = async (ign) => {
     });
 
     let p2 = axios({
-        url: `https://api.hypixel.net/v2/skyblock/profiles?key=${hypixelApiKey}&uuid=${uuid}`,
+        url: `https://api.hypixel.net/v2/skyblock/profiles?uuid=${uuid}`,
+        headers,
         method: "GET",
         maxRedirects: 0,
         timeout: 10000,

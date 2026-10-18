@@ -30,3 +30,9 @@ error.log
 # Temporary and cache files
 temp/
 *.tmp
+
+# Security: Puppeteer session data
+hypixel_session/
+
+# Security: Plaintext database backups
+db/database_plain_backup_*.db

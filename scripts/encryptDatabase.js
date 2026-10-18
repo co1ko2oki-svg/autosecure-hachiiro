@@ -33,7 +33,6 @@ try {
 const rawKey = (
   process.env.DB_ENCRYPTION_KEY ||
   process.env.TOKEN_ENCRYPTION_KEY ||
-  process.env.JWT_SECRET ||
   ''
 ).trim();
 
@@ -161,6 +160,16 @@ async function run() {
   });
 
   await new Promise((resolve) => verifyDb.close(resolve));
+
+  // Security: Clean up plaintext backup after verified encryption to avoid sensitive data exposure on disk
+  if (fs.existsSync(backupPath)) {
+    try {
+      fs.unlinkSync(backupPath);
+      console.log(`[ENCRYPT] Plaintext backup securely removed to prevent unencrypted data leakage.`);
+    } catch (e) {
+      console.warn(`[ENCRYPT] Warning: Could not remove temporary plaintext backup: ${e.message}`);
+    }
+  }
 
   console.log('[ENCRYPT] SUCCESS: Database is now fully encrypted with SQLCipher AES-256!');
 }

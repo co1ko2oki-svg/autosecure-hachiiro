@@ -280,6 +280,8 @@ const totalBalance = cards?.totalBalance || 0;
     info.donut = donut || null;
     info.canary = canary2 || null;
     info.email = primary || null;
+    info.subs = subs || null;
+    info.purchases = purchases || null;
     return info;
   } catch (error) {
     console.error(`Error in getinfo for user ${uid}:`, error);
@@ -288,6 +290,8 @@ const totalBalance = cards?.totalBalance || 0;
     info.donut = donut || null;
     info.canary = canary2 || null;
     info.email = primary || null;
+    info.subs = subs || null;
+    info.purchases = purchases || null;
     return info;
   }
 }

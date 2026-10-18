@@ -37,8 +37,8 @@ initializationStatus.set('initializedBotsCount', 0);
 
 async function fixexpiredlicenses() {
   try {
-    const now = Date.now().toString();
-    const result = await queryParams("DELETE FROM usedLicenses WHERE expiry < ?", [now]);
+    const now = Date.now();
+    const result = await queryParams("DELETE FROM usedLicenses WHERE CAST(expiry AS INTEGER) < ?", [now]);
     console.log(`Removed expired licenses.`);
   } catch (err) {
     console.error("Error fixing expired licenses:", err);
@@ -114,7 +114,7 @@ async function startBot(restart = false) {
           [ownerId]
         );
         if (secureExists.length === 0) {
-          await queryParams("INSERT INTO secureconfig (user_id) VALUES (?)", [ownerId]);
+          await queryParams("INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)", [ownerId, 'Rotate (4 Domains)']);
         }
 
         const expiry = (Date.now() + durationMs).toString();

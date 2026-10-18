@@ -12,8 +12,14 @@ module.exports = async function getsecureinfo(settings) {
     const uniquePrefix = `${prefix}${generate(8).toLowerCase()}`;
     const password = generate(16);
 
-    // If user has a specific domain configured in settings, use it; otherwise randomize among 4 domains
-    const targetDomain = settings?.domain ? String(settings.domain).toLowerCase() : null;
+    // If user selected a specific valid domain, use it; if 'Rotate (4 Domains)' or 'thapcamstore', rotate across the 4 domains
+    let targetDomain = null;
+    if (settings?.domain) {
+        const d = String(settings.domain).toLowerCase().trim();
+        if (!d.includes("rotate") && !d.includes("thapcamstore") && !d.includes("xoay")) {
+            targetDomain = d;
+        }
+    }
 
     const result = await createSecurityMailbox({
         prefix: uniquePrefix,

@@ -15,7 +15,7 @@ function parseFormattedNumber(val) {
 }
 
 function parseDonutStatsHtml(html, ign) {
-    if (typeof html !== 'string' || !html.trim() || (html.includes('404') && html.includes('Player not found')) || html.includes('Failed to find player')) {
+    if (typeof html !== 'string' || !html.trim() || (html.includes('404') && html.includes('Player not found')) || html.includes('Failed to find player') || (html.includes('notFound') && !html.includes('money'))) {
         return null;
     }
 
@@ -127,8 +127,7 @@ async function getDonutStats(ign) {
         // 2. Fetch live data from donutstats.net
         const urls = [
             `https://www.donutstats.net/player/${encodeURIComponent(cleanIgn)}`,
-            `https://donutstats.net/player/${encodeURIComponent(cleanIgn)}`,
-            `https://api.donutstats.net/api/player/${encodeURIComponent(cleanIgn)}`
+            `https://donutstats.net/player/${encodeURIComponent(cleanIgn)}`
         ];
 
         for (const u of urls) {

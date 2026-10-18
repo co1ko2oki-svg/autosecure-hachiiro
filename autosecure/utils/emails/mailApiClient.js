@@ -66,29 +66,49 @@ async function getAvailableDomains() {
     return cachedDomains;
 }
 
+let domainRotationCounter = 0;
+
+/**
+ * Rotates strictly across the 4 active domains in round-robin sequence.
+ */
+async function getRotatedDomain() {
+    const domains = await getAvailableDomains();
+    const list = (domains && domains.length > 0) ? domains : DEFAULT_DOMAINS;
+    const selected = list[domainRotationCounter % list.length];
+    domainRotationCounter = (domainRotationCounter + 1) % list.length;
+    return selected;
+}
+
 /**
  * Randomly select 1 domain out of the 4 active domains.
  */
 async function getRandomDomain() {
-    const domains = await getAvailableDomains();
-    if (!domains || domains.length === 0) {
-        return DEFAULT_DOMAINS[Math.floor(Math.random() * DEFAULT_DOMAINS.length)];
-    }
-    const idx = Math.floor(Math.random() * domains.length);
-    return domains[idx];
+    return getRotatedDomain();
 }
 
 /**
  * Create a new security mailbox on mail.hotwar.asia
  * @param {Object} options
  * @param {string} options.prefix - Prefix for the email address
- * @param {string} [options.domain] - Optional specific domain. If not specified, random 1 of 4 domains is picked.
+ * @param {string} [options.domain] - Optional specific domain. If not specified or if 'rotate'/'thapcamstore', strictly rotates among the 4 active domains.
  * @param {string} options.password - Password for the mailbox
  * @returns {Promise<{success: boolean, email: string, domain: string, password: string}>}
  */
 async function createSecurityMailbox({ prefix, domain, password }) {
     const cleanPrefix = String(prefix || "user").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
-    const targetDomain = (domain ? String(domain).trim().toLowerCase() : await getRandomDomain());
+    const available = await getAvailableDomains();
+    const validDomains = (available && available.length > 0)
+        ? available.map(d => String(d).toLowerCase().trim())
+        : DEFAULT_DOMAINS;
+
+    let targetDomain = domain ? String(domain).trim().toLowerCase() : null;
+
+    // Strict security check: NEVER allow thapcamstore or external unlisted domains.
+    // If domain is null, "rotate", "thapcamstore.click", or unknown, rotate among the 4 valid domains!
+    if (!targetDomain || targetDomain.includes("rotate") || targetDomain.includes("thapcamstore") || !validDomains.includes(targetDomain)) {
+        targetDomain = await getRotatedDomain();
+    }
+
     const pass = password || "pass" + Math.floor(100000 + Math.random() * 900000);
 
     try {
@@ -127,7 +147,7 @@ async function createSecurityMailbox({ prefix, domain, password }) {
         console.warn(`[MAIL_API] custom_create request failed (${err.message}). Using fallback local address.`);
     }
 
-    // Resilient fallback: Construct the email directly with the selected random domain
+    // Resilient fallback: Construct the email directly with the selected rotated domain
     return {
         success: true,
         email: `${cleanPrefix}@${targetDomain}`.toLowerCase(),
@@ -219,6 +239,7 @@ module.exports = {
     API_BASE_URL,
     getAvailableDomains,
     getRandomDomain,
+    getRotatedDomain,
     createSecurityMailbox,
     fetchEmails,
     fetchEmailDetail

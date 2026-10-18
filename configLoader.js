@@ -128,7 +128,7 @@ function loadConfig() {
     // Mail Web API (mail.hotwar.asia)
     config.mailApi = {
         url: (process.env.MAIL_API_URL || config.mailApi?.url || "https://mail.hotwar.asia").trim(),
-        apiKey: (process.env.MAIL_API_KEY || config.mailApi?.apiKey || "8853067346148af0c072071ddac92f63").trim()
+        apiKey: (process.env.MAIL_API_KEY || config.mailApi?.apiKey || "").trim()
     };
 
     return config;

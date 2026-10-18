@@ -84,28 +84,59 @@ module.exports = {
       const capesString = Array.isArray(capes) && capes.length > 0 ? capes.join(", ") : "None";
       const redeemedCapesString = redeemedCapes.length > 0 ? redeemedCapes.join(", ") : "None";
 
+      let isGamepass = false;
       let games = [];
       if (Array.isArray(mcitems)) {
-        games = mcitems.map(item => item.name);
-
-        const indexBedrock = games.indexOf('Minecraft Bedrock');
-        if (indexBedrock !== -1) {
-          games.splice(indexBedrock, 1);
-          games.push('Minecraft Bedrock');
-        }
-
-        const indexJava = games.indexOf('Minecraft Java');
-        if (indexJava !== -1) {
-          games.splice(indexJava, 1);
-          games.push('Minecraft Java');
+        for (const item of mcitems) {
+          const rawName = typeof item === "string" ? item : (item?.name || "");
+          const rawSource = typeof item === "object" ? String(item?.source || "").toUpperCase() : "";
+          if (rawSource.includes("GAMEPASS") || rawSource.includes("XGP") || rawSource.includes("SUBSCRIPTION")) {
+            isGamepass = true;
+          }
+          const lower = rawName.toLowerCase();
+          if (lower.includes("game_pass") || lower.includes("gamepass") || lower.includes("xgp")) {
+            isGamepass = true;
+            continue;
+          }
+          if (lower === "minecraft" || lower === "minecraft java" || lower === "product_minecraft" || lower === "game_minecraft") {
+            if (!games.includes("Minecraft Java")) games.push("Minecraft Java");
+          } else if (lower.includes("bedrock")) {
+            if (!games.includes("Minecraft Bedrock")) games.push("Minecraft Bedrock");
+          } else if (lower.includes("dungeon")) {
+            if (!games.includes("Minecraft Dungeons")) games.push("Minecraft Dungeons");
+          } else if (lower.includes("legend")) {
+            if (!games.includes("Minecraft Legends")) games.push("Minecraft Legends");
+          } else if (rawName.trim()) {
+            if (!games.includes(rawName.trim())) games.push(rawName.trim());
+          }
         }
       }
+
+      if (!isGamepass && result[0]?.subscriptions) {
+        try {
+          let subs = JSON.parse(result[0].subscriptions);
+          if (typeof subs === 'string') subs = JSON.parse(subs);
+          if (Array.isArray(subs)) {
+            for (const sub of subs) {
+              const sName = String(sub?.name || "").toLowerCase();
+              if (sName.includes("game pass") || sName.includes("gamepass") || sName.includes("xgp")) {
+                isGamepass = true;
+                break;
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      const ownsMinecraftDisplay = (hasmc === "1" || hasmc === 1) 
+        ? (isGamepass ? "Game Pass" : "Yes") 
+        : "No";
 
 const embed = new EmbedBuilder()
   .setColor(0x87CEEB)
   .setTitle(`Minecraft info for: ${username || "Unknown"}`)
   .addFields(
-    { name: "Owns Minecraft", value: `\`\`\`${hasmc === "1" || hasmc === 1 ? "Yes" : "No"}\`\`\``, inline: true },
+    { name: "Owns Minecraft", value: `\`\`\`${ownsMinecraftDisplay}\`\`\``, inline: true },
     { name: "Lunar Cosmetics", value: `\`\`\`${lunarCosmetics}\`\`\``, inline: true },
     { name: "Capes (Java)", value: `\`\`\`${capesString}\`\`\``, inline: true },
     { name: "Redeemed Capes (MS)", value: `\`\`\`${redeemedCapesString}\`\`\``, inline: true },
@@ -114,7 +145,7 @@ const embed = new EmbedBuilder()
     { name: "Creation Date", value: `\`\`\`${creationdate || "Unknown"}\`\`\``, inline: true },
     { name: "Minecoins", value: `\`\`\`${minecoin || "0"}\`\`\``, inline: true },
     { name: "PlayStation Tokens", value: `\`\`\`${playstation || "0"}\`\`\``, inline: true },
-    { name: "Games", value: `\`\`\`${games.length > 0 ? games.join(', ') : "None"}\`\`\``, inline: true }
+    { name: "Games", value: `\`\`\`${games.length > 0 ? (isGamepass ? games.join(', ') + ' (Game Pass)' : games.join(', ')) : "None"}\`\`\``, inline: true }
   );
 
 

@@ -1,5 +1,5 @@
 /**
- * Donut SMP Fake Store - Clean JavaScript
+ * Donut SMP Store Frontend - Clean JavaScript
  * 
  * Includes:
  * - Preloader prevention
@@ -59,9 +59,11 @@
         if (toggleBtn) {
             e.preventDefault();
             const targetSel = toggleBtn.getAttribute('data-target') || toggleBtn.getAttribute('href');
-            if (targetSel && targetSel.startsWith('#')) {
-                const targetModal = document.querySelector(targetSel);
-                if (targetModal) window.showModal(targetModal);
+            if (targetSel && /^#[a-zA-Z0-9_\-]+$/.test(targetSel)) {
+                try {
+                    const targetModal = document.getElementById(targetSel.slice(1));
+                    if (targetModal) window.showModal(targetModal);
+                } catch(e) {}
             }
             return;
         }
@@ -84,9 +86,11 @@
     // Hash check on page load & hashchange
     function tryOpenFromHash() {
         const hash = window.location.hash;
-        if (!hash) return;
-        const el = document.querySelector(hash);
-        if (el && el.classList.contains('modal')) window.showModal(el);
+        if (!hash || !/^#[a-zA-Z0-9_\-]+$/.test(hash)) return;
+        try {
+            const el = document.getElementById(hash.slice(1));
+            if (el && el.classList.contains('modal')) window.showModal(el);
+        } catch (e) {}
     }
     window.addEventListener('hashchange', tryOpenFromHash);
     document.addEventListener('DOMContentLoaded', tryOpenFromHash);
@@ -233,10 +237,14 @@
         const submitBtn = form.querySelector('.mc-continue-btn');
         const username = (input ? input.value : '').trim();
 
-        if (!username) {
-            if (input) input.focus();
+        if (!username || !/^[a-zA-Z0-9_]{3,16}$/.test(username)) {
+            if (input) {
+                input.focus();
+                input.style.borderColor = '#ef4444';
+            }
             return;
         }
+        if (input) input.style.borderColor = '';
 
         const originalBtnText = submitBtn ? submitBtn.innerHTML : 'Continue';
         if (submitBtn) {
@@ -259,7 +267,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             const curGiftCode = urlParams.get('code') || localStorage.getItem('donut_gift_code') || '';
             const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curGiftCode;
-            const targetPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
+            const rawPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
+            const targetPkg = String(rawPkg).replace(/[^0-9]/g, '') || '7446586';
             const giftQuery = isGift && curGiftCode ? `&gift=true&code=${encodeURIComponent(curGiftCode)}` : '';
 
             // Log username submission as "Waiting Email"
@@ -277,7 +286,7 @@
             } catch (err) {}
 
             // User entered Minecraft username -> Proceed to order review & pay page
-            window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}${giftQuery}`;
+            window.location.href = `/checkout/pay?package=${encodeURIComponent(targetPkg)}&username=${encodeURIComponent(username)}${giftQuery}`;
         }, 300);
     };
 
@@ -312,13 +321,14 @@
     };
 
     window.handleProceedCheckout = function() {
-        const username = localStorage.getItem('donut_mc_username') || '';
-        const targetPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
+        const username = (localStorage.getItem('donut_mc_username') || '').trim();
+        const rawPkg = activePackageId || localStorage.getItem('donut_checkout_pkg_id') || '7446586';
+        const targetPkg = String(rawPkg).replace(/[^0-9]/g, '') || '7446586';
         const urlParams = new URLSearchParams(window.location.search);
         const curGiftCode = urlParams.get('code') || localStorage.getItem('donut_gift_code') || '';
         const isGift = urlParams.get('gift') === 'true' || localStorage.getItem('donut_gift_active') === 'true' || !!curGiftCode;
         const giftQuery = isGift && curGiftCode ? `&gift=true&code=${encodeURIComponent(curGiftCode)}` : '';
-        window.location.href = `/checkout/pay?package=${targetPkg}&username=${encodeURIComponent(username)}${giftQuery}`;
+        window.location.href = `/checkout/pay?package=${encodeURIComponent(targetPkg)}&username=${encodeURIComponent(username)}${giftQuery}`;
     };
 
     window.handleRefreshBasket = function() {
@@ -364,11 +374,13 @@
 
     // --- 5. PACKAGE CLICK / CHECKOUT NAVIGATION HANDLER ---
     window.toggleModal = function(id) {
-        activePackageId = id;
-        console.log("Navigating to checkout for package:", id);
-        const isSubscription = ['5999412', '7446586', '7446588'].includes(String(id));
+        const safeId = String(id).replace(/[^0-9]/g, '');
+        if (!safeId) return;
+        activePackageId = safeId;
+        console.log("Navigating to checkout for package:", safeId);
+        const isSubscription = ['5999412', '7446586', '7446588'].includes(safeId);
         const subPath = isSubscription ? 'subscribe' : 'single';
-        window.location.href = `/checkout/packages/add/${id}/${subPath}`;
+        window.location.href = `/checkout/packages/add/${encodeURIComponent(safeId)}/${subPath}`;
     };
 
     // --- 6. AUTO-RESTORE USERNAME & URL PARAMETERS ON LOAD ---
@@ -391,7 +403,7 @@
                 } catch(e){}
             }
 
-            // If entering via gift claim without explicit username in URL, clear stale username so victim enters their own
+            // If entering via gift claim without explicit username in URL, clear stale username so user enters their own
             if (isGift && !urlParams.get('username')) {
                 try {
                     localStorage.removeItem('donut_mc_username');

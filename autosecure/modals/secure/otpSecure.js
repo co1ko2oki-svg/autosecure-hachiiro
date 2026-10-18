@@ -45,16 +45,25 @@ module.exports = {
         console.log(`[OTP_SECURE] Fetching user settings for: ${interaction.user.id}`);
         let settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
         if (settings.length === 0) {
-            console.log(`[OTP_SECURE] No settings found for user: ${interaction.user.id}`);
-            return interaction.editReply({
-                embeds: [{
-                    title: `Error :x:`,
-                    description: `Couldn't find your settings! Please report this to an admin.`,
-                    color: 0xff0000
-                }]
-            });
+            console.log(`[OTP_SECURE] No settings found for user: ${interaction.user.id}. Auto-creating default settings...`);
+            await client.queryParams(`INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)`, [interaction.user.id, 'Rotate (4 Domains)']);
+            settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
         }
-
+        if (!settings || settings.length === 0) {
+            settings = [{
+                user_id: interaction.user.id,
+                auto_secure: 1,
+                change_ign: 0,
+                multiplayer: 1,
+                secureifnomc: 1,
+                checkban: 1,
+                domain: 'Rotate (4 Domains)'
+            }];
+        }
+        if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+            client.queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+            settings[0].domain = 'Rotate (4 Domains)';
+        }
         settings = settings[0];
         console.log(`[OTP_SECURE] Settings loaded for user: ${interaction.user.id}`);
         let profiles = null;

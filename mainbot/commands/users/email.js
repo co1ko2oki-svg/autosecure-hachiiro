@@ -129,7 +129,7 @@ module.exports = {
 
                 try {
                     const [pfx, dom] = email.split('@');
-                    const { createSecurityMailbox } = require('../../autosecure/utils/emails/mailApiClient');
+                    const { createSecurityMailbox } = require('../../../autosecure/utils/emails/mailApiClient');
                     await createSecurityMailbox({ prefix: pfx, domain: dom });
                 } catch (e) {}
 

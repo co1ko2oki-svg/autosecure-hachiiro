@@ -15,8 +15,15 @@ module.exports = {
             }
 
             let stats = await getStats(mcname);
-            if (!stats || !stats.skywars) {
-                return sendNone(interaction);
+            if (!stats || !stats.skywars || stats.hasapi === false) {
+                const desc = (stats && stats.hasapi === false)
+                    ? '⚠️ Hypixel API key is missing or expired. Set key in config.json (`hypixelApiKey`) or via `/admin config enterapi`.'
+                    : 'No Skywars stats found for this player.';
+                const errEmbed = new EmbedBuilder()
+                    .setTitle('Skywars stats')
+                    .setDescription(desc)
+                    .setColor('#FF0000');
+                return interaction.editReply({ embeds: [errEmbed], ephemeral: true });
             }
             let skywarsStats = stats.skywars;
 

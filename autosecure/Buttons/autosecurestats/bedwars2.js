@@ -21,10 +21,13 @@ module.exports = {
             }
 
             let stats = await getStats(mcname);
-            if (!stats || !stats.bedwars) {
+            if (!stats || !stats.bedwars || stats.hasapi === false) {
+                const desc = (stats && stats.hasapi === false)
+                    ? '⚠️ Hypixel API key is missing or expired. Set key in config.json (`hypixelApiKey`) or via `/admin config enterapi`.'
+                    : 'No Bedwars stats found for this player.';
                 const noneEmbed = new EmbedBuilder()
                     .setTitle('Bedwars stats')
-                    .setDescription('None')
+                    .setDescription(desc)
                     .setColor("#D4B7D9");
                 return interaction.editReply({ content: null, embeds: [noneEmbed] });
             }

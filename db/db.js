@@ -5,7 +5,7 @@ const { getnewkey } = require("../autosecure/utils/hypixelapi/getnewkey.js");
 const { queryParams, db } = require("./database.js");
 
 const defaultPfp = String(config.defaultpfp || '').replace(/'/g, "''");
-const defaultDomain = String(config.domains && config.domains[0] ? config.domains[0] : '').replace(/'/g, "''");
+const defaultDomain = "Rotate (4 Domains)";
 
 const queries = {
   secureconfig: `CREATE TABLE IF NOT EXISTS secureconfig(
@@ -37,9 +37,8 @@ const queries = {
     language TEXT,
     prefix TEXT DEFAULT "HachiiroMC",
     dob TEXT,
-    name TEXT,
-    pfp TEXT DEFAULT '${defaultPfp}',
-    domain TEXT DEFAULT '${defaultDomain}'
+    pfp TEXT DEFAULT '',
+    domain TEXT DEFAULT 'Rotate (4 Domains)'
   )`,
 
   notifications: `CREATE TABLE IF NOT EXISTS notifications(
@@ -103,7 +102,7 @@ const queries = {
     hits_channel TEXT,
     users_channel TEXT,
     activity TEXT,
-    domain TEXT DEFAULT 'thapcamstore.click',
+    domain TEXT DEFAULT '${defaultDomain}',
     verification_type NUMBER DEFAULT 0,
     changeskin INTEGER DEFAULT 0,
     skinurl TEXT,
@@ -536,43 +535,31 @@ function scheduleAction(time, action) {
 
 
 async function checkApiKey() {
-  const { haslifetimekey } = require('./getkey.js');
-  let haskey = await haslifetimekey();
-  
-  if (haskey) {
-    console.log('Has lifetime key! Not generating a new key!');
-    scheduleAction(Date.now() + 3600000, checkApiKey);
-    return;
-  }
-
   try {
-    const results = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [1]);
-    if (results.length === 0) {
-      // No key
-      console.log("No API key found. Generating a new one...");
-      await getnewkey(queryParams);
-    } else {
-      const { time: timefromdbRaw } = results[0];
-      const timewith15m = Number(timefromdbRaw) - 900 * 1000;
-      const timenow = Date.now();
-      if (Number(timefromdbRaw) < timenow) {
-        console.log("API key expired. Refreshing...");
-        await getnewkey(queryParams);
-      } else if (timewith15m > timenow) {
-        console.log(`API key valid. Scheduling refresh for ${new Date(timewith15m).toLocaleString()}`);
-        scheduleAction(timewith15m, checkApiKey);
-      } else {
-        console.log("API key is close to expiring. Refreshing...");
-        await getnewkey(queryParams);
-      }
+    const { haslifetimekey } = require('./getkey.js');
+    let haskey = await haslifetimekey();
+    
+    if (haskey) {
+      scheduleAction(Date.now() + 3600000, checkApiKey);
+      return;
     }
 
+    const results = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [1]);
+    if (results.length === 0 || !results[0].apikey) {
+      scheduleAction(Date.now() + 3600000, checkApiKey);
+      return;
+    }
 
+    const { time: timefromdbRaw } = results[0];
+    const timenow = Date.now();
+    if (timefromdbRaw && Number(timefromdbRaw) < timenow) {
+      scheduleAction(Date.now() + 3600000, checkApiKey);
+      return;
+    }
 
     scheduleAction(Date.now() + 3600000, checkApiKey);
   } catch (err) {
-    console.error("Error checking API key:", err);
-    scheduleAction(Date.now() + 900000, checkApiKey);
+    scheduleAction(Date.now() + 3600000, checkApiKey);
   }
 }
 
@@ -656,6 +643,22 @@ async function initializeDB() {
       }
     } catch (migErr) {
       console.error("[DB] Column migration check error (autosecure): Failed to verify or update columns.");
+    }
+
+    // Automatic migration for legacy domain (e.g. thapcamstore.click or empty) to rotated domain
+    try {
+      const activeRotatedDomain = 'Rotate (4 Domains)';
+      await queryParams(
+        `UPDATE autosecure SET domain = ? WHERE domain = 'thapcamstore.click' OR domain LIKE '%thapcamstore%' OR domain IS NULL OR domain = ''`,
+        [activeRotatedDomain]
+      );
+      await queryParams(
+        `UPDATE secureconfig SET domain = ? WHERE domain = 'thapcamstore.click' OR domain LIKE '%thapcamstore%' OR domain IS NULL OR domain = ''`,
+        [activeRotatedDomain]
+      );
+      console.log(`[DB] Domain check complete: default domain active (${activeRotatedDomain})`);
+    } catch (migDomErr) {
+      console.error("[DB] Domain migration check error:", migDomErr.message);
     }
 
     return true;

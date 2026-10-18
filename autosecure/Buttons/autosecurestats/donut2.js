@@ -34,10 +34,10 @@ module.exports = {
             }
 
             let donut = await getDonutStats(mcname);
-            if (!donut) {
+            if (!donut || donut.hasData === false) {
                 const noneEmbed = new EmbedBuilder()
-                    .setTitle(`${mcname}'s Statistics`)
-                    .setDescription('No statistics found for this player on DonutSMP.')
+                    .setTitle(`${mcname}'s DonutSMP Statistics`)
+                    .setDescription('No statistics found for this player on DonutSMP (never joined or no activity).')
                     .setColor("#E74C3C");
                 return interaction.editReply({ content: null, embeds: [noneEmbed] });
             }

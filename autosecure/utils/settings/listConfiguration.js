@@ -11,10 +11,19 @@ const config = require('../../../config.json');
 module.exports = async (username) => {
     let settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [username]);
     if (settings.length === 0) {
-        await queryParams(`INSERT INTO secureconfig (user_id) VALUES (?)`, [username]);
+        await queryParams(`INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)`, [username, 'Rotate (4 Domains)']);
         settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [username]);
     }
     settings = settings[0];
+    if (settings.domain && (settings.domain.includes('thapcamstore') || settings.domain.trim() === '')) {
+        await queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', username]).catch(() => {});
+        settings.domain = 'Rotate (4 Domains)';
+    }
+
+    const validDomains = (config.domains && config.domains.length > 0) ? config.domains : ["mail.hotwar.asia", "hotwar.top", "donuttsmp.store", "ryuuu.xyz"];
+    const displayDomain = (!settings.domain || settings.domain.includes('thapcamstore') || (!validDomains.includes(settings.domain) && !settings.domain.includes('Rotate')))
+        ? "Rotate (4 Domains)"
+        : settings.domain;
 
     function formatDobIso(dobStr) {
         if (!dobStr) return "Generated";
@@ -48,7 +57,7 @@ module.exports = async (username) => {
             { name: "Change Gamertag", value: `${settings.changegamertag ? "✅" : "❌"}`, inline: true },
             { name: "Auto-Notifier", value: `${settings.subscribemail ? "✅" : "❌"}`, inline: true },
             { name: "Change Primary", value: `${settings.changeprimary === 2 ? "🔄" : settings.changeprimary ? "✅" : "❌"}`, inline: true },
-            { name: "Securing Domain", value: "```" + settings.domain + "```", inline: true }
+            { name: "Securing Domain", value: "```" + displayDomain + "```", inline: true }
         );
 
 

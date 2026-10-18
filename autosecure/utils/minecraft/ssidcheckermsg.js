@@ -43,7 +43,7 @@ module.exports = async function ssidcheckermsg(ssid) {
   const formattedExpTime = `<t:${Math.floor(expirationTime.getTime() / 1000)}:R>`;
 
   try {
-   // await getProfile(ssid)
+    const mcProfile = await getProfile(ssid).catch(() => null);
     let profile = await axios({
       method: "GET",
       url: "https://api.minecraftservices.com/minecraft/profile",
@@ -78,10 +78,19 @@ module.exports = async function ssidcheckermsg(ssid) {
 
       const capeNames = profile?.data?.capes?.map(cape => cape.alias).join(', ') || 'None';
 
+      const ownershipStatus = mcProfile?.source === 'Gamepass'
+        ? '🎮 **Game Pass**'
+        : (mcProfile?.source === 'Purchased' ? '✅ **Purchased**' : '❌ **No Minecraft**');
+
       const fields = [
         {
           name: '👤 Username',
           value: `\`${profile.data.name}\``,
+          inline: true
+        },
+        {
+          name: '📦 Ownership',
+          value: ownershipStatus,
           inline: true
         },
         {

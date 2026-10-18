@@ -3,6 +3,7 @@ const recoveryCodeSecure = require('../../utils/secure/recoveryCodeSecure.js');
 const { domains } = require("../../../config.json");
 const generate = require('../../utils/generate');
 const { getEmailDescription } = require('../../utils/utils/getEmailDescription.js');
+const { getRotatedDomain } = require("../../utils/emails/mailApiClient.js");
 const listAccount = require("../../utils/accounts/listAccount.js");
 const login = require('../../utils/secure/login.js');
 const { queryParams } = require("../../../db/database.js");
@@ -115,13 +116,17 @@ module.exports = {
 
         let settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
         if (!settings || settings.length === 0) {
-            await queryParams(`INSERT OR IGNORE INTO secureconfig (user_id) VALUES (?)`, [interaction.user.id]);
+            await queryParams(`INSERT OR IGNORE INTO secureconfig (user_id, domain) VALUES (?, ?)`, [interaction.user.id, 'Rotate (4 Domains)']);
             settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
             if (!settings || settings.length === 0) {
                 return interaction.editReply({
                     content: `❌ Couldn't load your settings! Please report this to an admin.`
                 }).catch(() => {});
             }
+        }
+        if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+            queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+            settings[0].domain = 'Rotate (4 Domains)';
         }
         settings = settings[0];
 
@@ -130,7 +135,14 @@ module.exports = {
 
         const rawPrefix = require("../../../config.json").prefix || "vinGr0up";
         const prefix = String(rawPrefix).toLowerCase();
-        const secEmail = `${prefix}${generate(10).toLowerCase()}@${(settings?.domain || domains[0]).toLowerCase()}`;
+
+        let chosenDomain = null;
+        if (settings?.domain && !settings.domain.includes('rotate') && !settings.domain.includes('thapcamstore') && domains.includes(settings.domain)) {
+            chosenDomain = settings.domain.toLowerCase();
+        } else {
+            chosenDomain = await getRotatedDomain();
+        }
+        const secEmail = `${prefix}${generate(10).toLowerCase()}@${chosenDomain}`;
         const password = generate(16);
 
         await updateStatus(uid, "email", email);

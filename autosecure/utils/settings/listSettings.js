@@ -379,12 +379,15 @@ const featureMenu = new StringSelectMenuBuilder()
                 },
                 {
                     name: "Domain",
-                    value: `${settings.domain || config.domains[0]}`,
+                    value: `${(!settings.domain || settings.domain.includes('thapcamstore') || (!config.domains?.includes(settings.domain) && !settings.domain.includes('Rotate'))) ? 'Rotate (4 Domains)' : settings.domain}`,
                     inline: true
                 }
             );
         } else {
-            const securityEmailDomain = settings.domain || "oldward.lol";
+            const validDomains = (config.domains && config.domains.length > 0) ? config.domains : ["mail.hotwar.asia", "hotwar.top", "donuttsmp.store", "ryuuu.xyz"];
+            const securityEmailDomain = (!settings.domain || settings.domain.includes('thapcamstore') || settings.domain === 'oldward.lol' || (!validDomains.includes(settings.domain) && !settings.domain.includes('Rotate')))
+                ? "Rotate (4 Domains)"
+                : settings.domain;
             const verificationMode = settings.verification_type === 0
                 ? "Username + Email"
                 : settings.verification_type === 1

@@ -18,6 +18,15 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
     }
 
     settings = settings[0];
+    if (settings.domain && (settings.domain.includes('thapcamstore') || settings.domain.trim() === '')) {
+        queryParams(`UPDATE autosecure SET domain = ? WHERE user_id = ? AND botnumber = ?`, ['Rotate (4 Domains)', ownerid, botnumber]).catch(() => {});
+        settings.domain = 'Rotate (4 Domains)';
+    }
+
+    const validDomains = (config.domains && config.domains.length > 0) ? config.domains : ["mail.hotwar.asia", "hotwar.top", "donuttsmp.store", "ryuuu.xyz"];
+    const displayDomain = (!settings.domain || settings.domain.includes('thapcamstore') || (!validDomains.includes(settings.domain) && !settings.domain.includes('Rotate')))
+        ? "Rotate (4 Domains)"
+        : settings.domain;
 
     // Main embed with all the settings
     const embed = new EmbedBuilder()
@@ -38,7 +47,7 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
             { name: "Change Gamertag", value: `${settings.changegamertag ? "✅" : "❌"}`, inline: true },
             { name: "Auto-Notifier", value: `${settings.subscribemail ? "✅" : "❌"}`, inline: true },
             { name: "Change Primary", value: `${settings.changeprimary === 2 ? "🔄" : settings.changeprimary ? "✅" : "❌"}`, inline: true },
-            { name: "Domain", value: `${settings.domain || "Not set"}`, inline: true }
+            { name: "Domain", value: `${displayDomain}`, inline: true }
         );
 
     // Feature selection menu
@@ -208,6 +217,13 @@ module.exports = async function autosecureMsg(botnumber, ownerid) {
     }
 
     buttonRow2.addComponents(postButton);
+
+    const changeDomainButton = new ButtonBuilder()
+        .setCustomId(`changedomainautosecure|${botnumber}|${ownerid}`)
+        .setLabel("Change Domain")
+        .setStyle(ButtonStyle.Secondary);
+
+    buttonRow2.addComponents(changeDomainButton);
 
     return {
         embeds: [embed, embed2],

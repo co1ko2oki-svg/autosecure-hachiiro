@@ -13,6 +13,7 @@ setupGlobalErrorHandlers('FrontendServer');
 
 const { getClientIp, configureTrustProxy } = require('../autosecure/utils/security/clientIp');
 const { securityHeaders } = require('../autosecure/utils/security/apiAuth');
+const { wafMiddleware } = require('../autosecure/utils/security/waf');
 
 const app = express();
 configureTrustProxy(app, 'edge');
@@ -22,14 +23,8 @@ const PORT = process.env.FRONTEND_PORT || process.env.PORT || 3667;
 const BACKEND_PORT = process.env.BACKEND_PORT || 5000;
 const FRONTEND_DIR = path.join(__dirname, '..', 'public');
 
-// Security Defense: Block attempts to access sensitive files (.env, .git, .json, .sqlite, .db, .log)
-app.use((req, res, next) => {
-    const url = req.url.toLowerCase();
-    if (/\.(env|git|json|sqlite|db|log|sh|bat)(\/|\?|$)/i.test(url) || url.includes('/.env') || url.includes('/.git')) {
-        return res.status(403).send('403 Forbidden');
-    }
-    next();
-});
+// Core WAF Shield: Blocks & auto-bans Path Traversal, LFI, and scanner exploits
+app.use(wafMiddleware);
 
 const staticLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
@@ -44,38 +39,30 @@ app.use(staticLimiter);
 const { queryParams } = require('../db/database');
 const { sendWebLog } = require('../autosecure/utils/webLogger');
 
-// IP Ban Middleware
-app.use(async (req, res, next) => {
-    try {
-        const clientIp = getClientIp(req);
-        if (clientIp) {
-            const banned = await queryParams('SELECT 1 FROM banned_ips WHERE ip = ?', [clientIp]);
-            if (banned && banned.length > 0) {
-                if (req.url.startsWith('/api')) {
-                    return res.status(403).json({ success: false, error: 'Your IP has been blocked by security rules.' });
-                }
-                return res.status(403).send('<h1 style="text-align:center;margin-top:20%;font-family:sans-serif;">403 Forbidden - Access Denied</h1>');
-            }
-        }
-    } catch (e) { }
-    next();
-});
-
 // Forward API requests from frontend to backendServer
 app.use('/api', (req, res) => {
     const clientIp = getClientIp(req);
+
+    // Strip untrusted client-supplied proxy headers to prevent IP spoofing
+    const proxyHeaders = { ...req.headers };
+    delete proxyHeaders['cf-connecting-ip'];
+    delete proxyHeaders['true-client-ip'];
+    delete proxyHeaders['x-real-ip'];
+    delete proxyHeaders['x-forwarded-for'];
+    delete proxyHeaders['x-forwarded-proto'];
+    delete proxyHeaders['x-forwarded-host'];
+
+    // Inject canonical client IP verified by getClientIp()
+    proxyHeaders['x-forwarded-for'] = clientIp;
+    proxyHeaders['x-forwarded-host'] = req.headers.host || '';
+    proxyHeaders['host'] = `127.0.0.1:${BACKEND_PORT}`;
 
     const proxyReq = http.request({
         hostname: '127.0.0.1',
         port: BACKEND_PORT,
         path: req.originalUrl,
         method: req.method,
-        headers: {
-            ...req.headers,
-            'x-forwarded-for': clientIp,
-            'x-forwarded-host': req.headers.host || '',
-            host: `127.0.0.1:${BACKEND_PORT}`
-        }
+        headers: proxyHeaders
     }, (proxyRes) => {
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res, { end: true });
@@ -117,7 +104,8 @@ setInterval(async () => {
 app.get(['/gift/:code/claim', '/gift/:code'], async (req, res) => {
     const code = req.params.code;
     const clientIp = getClientIp(req);
-    const host = req.headers.host || config.webDomain || 'donuttsmp.store';
+    const rawHost = req.headers.host || '';
+    const safeHost = (config.webDomains && config.webDomains.includes(rawHost)) ? rawHost : (config.webDomain || 'donuttsmp.store');
     const EXPIRY_MS = 3 * 60 * 60 * 1000; // 3 hours
     const now = Date.now();
 

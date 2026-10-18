@@ -255,9 +255,15 @@ async function sendclaimownerembed(client, currentPage) {
         }
       } catch (e) {}
 
+      const ownsMcText = formatOwnedGames(hit.acc);
+      const isNoMc = ownsMcText === "No Minecraft!" || hit.acc?.mc === "No Minecraft!" || hit.acc?.mc === "XBL Failed";
+      const displayUsername = (isNoMc || !hit.acc.oldName || hit.acc.oldName === hit.acc.gamertag || hit.acc.oldName === "No Minecraft Profile" || hit.acc.oldName === "No Minecraft!")
+        ? "Couldn't find!"
+        : hit.acc.oldName;
+
       const hitFields = [
-        { name: "Username", value: `\`\`\`${hit.acc.oldName}\`\`\``, inline: true },
-        { name: "Owns MC", value: `\`\`\`${formatOwnedGames(hit.acc)}\`\`\``, inline: true },
+        { name: "Username", value: `\`\`\`${displayUsername}\`\`\``, inline: true },
+        { name: "Owns MC", value: `\`\`\`${ownsMcText}\`\`\``, inline: true },
         { name: "Capes (Java)", value: `\`\`\`${capesDisplay}\`\`\``, inline: true },
       ];
 

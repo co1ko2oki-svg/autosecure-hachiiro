@@ -19,16 +19,26 @@ module.exports = {
     callback: async (client, interaction) => {
         try {
 
-            let settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id])
+            let settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
             if (settings.length === 0) {
-                return interaction.reply({
-                    embeds: [{
-                        title: `Error :x:`,
-                        description: `Unexpected error occurred!`,
-                        color: 0xff0000
-                    }],
-                    ephemeral: true
-                });
+                console.log(`[ZYGER_SECURE] No secureconfig for user ${interaction.user.id}, auto-creating default settings...`);
+                await client.queryParams(`INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)`, [interaction.user.id, 'Rotate (4 Domains)']);
+                settings = await client.queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
+            }
+            if (!settings || settings.length === 0) {
+                settings = [{
+                    user_id: interaction.user.id,
+                    auto_secure: 1,
+                    change_ign: 0,
+                    multiplayer: 1,
+                    secureifnomc: 1,
+                    checkban: 1,
+                    domain: 'Rotate (4 Domains)'
+                }];
+            }
+            if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+                client.queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+                settings[0].domain = 'Rotate (4 Domains)';
             }
             settings = settings[0];
             const email = interaction.components[0].components[0].value.trim();

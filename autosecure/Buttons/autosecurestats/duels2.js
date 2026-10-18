@@ -17,6 +17,16 @@ module.exports = {
 
     try {
       const stats = await getStats(mcname);
+      if (!stats || stats.hasapi === false) {
+        const desc = (stats && stats.hasapi === false)
+            ? '⚠️ Hypixel API key is missing or expired. Set key in config.json (`hypixelApiKey`) or via `/admin config enterapi`.'
+            : 'No Duels stats found for this player.';
+        const errEmbed = new EmbedBuilder()
+            .setTitle("Duels stats")
+            .setDescription(desc)
+            .setColor("#E74C3C");
+        return interaction.editReply({ embeds: [errEmbed] });
+      }
       const duelsStats = stats?.duels || {};
 
       const calculatedStats = {

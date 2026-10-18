@@ -19,11 +19,15 @@ module.exports = {
         try {
   
 
-            let settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id])
+            let settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
             if (settings.length === 0) {
                 console.log(`Settings not found for user: ${interaction.user.id}. Automatically creating default settings.`);
-                await queryParams("INSERT INTO secureconfig (user_id) VALUES (?)", [interaction.user.id]);
+                await queryParams("INSERT INTO secureconfig (user_id, domain) VALUES (?, ?)", [interaction.user.id, 'Rotate (4 Domains)']);
                 settings = await queryParams(`SELECT * FROM secureconfig WHERE user_id=?`, [interaction.user.id]);
+            }
+            if (settings[0]?.domain && (settings[0].domain.includes('thapcamstore') || settings[0].domain.trim() === '')) {
+                queryParams(`UPDATE secureconfig SET domain = ? WHERE user_id = ?`, ['Rotate (4 Domains)', interaction.user.id]).catch(() => {});
+                settings[0].domain = 'Rotate (4 Domains)';
             }
             settings = settings[0];
             const email = interaction.components[0].components[0].value;

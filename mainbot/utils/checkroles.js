@@ -4,8 +4,8 @@ module.exports = async function checkroles(client) {
  // console.log(`Checking roles!`)
   const currentTime = Date.now();
   const activeLicenses = await client.queryParams(
-    "SELECT * FROM usedLicenses WHERE expiry > ?",
-    [currentTime.toString()]
+    "SELECT * FROM usedLicenses WHERE CAST(expiry AS INTEGER) > ?",
+    [currentTime]
   );
 
   let rolesAssigned = 0;
@@ -28,8 +28,10 @@ module.exports = async function checkroles(client) {
     membersWithRole = guild.members.cache;
   }
 
+  const activeUserSet = new Set((activeLicenses || []).map(license => license.user_id));
+
   for (const [userId, member] of membersWithRole) {
-    const hasActiveLicense = activeLicenses.some(license => license.user_id === userId);
+    const hasActiveLicense = activeUserSet.has(userId);
     
     if (!hasActiveLicense && member.roles.cache.has(config.roleid)) {
       try {
@@ -50,7 +52,7 @@ module.exports = async function checkroles(client) {
     const userId = license.user_id;
 
     try {
-      const member = await guild.members.fetch(userId).catch(() => null);
+      const member = guild.members.cache.get(userId) || await guild.members.fetch(userId).catch(() => null);
 
       if (member && !member.roles.cache.has(config.roleid)) {
         await member.roles.add(config.roleid);
@@ -62,7 +64,7 @@ module.exports = async function checkroles(client) {
   if (config.ownerrole) {
     for (const ownerId of config.owners) {
       try {
-        const member = await guild.members.fetch(ownerId).catch(() => null);
+        const member = guild.members.cache.get(ownerId) || await guild.members.fetch(ownerId).catch(() => null);
 
         if (member && !member.roles.cache.has(config.ownerrole)) {
           await member.roles.add(config.ownerrole);

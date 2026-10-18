@@ -19,13 +19,17 @@ const emotesData = Array.isArray(emotesdata)
 
 function getCosmeticNameById(id) {
     if (!id) return null;
-    const cosmetic = cosmeticsData.find(c => c && parseInt(c.id) === parseInt(id));
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) return null;
+    const cosmetic = cosmeticsData.find(c => c && parseInt(c.id, 10) === parsedId);
     return cosmetic ? cosmetic.name : null;
 }
 
 function getEmoteNameById(id) {
     if (!id) return null;
-    const emote = emotesData.find(e => e && parseInt(e.id) === parseInt(id));
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId)) return null;
+    const emote = emotesData.find(e => e && parseInt(e.id, 10) === parsedId);
     return emote ? emote.name : null;
 }
 

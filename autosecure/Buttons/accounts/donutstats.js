@@ -18,7 +18,6 @@ function formatCompact(val) {
 
 module.exports = {
     name: "donutstats",
-    ownerOnly: true,
     callback: async (client, interaction) => {
         try {
             await interaction.deferReply({ ephemeral: true });
@@ -39,6 +38,18 @@ module.exports = {
             }
 
             const donut = await getDonutStats(username);
+
+            if (!donut || donut.hasData === false) {
+                return interaction.editReply({
+                    embeds: [
+                        new EmbedBuilder()
+                            .setTitle(`DonutSMP Statistics: ${username}`)
+                            .setDescription(`No DonutSMP records found for player **${username}** (never joined or no activity).`)
+                            .setColor("#E74C3C")
+                            .setThumbnail(`https://visage.surgeplay.com/bust/${encodeURIComponent(username)}.png?y=-40&quality=lossless`)
+                    ]
+                });
+            }
 
             const bal = formatCompact(donut?.balance || donut?.money || 0);
             const shards = donut?.shards ? String(donut.shards) : '0';

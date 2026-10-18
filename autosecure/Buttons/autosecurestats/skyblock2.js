@@ -26,14 +26,25 @@ module.exports = {
 
             const stats = await getStats(mcname);
             console.log(`Stats from skyblock2: ${JSON.stringify(stats)}`)
-            if (!stats?.skyblock) {
-                await sendNone(interaction);
+            if (!stats?.skyblock || stats.hasapi === false) {
+                const desc = (stats && stats.hasapi === false)
+                    ? '⚠️ Hypixel API key is missing or expired. Set key in config.json (`hypixelApiKey`) or via `/admin config enterapi`.'
+                    : 'No SkyBlock data found for this player.';
+                const errEmbed = new EmbedBuilder()
+                    .setTitle('Skyblock Stats')
+                    .setDescription(desc)
+                    .setColor('#FF0000');
+                await interaction.editReply({ embeds: [errEmbed], ephemeral: true });
                 return;
             }
 
             const skyblockProfile = stats.skyblock.find(prof => prof.current === true);
             if (!skyblockProfile) {
-                await sendNone(interaction);
+                const errEmbed = new EmbedBuilder()
+                    .setTitle('Skyblock Stats')
+                    .setDescription('No active SkyBlock profile found for this player.')
+                    .setColor('#FF0000');
+                await interaction.editReply({ embeds: [errEmbed], ephemeral: true });
                 return;
             }
 

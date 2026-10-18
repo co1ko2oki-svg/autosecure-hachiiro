@@ -1,8 +1,12 @@
 const { queryParams } = require("./database"); 
+const config = require("../config.json");
 
 let cachedApiKey = { key: null, expiresAt: 0 };
 
 async function haslifetimekey() {
+  if (process.env.HYPIXEL_API_KEY || (config.hypixelApiKey && String(config.hypixelApiKey).trim())) {
+    return true;
+  }
   try {
     const lifetime = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [2]);
 
@@ -24,19 +28,29 @@ async function getHypixelApiKey(forceRefresh = false) {
 
     let key = null;
     try {
-      const hasLifetime = await haslifetimekey();
-   
-      if (hasLifetime) {
-        const results2 = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [2]);
-        if (results2.length > 0 && results2[0].apikey) {
-          key = results2[0].apikey;
-        }
+      // 1. Direct configuration from process.env or config.json
+      if (process.env.HYPIXEL_API_KEY && process.env.HYPIXEL_API_KEY.trim()) {
+        key = process.env.HYPIXEL_API_KEY.trim();
+      } else if (config.hypixelApiKey && String(config.hypixelApiKey).trim()) {
+        key = String(config.hypixelApiKey).trim();
       }
-   
+
+      // 2. Database stored keys
       if (!key) {
-        const results = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [1]);
-        if (results.length > 0 && results[0].apikey) {
-          key = results[0].apikey;
+        const hasLifetime = await haslifetimekey();
+     
+        if (hasLifetime) {
+          const results2 = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [2]);
+          if (results2.length > 0 && results2[0].apikey) {
+            key = results2[0].apikey;
+          }
+        }
+     
+        if (!key) {
+          const results = await queryParams("SELECT apikey, time FROM apikey WHERE id = ?", [1]);
+          if (results.length > 0 && results[0].apikey) {
+            key = results[0].apikey;
+          }
         }
       }
 

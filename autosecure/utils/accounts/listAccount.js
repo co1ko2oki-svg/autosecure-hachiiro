@@ -198,7 +198,6 @@ module.exports = async (acc, uid, client, interaction) => {
             new ButtonBuilder()
                 .setCustomId(`checkbanmc|${checkBanId}|both`)
                 .setLabel("Check Ban")
-                .setEmoji("🔍")
                 .setStyle(ButtonStyle.Primary)
         );
     }
