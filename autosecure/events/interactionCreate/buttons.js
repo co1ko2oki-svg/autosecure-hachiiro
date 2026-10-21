@@ -96,15 +96,43 @@ try {
             });
         }
     } else if (action === "settings") {
+        const canManage = interaction.user.id === client.username || (await isOwner(interaction.user.id));
+        if (!canManage) {
+            const u = await client.queryParams(`SELECT editsettings, admin FROM users WHERE user_id=? AND child=?`, [client.username, interaction.user.id]);
+            if (!u.length || (!u[0].editsettings && !u[0].admin)) {
+                return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
+            }
+        }
         await handlesecureconfig(interaction);
         return;
     } else if (action === "switch_to_admin" || action === "switch_to_features") {
+        const canManage = interaction.user.id === client.username || (await isOwner(interaction.user.id));
+        if (!canManage) {
+            const u = await client.queryParams(`SELECT editsettings, admin FROM users WHERE user_id=? AND child=?`, [client.username, interaction.user.id]);
+            if (!u.length || (!u[0].editsettings && !u[0].admin)) {
+                return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
+            }
+        }
         await handlePanelSwitch(client, interaction, action);
         return;
     } else if (action === "toggle_ping") {
+        const canManage = interaction.user.id === client.username || (await isOwner(interaction.user.id));
+        if (!canManage) {
+            const u = await client.queryParams(`SELECT editsettings, admin FROM users WHERE user_id=? AND child=?`, [client.username, interaction.user.id]);
+            if (!u.length || (!u[0].editsettings && !u[0].admin)) {
+                return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
+            }
+        }
         await handlePingToggle(client, interaction);
         return;
     } else if (action === "cycle_primary") {
+        const canManage = interaction.user.id === client.username || (await isOwner(interaction.user.id));
+        if (!canManage) {
+            const u = await client.queryParams(`SELECT editsettings, admin FROM users WHERE user_id=? AND child=?`, [client.username, interaction.user.id]);
+            if (!u.length || (!u[0].editsettings && !u[0].admin)) {
+                return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
+            }
+        }
         await handlePrimaryCycle(client, interaction);
         return;
     } else if (action === "microsoft") {
@@ -211,8 +239,17 @@ for (const [buttonProp, { permission: dbPermission, description }] of Object.ent
         }
         
         if (button.userOnly && interaction.user.id !== client.username) {
-            console.log(`Failed useronly!`)
-            return interaction.reply({ content: `Invalid permissions!`, ephemeral: true });
+            const isUserOwner = await isOwner(interaction.user.id);
+            if (!isUserOwner) {
+                let users = await client.queryParams(
+                    `SELECT 1 FROM users WHERE user_id=? AND child=?`,
+                    [client.username, interaction.user.id]
+                );
+                if (users.length === 0) {
+                    console.log(`Failed useronly! User: ${interaction.user.id}, Owner: ${client.username}`);
+                    return interaction.reply({ content: `Invalid permissions! You are not a registered user of this bot.`, ephemeral: true });
+                }
+            }
         }
         
         console.log(`B]${cliColor.yellow(button.name)} ${cliColor.blue(interaction.user.username)} ${cliColor.red(interaction.customId)}`);

@@ -1,6 +1,5 @@
 const generateotp = require("../../utils/secure/codefromsecret");
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-
 const isOwner = require("../../../db/isOwner");
 
 module.exports = {
@@ -13,7 +12,23 @@ module.exports = {
         if (parts.length === 3) {
             const [, userId, uid] = parts;
             const isUserOwner = await isOwner(interaction.user.id);
-            if (userId && interaction.user.id !== userId && !isUserOwner) {
+            const isBotOwner = client.username && client.username === interaction.user.id;
+
+            let hasAccess = isUserOwner || isBotOwner;
+            if (!hasAccess) {
+                const ownRows = await client.queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, interaction.user.id]);
+                if (ownRows && ownRows.length > 0) {
+                    hasAccess = true;
+                } else if (client.username) {
+                    const childPerm = await client.queryParams("SELECT viewaccounts, admin FROM users WHERE user_id = ? AND child = ?", [client.username, interaction.user.id]);
+                    if (childPerm && childPerm.length > 0 && (childPerm[0].viewaccounts === 1 || childPerm[0].admin === 1)) {
+                        const botOwnRows = await client.queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, client.username]);
+                        if (botOwnRows && botOwnRows.length > 0) hasAccess = true;
+                    }
+                }
+            }
+
+            if (!hasAccess) {
                 return interaction.reply({
                     content: "You do not have permission to refresh 2FA codes for this account.",
                     ephemeral: true

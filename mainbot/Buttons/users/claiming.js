@@ -8,6 +8,16 @@ module.exports = {
     callback: async (client, interaction) => {
         try {
             let [t, userId, current, rest, ownerid, botnumber] = interaction.customId.split("|");
+        const isUserOwner = await isOwner(interaction.user.id);
+        if (interaction.user.id !== ownerid && !isUserOwner) {
+            const permissionCheck = await queryParams(
+                `SELECT editclaiming, admin FROM users WHERE user_id=? AND child=? AND botnumber=?`,
+                [ownerid, interaction.user.id, botnumber]
+            );
+            if (permissionCheck.length === 0 || (!permissionCheck[0].editclaiming && !permissionCheck[0].admin)) {
+                return interaction.reply({ content: "You do not have permission to manage users for this bot.", ephemeral: true });
+            }
+        }
             let settings = await queryParams(`SELECT * FROM autosecure WHERE user_id=? AND botnumber=?`, [ownerid, botnumber]);
             if (settings.length === 0) {
                 return interaction.reply({

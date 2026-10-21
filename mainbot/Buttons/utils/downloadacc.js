@@ -23,22 +23,28 @@ module.exports = {
 
             if (parts.length >= 10) {
                 [, ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
-                    return interaction.reply({
-                        content: "You are not authorized to download these credentials.",
-                        ephemeral: true,
-                    });
-                }
             } else {
                 [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                if (!isUserOwner) {
-                    return interaction.reply({
-                        content: "You are not authorized to download these credentials.",
-                        ephemeral: true,
-                    });
+            }
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            let isAuthorized = isUserOwner || (ownerId && interaction.user.id === ownerId);
+
+            if (!isAuthorized && ownerId) {
+                const childPerm = await queryParams(
+                    "SELECT viewaccounts, admin FROM users WHERE user_id = ? AND child = ?",
+                    [ownerId, interaction.user.id]
+                );
+                if (childPerm && childPerm.length > 0 && (childPerm[0].viewaccounts === 1 || childPerm[0].admin === 1)) {
+                    isAuthorized = true;
                 }
+            }
+
+            if (!isAuthorized) {
+                return interaction.reply({
+                    content: "You are not authorized to download these credentials.",
+                    ephemeral: true,
+                });
             }
 
             const fileContent =

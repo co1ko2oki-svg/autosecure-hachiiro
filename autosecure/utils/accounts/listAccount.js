@@ -112,7 +112,7 @@ module.exports = async (acc, uid, client, interaction) => {
                 `INSERT INTO actions(id, action) VALUES(?, ?)`,
                 [
                     copyTextId,
-                    `copyText|${acc.newName || ""}|${acc.mc || ""}|${capesForDb}|${acc.recoveryCode || ""}|${acc.email || ""}|${sec}|${cleanedkey}|${acc.password || ""}`
+                    `copyText|${interaction.user.id}|${acc.newName || ""}|${acc.mc || ""}|${capesForDb}|${acc.recoveryCode || ""}|${acc.email || ""}|${sec}|${cleanedkey}|${acc.password || ""}`
                 ]
             )
         ];

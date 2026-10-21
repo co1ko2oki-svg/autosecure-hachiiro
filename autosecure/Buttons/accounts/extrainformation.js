@@ -16,16 +16,37 @@ module.exports = {
             let uid;
 
             if (parts.length === 3) {
-                const [, userId, targetUid] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                if (userId && interaction.user.id !== userId && !isUserOwner) {
-                    return interaction.editReply({
-                        content: "You do not have permission to view extra information for this account.",
-                    });
-                }
-                uid = targetUid;
+                uid = parts[2];
             } else {
                 uid = parts[1];
+            }
+
+            if (!uid) {
+                return interaction.editReply({
+                    content: "Invalid UID.",
+                });
+            }
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            const isBotOwner = client.username && client.username === interaction.user.id;
+            let hasAccess = isUserOwner || isBotOwner;
+            if (!hasAccess) {
+                const ownRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, interaction.user.id]);
+                if (ownRows && ownRows.length > 0) {
+                    hasAccess = true;
+                } else if (client.username) {
+                    const childPerm = await queryParams("SELECT viewaccounts, admin FROM users WHERE user_id = ? AND child = ?", [client.username, interaction.user.id]);
+                    if (childPerm && childPerm.length > 0 && (childPerm[0].viewaccounts === 1 || childPerm[0].admin === 1)) {
+                        const botOwnRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, client.username]);
+                        if (botOwnRows && botOwnRows.length > 0) hasAccess = true;
+                    }
+                }
+            }
+
+            if (!hasAccess) {
+                return interaction.editReply({
+                    content: "You do not have permission to view extra information for this account.",
+                });
             }
 
             const results = await queryParams("SELECT * FROM extrainformation WHERE uid = ?", [uid]);

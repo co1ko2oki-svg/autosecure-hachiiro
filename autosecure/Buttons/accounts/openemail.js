@@ -1,5 +1,6 @@
 const emailMsg = require("../../utils/emails/emailMsg");
 const isOwner = require("../../../db/isOwner");
+const { queryParams } = require("../../../db/database");
 
 module.exports = {
     name: "email",
@@ -11,18 +12,39 @@ module.exports = {
             let email;
 
             if (parts.length === 3) {
-                const [, userId, secEmail] = parts;
-                const isUserOwner = await isOwner(interaction.user.id);
-                if (userId && interaction.user.id !== userId && !isUserOwner) {
-                    return interaction.editReply({ content: "You do not have permission to view emails for this account.", ephemeral: true });
-                }
-                email = secEmail;
+                email = parts[2];
             } else {
                 email = parts[1];
             }
 
             if (!email || email === "None" || email === "Invalid Login Cookie!") {
                 return interaction.editReply({ content: "No email!", ephemeral: true });
+            }
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            const isBotOwner = client.username && client.username === interaction.user.id;
+            let hasAccess = isUserOwner || isBotOwner;
+            if (!hasAccess) {
+                const ownAcc = await queryParams(
+                    `SELECT 1 FROM accounts a JOIN accountsbyuser ab ON a.uid = ab.uid WHERE ab.user_id = ? AND (a.email = ? OR a.secemail = ?)`,
+                    [interaction.user.id, email, email]
+                );
+                if (ownAcc && ownAcc.length > 0) {
+                    hasAccess = true;
+                } else if (client.username) {
+                    const childPerm = await queryParams("SELECT viewemails, admin FROM users WHERE user_id = ? AND child = ?", [client.username, interaction.user.id]);
+                    if (childPerm && childPerm.length > 0 && (childPerm[0].viewemails === 1 || childPerm[0].admin === 1)) {
+                        const botAcc = await queryParams(
+                            `SELECT 1 FROM accounts a JOIN accountsbyuser ab ON a.uid = ab.uid WHERE ab.user_id = ? AND (a.email = ? OR a.secemail = ?)`,
+                            [client.username, email, email]
+                        );
+                        if (botAcc && botAcc.length > 0) hasAccess = true;
+                    }
+                }
+            }
+
+            if (!hasAccess) {
+                return interaction.editReply({ content: "You do not have permission to view emails for this account.", ephemeral: true });
             }
 
             const message = await emailMsg(email, interaction.user.id, 1);

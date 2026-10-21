@@ -1,4 +1,5 @@
 const { queryParams } = require("../../../db/database");
+const isOwner = require("../../../db/isOwner");
 const usersMsg = require("../../../autosecure/utils/embeds/usersMsg")
 const validID = require('../../../autosecure/utils/utils/validID');
 
@@ -10,6 +11,17 @@ module.exports = {
             const userId = interaction.fields.getTextInputValue('userid'); 
             const ownerid = interaction.customId.split("|")[2];
             const botnumber = interaction.customId.split("|")[3];
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            if (interaction.user.id !== ownerid && !isUserOwner) {
+                const permissionCheck = await queryParams(
+                    `SELECT editclaiming, admin FROM users WHERE user_id=? AND child=? AND botnumber=?`,
+                    [ownerid, interaction.user.id, botnumber]
+                );
+                if (permissionCheck.length === 0 || (!permissionCheck[0].editclaiming && !permissionCheck[0].admin)) {
+                    return interaction.reply({ content: "You do not have permission to add users to this bot.", ephemeral: true });
+                }
+            }
 
             const isValid = await validID(userId);
             if (!isValid) {

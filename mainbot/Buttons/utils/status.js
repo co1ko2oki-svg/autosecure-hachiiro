@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const { queryParams } = require("../../../db/database");
+const isOwner = require("../../../db/isOwner");
 
 module.exports = {
     name: "status",
@@ -7,6 +8,41 @@ module.exports = {
     callback: async (client, interaction) => {
         try {
             let uid = interaction.customId.split("|")[1];
+            if (!uid) {
+                return interaction.reply({
+                    content: "Invalid UID.",
+                    ephemeral: true,
+                });
+            }
+
+            const isUserOwner = await isOwner(interaction.user.id);
+            let hasAccess = isUserOwner;
+
+            if (!hasAccess) {
+                const ownRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, interaction.user.id]);
+                if (ownRows && ownRows.length > 0) {
+                    hasAccess = true;
+                } else {
+                    const childPerm = await queryParams("SELECT user_id, viewaccounts, admin FROM users WHERE child = ?", [interaction.user.id]);
+                    for (const perm of childPerm) {
+                        if (perm.viewaccounts === 1 || perm.admin === 1) {
+                            const botOwnRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, perm.user_id]);
+                            if (botOwnRows && botOwnRows.length > 0) {
+                                hasAccess = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!hasAccess) {
+                return interaction.reply({
+                    content: "You do not have permission to view the status of this account.",
+                    ephemeral: true,
+                });
+            }
+
             const results = await queryParams("SELECT * FROM status WHERE uid = ?", [uid]);
             if (!results || results.length === 0) {
                 return interaction.reply({

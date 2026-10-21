@@ -17,8 +17,25 @@ module.exports = {
       const [userId, uid] = parts.length >= 3 ? [parts[1], parts[2]] : [interaction.user.id, parts[1]];
 
       if (!uid) return interaction.reply({ content: "Missing account identifier.", ephemeral: true });
-      if (userId && interaction.user.id !== userId && !(await isOwner(interaction.user.id))) {
-        return interaction.reply({ content: "You do not have permission to modify this account.", ephemeral: true });
+
+      const isUserOwner = await isOwner(interaction.user.id);
+      const isBotOwner = client.username && client.username === interaction.user.id;
+      let hasAccess = isUserOwner || isBotOwner;
+      if (!hasAccess) {
+          const ownRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, interaction.user.id]);
+          if (ownRows && ownRows.length > 0) {
+              hasAccess = true;
+          } else if (client.username) {
+              const childPerm = await queryParams("SELECT secureaccounts, admin FROM users WHERE user_id = ? AND child = ?", [client.username, interaction.user.id]);
+              if (childPerm && childPerm.length > 0 && (childPerm[0].secureaccounts === 1 || childPerm[0].admin === 1)) {
+                  const botOwnRows = await queryParams("SELECT 1 FROM accountsbyuser WHERE uid = ? AND user_id = ?", [uid, client.username]);
+                  if (botOwnRows && botOwnRows.length > 0) hasAccess = true;
+              }
+          }
+      }
+
+      if (!hasAccess) {
+          return interaction.reply({ content: "You do not have permission to modify this account.", ephemeral: true });
       }
 
       await interaction.deferUpdate().catch(() => {});
